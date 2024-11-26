@@ -18,7 +18,7 @@
       delegate_to: localhost
       run_once: yes
       shell: |
-        ls {{ data_input_dir }}/*.input > {{ task_queue_file }}
+        ls {{ data_input_dir }}/*.pdb > {{ task_queue_file }}
 
     - name: Fetch a task from the queue
       shell: |
