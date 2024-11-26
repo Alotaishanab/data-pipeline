@@ -1,0 +1,78 @@
+- name: Setup Monitoring and Logging
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Prometheus Node Exporter
+      block:
+        - name: Download Node Exporter binary
+          get_url:
+            url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
+            dest: "/tmp/node_exporter.tar.gz"
+
+        - name: Extract Node Exporter
+          unarchive:
+            src: "/tmp/node_exporter.tar.gz"
+            dest: "/usr/local/bin/"
+            remote_src: yes
+
+        - name: Create Node Exporter service
+          copy:
+            dest: /etc/systemd/system/node_exporter.service
+            content: |
+              [Unit]
+              Description=Node Exporter
+              After=network.target
+
+              [Service]
+              User=root
+              ExecStart=/usr/local/bin/node_exporter
+              Restart=always
+
+              [Install]
+              WantedBy=multi-user.target
+
+        - name: Start Node Exporter service
+          systemd:
+            name: node_exporter
+            state: started
+            enabled: yes
+
+    - name: Install and Configure Grafana (Control Node Only)
+      when: inventory_hostname == 'control-node'
+      block:
+        - name: Add Grafana repository
+          yum_repository:
+            name: grafana
+            description: Grafana Repository
+            baseurl: https://packages.grafana.com/oss/rpm
+            gpgcheck: yes
+            gpgkey: https://packages.grafana.com/gpg.key
+            enabled: yes
+
+        - name: Install Grafana
+          yum:
+            name: grafana
+            state: present
+
+        - name: Start and enable Grafana
+          systemd:
+            name: grafana-server
+            state: started
+            enabled: yes
+
+    - name: Configure Logging
+      block:
+        - name: Install rsyslog
+          yum:
+            name: rsyslog
+            state: present
+
+        - name: Configure rsyslog to send logs to control node
+          lineinfile:
+            path: /etc/rsyslog.conf
+            line: "*.* @@control-node:514"
+
+        - name: Restart rsyslog
+          systemd:
+            name: rsyslog
+            state: restarted

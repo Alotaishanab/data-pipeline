@@ -5,4 +5,5 @@
 - import_playbook: download_and_prepare_datasets.yml
 - import_playbook: uncompress_files.yml
 - import_playbook: deploy_scripts.yml
+- import_playbook: monitoring_and_logging.yml  
 - import_playbook: run_pipeline.yml
