@@ -25,7 +25,9 @@
     - name: Find all .gz files
       find:
         paths: "{{ item }}"
-        patterns: "*.pdb.gz,*.cif.gz"
+        patterns:
+          - "*.pdb.gz"
+          - "*.cif.gz"
         recurse: yes
         file_type: file
       loop: "{{ datasets_dirs }}"
@@ -69,14 +71,15 @@
             state: absent
           when: files_to_uncompress | length > 0
           tags: cleanup
-
       when: files_to_uncompress is defined and files_to_uncompress | length > 0
       tags: uncompress_block
 
     - name: Verify uncompression by counting original files
       find:
         paths: "{{ item }}"
-        patterns: "*.pdb,*.cif"
+        patterns:
+          - "*.pdb"
+          - "*.cif"
         recurse: yes
         file_type: file
       loop: "{{ datasets_dirs }}"
