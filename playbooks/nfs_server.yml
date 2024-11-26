@@ -1,0 +1,92 @@
+- name: Configure NFS server
+  hosts: storage
+  become: yes
+
+  vars:
+    data_device: /dev/vdb
+    data_partition: /dev/vdb1
+    data_mount_point: /mnt/datasets
+    results_mount_point: /mnt/results
+
+  tasks:
+    - name: Install required packages
+      dnf:
+        name:
+          - nfs-utils
+          - parted
+        state: present
+
+    - name: Create partition on data disk
+      community.general.parted:
+        device: "{{ data_device }}"
+        number: 1
+        state: present
+        part_type: primary
+        fs_type: ext4
+        part_start: "0%"
+        part_end: "100%"
+
+    - name: Create filesystem on data partition
+      community.general.filesystem:
+        fstype: ext4
+        dev: "{{ data_partition }}"
+
+    - name: Create mount point for datasets
+      file:
+        path: "{{ data_mount_point }}"
+        state: directory
+
+    - name: Mount the data partition
+      ansible.posix.mount:
+        path: "{{ data_mount_point }}"
+        src: "{{ data_partition }}"
+        fstype: ext4
+        opts: defaults
+        state: mounted
+
+    - name: Enable and start NFS services
+      systemd:
+        name: nfs-server
+        enabled: yes
+        state: started
+
+    - name: Ensure 'nfsnobody' group exists
+      group:
+        name: nfsnobody
+        state: present
+
+    - name: Ensure 'nfsnobody' user exists
+      user:
+        name: nfsnobody
+        group: nfsnobody
+        shell: /sbin/nologin
+        comment: 'Anon NFS User'
+        state: present
+
+    - name: Create mount point for results
+      file:
+        path: "{{ results_mount_point }}"
+        state: directory
+
+    - name: Ensure proper permissions on datasets and results directories
+      file:
+        path: "{{ item }}"
+        owner: nfsnobody
+        group: nfsnobody
+        mode: '0777'
+      loop:
+        - "{{ data_mount_point }}"
+        - "{{ results_mount_point }}"
+
+    - name: Configure NFS exports
+      copy:
+        content: |
+          {{ data_mount_point }} *(rw,sync,no_root_squash)
+          {{ results_mount_point }} *(rw,sync,no_root_squash)
+        dest: /etc/exports
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Export NFS shares
+      command: exportfs -rav

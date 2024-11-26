@@ -1,0 +1,50 @@
+- name: Install Additional Dependencies on Worker VMs
+  hosts: workers
+  become: yes
+
+  tasks:
+    - name: Ensure pip is installed
+      dnf:
+        name: python3-pip
+        state: present
+
+    - name: Install Git
+      dnf:
+        name: git
+        state: present
+
+    - name: Install required Python packages via pip
+      pip:
+        name:
+          - biopython
+          - torch
+          - numpy
+          - scipy
+          # Remove faiss-cpu from here
+        state: present
+        executable: pip3
+
+    - name: Clone Merizo Search Repository
+      git:
+        repo: https://github.com/psipred/merizo_search.git
+        dest: /opt/merizo_search
+        version: main
+        force: yes
+
+    - name: Install Merizo Search Dependencies
+      pip:
+        requirements: /opt/merizo_search/merizo_search/programs/Merizo/requirements.txt
+        state: present
+        executable: pip3
+
+    - name: Set Environment Variable for Merizo Search
+      lineinfile:
+        path: /home/almalinux/.bashrc
+        line: 'export MERIZO_HOME=/opt/merizo_search'
+        create: yes
+        state: present
+
+    - name: Source .bashrc to Apply Environment Variable
+      shell: source /home/almalinux/.bashrc
+      args:
+        executable: /bin/bash

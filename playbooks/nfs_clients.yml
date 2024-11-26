@@ -1,0 +1,49 @@
+---
+- name: Configure NFS Clients on Host and Worker VMs
+  hosts: host, workers
+  become: yes
+
+  vars:
+    storage_ip: "{{ hostvars['storage']['ansible_host'] }}"
+    nfs_mounts:
+      - { mount_point: '/mnt/datasets', remote_path: '/mnt/datasets' }
+      - { mount_point: '/mnt/results', remote_path: '/mnt/results' }
+
+  tasks:
+    - name: Install NFS utilities
+      package:
+        name: nfs-utils
+        state: present
+
+    - name: Ensure NFS mounts are unmounted (handles stale mounts)
+      ansible.posix.mount:
+        path: "{{ item.mount_point }}"
+        state: unmounted
+        fstype: nfs
+      loop: "{{ nfs_mounts }}"
+      ignore_errors: yes
+
+    - name: Remove mount point if it's not a directory (optional)
+      file:
+        path: "{{ item.mount_point }}"
+        state: absent
+      when: not (item.mount_point is directory)
+      loop: "{{ nfs_mounts }}"
+
+    - name: Create mount points for datasets and results
+      file:
+        path: "{{ item.mount_point }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+      loop: "{{ nfs_mounts }}"
+
+    - name: Mount NFS shares
+      ansible.posix.mount:
+        src: "{{ storage_ip }}:{{ item.remote_path }}"
+        path: "{{ item.mount_point }}"
+        fstype: nfs
+        opts: defaults
+        state: mounted
+      loop: "{{ nfs_mounts }}"
