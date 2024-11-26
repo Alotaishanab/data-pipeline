@@ -1,8 +1,6 @@
----
-- name: Common configuration for all machines
+- name: Common Configuration for All Machines
   hosts: all
   become: yes
-
   tasks:
     - name: Update and upgrade apt packages
       apt:
@@ -26,14 +24,3 @@
           - python3
           - python3-pip
         state: present
-
-    - name: Install pip packages
-      pip:
-        name:
-          - biopython
-          - torch
-          - numpy
-          - scipy
-          - faiss-cpu
-        state: present
-        executable: pip3

@@ -1,4 +1,4 @@
-- name: Uncompress .pdb.gz and .cif.gz files using pigz
+- name: Uncompress .pdb.gz and .cif.gz Files Using pigz
   hosts: storage
   become: yes
   vars:
@@ -7,18 +7,6 @@
       - /mnt/datasets/ecoli_proteome
     parallel_jobs: 4  # Adjust based on CPU cores
   tasks:
-    - name: Install EPEL repository
-      yum:
-        name: epel-release
-        state: present
-      tags: install_epel
-
-    - name: Install pigz
-      yum:
-        name: pigz
-        state: present
-      tags: install_tools
-
     - name: Uncompress all .gz files using pigz
       shell: |
         find {{ item }} -type f \( -name "*.pdb.gz" -o -name "*.cif.gz" \) -print0 | xargs -0 -n 1 -P {{ parallel_jobs }} pigz -d -f
@@ -41,5 +29,6 @@
 
     - name: Debug - Number of uncompressed files
       debug:
-        msg: "Total number of uncompressed files: {{ original_files.results | map(attribute='matched') | sum }}"
+        msg: "Total number of uncompressed files in {{ item }}: {{ original_files.results[loop.index0].matched }}"
+      loop: "{{ datasets_dirs }}"
       tags: debug

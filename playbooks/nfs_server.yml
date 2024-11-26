@@ -1,21 +1,12 @@
-- name: Configure NFS server
+- name: Configure NFS Server
   hosts: storage
   become: yes
-
   vars:
     data_device: /dev/vdb
     data_partition: /dev/vdb1
     data_mount_point: /mnt/datasets
     results_mount_point: /mnt/results
-
   tasks:
-    - name: Install required packages
-      dnf:
-        name:
-          - nfs-utils
-          - parted
-        state: present
-
     - name: Create partition on data disk
       community.general.parted:
         device: "{{ data_device }}"

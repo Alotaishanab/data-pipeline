@@ -1,12 +1,9 @@
----
 - name: Run Data Analysis Pipeline on Worker Nodes
   hosts: workers
   become: yes
-
   vars:
     data_input_dir: "/mnt/datasets/human_proteome/"
     results_dir: "/mnt/results/"
-
   tasks:
     - name: Ensure results directory exists
       file:
@@ -20,9 +17,9 @@
       shell: "python3 /opt/data_pipeline/pipeline_script.py '{{ data_input_dir }}' '{{ results_dir }}'"
       args:
         chdir: "/home/almalinux"
-      environment:
-        DATA_DIR: "{{ data_input_dir }}"
-        RESULTS_DIR: "{{ results_dir }}"
+        environment:
+          DATA_DIR: "{{ data_input_dir }}"
+          RESULTS_DIR: "{{ results_dir }}"
       register: pipeline_output
       failed_when: pipeline_output.rc != 0
 

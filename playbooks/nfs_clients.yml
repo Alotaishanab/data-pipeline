@@ -1,14 +1,11 @@
----
 - name: Configure NFS Clients on Host and Worker VMs
   hosts: host, workers
   become: yes
-
   vars:
     storage_ip: "{{ hostvars['storage']['ansible_host'] }}"
     nfs_mounts:
       - { mount_point: '/mnt/datasets', remote_path: '/mnt/datasets' }
       - { mount_point: '/mnt/results', remote_path: '/mnt/results' }
-
   tasks:
     - name: Install NFS utilities
       package:
@@ -22,13 +19,6 @@
         fstype: nfs
       loop: "{{ nfs_mounts }}"
       ignore_errors: yes
-
-    - name: Remove mount point if it's not a directory (optional)
-      file:
-        path: "{{ item.mount_point }}"
-        state: absent
-      when: not (item.mount_point is directory)
-      loop: "{{ nfs_mounts }}"
 
     - name: Create mount points for datasets and results
       file:

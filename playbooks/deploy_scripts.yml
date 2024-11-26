@@ -1,8 +1,6 @@
----
-- name: Deploy pipeline scripts to worker machines
+- name: Deploy Pipeline Scripts to Worker Machines
   hosts: workers
   become: yes
-
   tasks:
     - name: Create pipeline directory on workers
       file:
