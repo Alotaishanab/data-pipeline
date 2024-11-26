@@ -1,5 +1,4 @@
----
-- name: Uncompress .pdb.gz and .cif.gz files using pigz and GNU Parallel
+- name: Uncompress .pdb.gz and .cif.gz files using pigz
   hosts: storage
   become: yes
   vars:
@@ -14,65 +13,19 @@
         state: present
       tags: install_epel
 
-    - name: Install pigz and GNU Parallel
+    - name: Install pigz
       yum:
-        name:
-          - pigz
-          - parallel
+        name: pigz
         state: present
       tags: install_tools
 
-    - name: Find all .gz files
-      find:
-        paths: "{{ item }}"
-        patterns:
-          - "*.pdb.gz"
-          - "*.cif.gz"
-        recurse: yes
-        file_type: file
+    - name: Uncompress all .gz files using pigz
+      shell: |
+        find {{ item }} -type f \( -name "*.pdb.gz" -o -name "*.cif.gz" \) -print0 | xargs -0 -n 1 -P {{ parallel_jobs }} pigz -d -f
       loop: "{{ datasets_dirs }}"
-      register: found_files
-      tags: find_files
-
-    - name: Combine all found files into a single list
-      set_fact:
-        files_to_uncompress: "{{ files_to_uncompress | default([]) + item.files }}"
-      loop: "{{ found_files.results }}"
-      when: item.matched > 0
-      tags: set_fact
-
-    - name: Debug - Number of files to uncompress
-      debug:
-        msg: "Number of files to uncompress: {{ files_to_uncompress | length }}"
-      when: files_to_uncompress is defined
-      tags: debug
-
-    - name: Uncompress files in parallel using GNU Parallel and pigz
-      block:
-        - name: Create a list of files to uncompress
-          copy:
-            content: "{{ files_to_uncompress | map(attribute='path') | join('\n') }}"
-            dest: /tmp/files_to_uncompress.txt
-            mode: '0644'
-          when: files_to_uncompress | length > 0
-          tags: create_file_list
-
-        - name: Uncompress files in parallel
-          shell: |
-            cat /tmp/files_to_uncompress.txt | parallel -j {{ parallel_jobs }} 'pigz -d -f "{}"'
-          args:
-            executable: /bin/bash
-          when: files_to_uncompress | length > 0
-          tags: uncompress_files
-
-        - name: Remove the temporary file list
-          file:
-            path: /tmp/files_to_uncompress.txt
-            state: absent
-          when: files_to_uncompress | length > 0
-          tags: cleanup
-      when: files_to_uncompress is defined and files_to_uncompress | length > 0
-      tags: uncompress_block
+      args:
+        executable: /bin/bash
+      tags: uncompress_files
 
     - name: Verify uncompression by counting original files
       find:

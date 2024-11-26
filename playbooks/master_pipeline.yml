@@ -1,0 +1,34 @@
+---
+- name: Master Playbook for Distributed Pipeline
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Include common setup tasks
+      include_tasks: common.yml
+
+    - name: Set up NFS server (if needed)
+      include_tasks: nfs_server.yml
+
+    - name: Set up NFS clients on worker machines
+      include_tasks: nfs_clients.yml
+
+    - name: Deploy necessary scripts
+      include_tasks: deploy_scripts.yml
+
+    - name: Install dependencies on all machines
+      include_tasks: install_dependencies.yml
+
+    - name: Download datasets
+      include_tasks: download_datasets.yml
+
+    - name: Extract and prepare datasets
+      include_tasks: extract_and_prepare_datasets.yml
+
+    - name: Uncompress dataset files
+      include_tasks: uncompress_files.yml
+
+    - name: Set up the pipeline on all worker machines
+      include_tasks: setup_pipeline.yml
+
+    - name: Run the pipeline on datasets
+      include_tasks: run_pipeline.yml
