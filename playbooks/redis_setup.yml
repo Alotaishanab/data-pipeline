@@ -20,9 +20,14 @@
         line: 'bind 0.0.0.0'
       notify: restart redis
 
-    - name: Start and enable Redis service
+    - name: Install firewalld
+      yum:
+        name: firewalld
+        state: present
+
+    - name: Start and enable firewalld
       systemd:
-        name: redis
+        name: firewalld
         state: started
         enabled: yes
 
@@ -32,6 +37,12 @@
         permanent: yes
         state: enabled
         immediate: yes
+
+    - name: Start and enable Redis service
+      systemd:
+        name: redis
+        state: started
+        enabled: yes
 
   handlers:
     - name: restart redis
