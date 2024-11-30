@@ -31,4 +31,4 @@
         src: /home/almalinux/ansible/files/dispatch_tasks.py
         dest: /opt/data_pipeline/dispatch_tasks.py
         mode: '0755'
-      when: inventory_hostname == 'host'
+      when: inventory_hostname == 'localhost'
