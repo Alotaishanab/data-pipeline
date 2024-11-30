@@ -1,6 +1,6 @@
 ---
 - name: Setup Redis Server for Celery
-  hosts: control-node
+  hosts: host
   become: yes
   tasks:
     - name: Install EPEL repository

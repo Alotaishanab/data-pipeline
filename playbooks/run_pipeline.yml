@@ -1,6 +1,5 @@
----
 - name: Distribute and Run Data Analysis Pipeline via Celery
-  hosts: control-node
+  hosts: host
   become: yes
   vars:
     data_input_dir: "/mnt/datasets/human_proteome/"
@@ -11,12 +10,6 @@
         paths: "{{ data_input_dir }}"
         patterns: "*.pdb"
       register: pdb_files
-
-    - name: Deploy dispatch_tasks.py to control node
-      copy:
-        src: files/dispatch_tasks.py
-        dest: /opt/data_pipeline/dispatch_tasks.py
-        mode: '0755'
 
     - name: Enqueue pipeline tasks
       shell: |

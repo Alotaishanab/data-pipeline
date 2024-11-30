@@ -12,7 +12,7 @@
 
     - name: Copy pipeline_script.py to workers
       copy:
-        src: /home/almalinux/ansible/playbooks/pipeline_script.py
+        src: /home/almalinux/ansible/files/pipeline_script.py
         dest: /opt/data_pipeline/pipeline_script.py
         owner: almalinux
         group: almalinux
@@ -20,31 +20,8 @@
 
     - name: Copy results_parser.py to workers
       copy:
-        src: /home/almalinux/ansible/playbooks/results_parser.py
+        src: /home/almalinux/ansible/files/results_parser.py
         dest: /opt/data_pipeline/results_parser.py
         owner: almalinux
         group: almalinux
-        mode: '0755'
-
-- name: Deploy Pipeline and Celery Scripts to Control and Worker Nodes
-  hosts: all
-  become: yes
-  tasks:
-    - name: Copy pipeline_script.py to all nodes
-      copy:
-        src: files/pipeline_script.py
-        dest: /opt/data_pipeline/pipeline_script.py
-        mode: '0755'
-
-    - name: Copy results_parser.py to all nodes
-      copy:
-        src: files/results_parser.py
-        dest: /opt/data_pipeline/results_parser.py
-        mode: '0755'
-
-    - name: Copy dispatch_tasks.py to control node
-      when: inventory_hostname == 'control-node'
-      copy:
-        src: files/dispatch_tasks.py
-        dest: /opt/data_pipeline/dispatch_tasks.py
         mode: '0755'

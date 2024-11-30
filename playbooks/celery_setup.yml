@@ -1,9 +1,8 @@
----
 - name: Setup Celery Workers
   hosts: workers
   become: yes
   vars:
-    redis_host: "control-node"  # Replace with actual control node IP or hostname
+    redis_host: "host"  
   tasks:
     - name: Install Python3 and pip
       yum:
@@ -21,7 +20,7 @@
 
     - name: Deploy Celery Worker Script
       copy:
-        src: files/celery_worker.py
+        src: /home/almalinux/ansible/files/celery_worker.py
         dest: /opt/data_pipeline/celery_worker.py
         mode: '0755'
 
