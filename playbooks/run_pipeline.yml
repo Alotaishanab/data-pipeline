@@ -1,48 +1,25 @@
-- name: Distribute and Run Data Analysis Pipeline on Worker Nodes
-  hosts: workers
+---
+- name: Distribute and Run Data Analysis Pipeline via Celery
+  hosts: control-node
   become: yes
   vars:
     data_input_dir: "/mnt/datasets/human_proteome/"
     results_dir: "/mnt/results/"
-    task_queue_file: "/tmp/task_queue.txt"
   tasks:
-    - name: Ensure results directory exists
-      file:
-        path: "{{ results_dir }}"
-        state: directory
-        owner: almalinux
-        group: almalinux
+    - name: Find all .pdb files
+      find:
+        paths: "{{ data_input_dir }}"
+        patterns: "*.pdb"
+      register: pdb_files
+
+    - name: Deploy dispatch_tasks.py to control node
+      copy:
+        src: files/dispatch_tasks.py
+        dest: /opt/data_pipeline/dispatch_tasks.py
         mode: '0755'
 
-    - name: Generate task queue (run only once on control node)
-      delegate_to: localhost
-      run_once: yes
+    - name: Enqueue pipeline tasks
       shell: |
-        ls {{ data_input_dir }}/*.pdb > {{ task_queue_file }}
-
-    - name: Fetch a task from the queue
-      shell: |
-        head -n 1 {{ task_queue_file }} && sed -i '1d' {{ task_queue_file }}
-      register: task_file
-      until: task_file.stdout != ""
-      retries: 10
-      delay: 5
-      failed_when: task_file.stdout == ""
-
-    - name: Run the data analysis pipeline script for the assigned task
-      shell: "python3 /opt/data_pipeline/pipeline_script.py '{{ task_file.stdout }}' '{{ results_dir }}'"
-      args:
-        chdir: "/home/almalinux"
-      environment:
-        DATA_DIR: "{{ data_input_dir }}"
-        RESULTS_DIR: "{{ results_dir }}"
-      register: pipeline_output
-      failed_when: pipeline_output.rc != 0
-
-    - name: Display pipeline stdout
-      debug:
-        msg: "{{ pipeline_output.stdout }}"
-
-    - name: Display pipeline stderr
-      debug:
-        msg: "{{ pipeline_output.stderr }}"
+        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.path }}" "{{ results_dir }}"
+      loop: "{{ pdb_files.files }}"
+      when: pdb_files.matched > 0

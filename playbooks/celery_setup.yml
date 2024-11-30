@@ -1,0 +1,49 @@
+---
+- name: Setup Celery Workers
+  hosts: workers
+  become: yes
+  vars:
+    redis_host: "control-node"  # Replace with actual control node IP or hostname
+  tasks:
+    - name: Install Python3 and pip
+      yum:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Install Celery and Redis Python packages
+      pip:
+        name:
+          - celery
+          - redis
+        state: present
+
+    - name: Deploy Celery Worker Script
+      copy:
+        src: files/celery_worker.py
+        dest: /opt/data_pipeline/celery_worker.py
+        mode: '0755'
+
+    - name: Create Celery service
+      copy:
+        dest: /etc/systemd/system/celery.service
+        content: |
+          [Unit]
+          Description=Celery Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          ExecStart=/usr/bin/celery -A celery_worker worker --loglevel=info
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start and enable Celery service
+      systemd:
+        name: celery
+        state: started
+        enabled: yes

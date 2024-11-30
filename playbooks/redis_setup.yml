@@ -1,0 +1,40 @@
+---
+- name: Setup Redis Server for Celery
+  hosts: control-node
+  become: yes
+  tasks:
+    - name: Install EPEL repository
+      yum:
+        name: epel-release
+        state: present
+
+    - name: Install Redis
+      yum:
+        name: redis
+        state: present
+
+    - name: Configure Redis to accept connections from workers
+      lineinfile:
+        path: /etc/redis.conf
+        regexp: '^bind '
+        line: 'bind 0.0.0.0'
+      notify: restart redis
+
+    - name: Start and enable Redis service
+      systemd:
+        name: redis
+        state: started
+        enabled: yes
+
+    - name: Allow Redis port in firewall
+      firewalld:
+        port: 6379/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+  handlers:
+    - name: restart redis
+      systemd:
+        name: redis
+        state: restarted
