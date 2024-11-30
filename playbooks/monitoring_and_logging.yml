@@ -38,7 +38,7 @@
             enabled: yes
 
     - name: Install and Configure Grafana (Control Node Only)
-      when: inventory_hostname == 'control-node'
+      when: inventory_hostname == 'host'
       block:
         - name: Add Grafana repository
           yum_repository:
