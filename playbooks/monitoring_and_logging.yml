@@ -54,6 +54,11 @@
             name: grafana
             state: present
 
+        - name: Install systemd-sysv
+          yum:
+            name: systemd-sysv
+            state: present
+
         - name: Start and enable Grafana
           systemd:
             name: grafana-server
