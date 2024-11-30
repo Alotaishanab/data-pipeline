@@ -54,16 +54,35 @@
             name: grafana
             state: present
 
-        - name: Install systemd-sysv
-          yum:
-            name: systemd-sysv
-            state: present
+        - name: Create Grafana systemd service
+          copy:
+            dest: /etc/systemd/system/grafana-server.service
+            content: |
+              [Unit]
+              Description=Grafana instance
+              After=network.target
+
+              [Service]
+              User=grafana
+              Group=grafana
+              Type=simple
+              ExecStart=/usr/sbin/grafana-server --config=/etc/grafana/grafana.ini --homepath=/usr/share/grafana
+
+              [Install]
+              WantedBy=multi-user.target
+
+        - name: Reload systemd daemon
+          systemd:
+            daemon_reload: yes
+          when: inventory_hostname == 'localhost'
 
         - name: Start and enable Grafana
           systemd:
             name: grafana-server
             state: started
             enabled: yes
+          when: inventory_hostname == 'localhost'
+
 
     - name: Configure Logging
       block:
