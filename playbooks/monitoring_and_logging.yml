@@ -10,8 +10,6 @@
           get_url:
             url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
             dest: "/tmp/node_exporter.tar.gz"
-            mode: '0644'
-          when: not ansible_facts['distribution'] == 'Alpine'
 
         - name: Extract Node Exporter
           unarchive:
@@ -61,31 +59,19 @@
         name: prometheus
         system: yes
         shell: /sbin/nologin
-        create_home: no
 
     - name: Download Prometheus binary
       get_url:
         url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
         dest: "/tmp/prometheus.tar.gz"
-        mode: '0644'
 
     - name: Extract Prometheus
       unarchive:
         src: "/tmp/prometheus.tar.gz"
-        dest: "/tmp/"
+        dest: "/usr/local/bin/"
         remote_src: yes
-
-    - name: Move Prometheus binaries to /usr/local/bin/
-      copy:
-        src: "/tmp/prometheus-2.47.0.linux-amd64/{{ item }}"
-        dest: "/usr/local/bin/{{ item }}"
-        remote_src: yes
-        owner: prometheus
-        group: prometheus
-        mode: '0755'
-      loop:
-        - prometheus
-        - promtool
+        extra_opts: [--strip-components=1]
+        creates: /usr/local/bin/prometheus
 
     - name: Create Prometheus directories
       file:
@@ -95,30 +81,41 @@
         group: prometheus
         mode: '0755'
       loop:
-        - /etc/prometheus
         - /var/lib/prometheus
+        - /etc/prometheus
 
     - name: Copy Prometheus configuration file
-      template:
-        src: prometheus.yml.j2
+      copy:
         dest: /etc/prometheus/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'node_exporter'
+              static_configs:
+                - targets:
+          {% for host in groups['all'] %}
+                    - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+          {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
 
-    - name: Copy console files
-      copy:
-        src: "/tmp/prometheus-2.47.0.linux-amd64/{{ item }}"
-        dest: "/etc/prometheus/{{ item }}"
-        remote_src: yes
+    - name: Set ownership of Prometheus files
+      file:
+        path: "{{ item }}"
         owner: prometheus
         group: prometheus
-        mode: '0755'
       loop:
-        - consoles
-        - console_libraries
+        - /usr/local/bin/prometheus
+        - /usr/local/bin/promtool
 
-    - name: Create Prometheus systemd service file
+    - name: Create Prometheus service
       copy:
         dest: /etc/systemd/system/prometheus.service
         content: |
@@ -133,13 +130,13 @@
           ExecStart=/usr/local/bin/prometheus \
             --config.file=/etc/prometheus/prometheus.yml \
             --storage.tsdb.path=/var/lib/prometheus/ \
-            --web.console.templates=/etc/prometheus/consoles \
-            --web.console.libraries=/etc/prometheus/console_libraries
+            --web.console.templates=/usr/local/bin/consoles \
+            --web.console.libraries=/usr/local/bin/console_libraries
 
           [Install]
           WantedBy=multi-user.target
 
-    - name: Reload systemd daemon
+    - name: Reload systemd daemon for Prometheus
       systemd:
         daemon_reload: yes
 
