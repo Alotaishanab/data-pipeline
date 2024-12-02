@@ -9,25 +9,26 @@
         name: epel-release
         state: present
 
-    #### Install Required Python Libraries for firewalld Module
-    - name: Install python3-firewalld
-      package:
-        name: python3-firewalld
-        state: present
-      ignore_errors: yes
-      register: firewalld_pkg
-
-    - name: Install python3-pip (if python3-firewalld is not available)
-      when: firewalld_pkg.failed
+    #### Install firewalld and python3-pip
+    - name: Install firewalld and python3-pip
       yum:
-        name: python3-pip
+        name:
+          - firewalld
+          - python3-pip
         state: present
 
-    - name: Install firewalld Python module via pip (if needed)
-      when: firewalld_pkg.failed
+    #### Install firewalld Python module via pip
+    - name: Install firewalld Python module via pip
       pip:
         name: firewalld
         state: present
+
+    #### Ensure firewalld is running and enabled
+    - name: Ensure firewalld is running and enabled
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
 
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
@@ -127,7 +128,6 @@
         dest: "/tmp/prometheus/"
         remote_src: yes
         extra_opts: []
-        # Removed 'creates' parameter to force extraction
 
     - name: Move Prometheus binaries to /usr/local/bin/
       copy:
@@ -193,9 +193,9 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-                  {% for host in groups['all'] %}
-                    - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
-                  {% endfor %}
+                    {% for host in groups['all'] %}
+                      - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+                    {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
