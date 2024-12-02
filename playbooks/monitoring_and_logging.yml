@@ -83,6 +83,11 @@
         - name: Reload systemd daemon
           systemd:
             daemon_reload: yes
+        
+        - name: Remove custom Grafana service file if it exists
+          file:
+            path: /etc/systemd/system/grafana-server.service
+            state: absent
 
         - name: Start and enable Grafana
           systemd:
