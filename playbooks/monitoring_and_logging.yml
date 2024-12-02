@@ -51,10 +51,14 @@
             name: node_exporter
             state: started
             enabled: yes
+    
+        - name: Debug inventory_hostname
+          debug:
+            msg: "inventory_hostname on {{ ansible_hostname }} is {{ inventory_hostname }}"
 
     #### Install and Configure Grafana (Control Node Only)
     - name: Install and Configure Grafana (Control Node Only)
-      when: inventory_hostname == 'host'
+      when: inventory_hostname == 'localhost'
       become: yes
       block:
         - name: Add Grafana repository
