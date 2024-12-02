@@ -3,6 +3,12 @@
   hosts: all
   become: yes
   tasks:
+    #### Install Required Python Libraries for firewalld Module
+    - name: Install python3-firewalld
+      package:
+        name: python3-firewalld
+        state: present
+
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
@@ -88,12 +94,21 @@
         mode: '0644'
         force: yes  # Force re-download to ensure we have the correct file
 
+    - name: Create /tmp/prometheus directory
+      file:
+        path: /tmp/prometheus
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
     - name: Extract Prometheus
       unarchive:
         src: "/tmp/prometheus.tar.gz"
         dest: "/tmp/prometheus/"
         remote_src: yes
-        extra_opts: []  # Do not strip components
+        extra_opts: []
+        # Removed 'creates' parameter to force extraction
 
     - name: Move Prometheus binaries to /usr/local/bin/
       copy:
@@ -159,9 +174,9 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-                    {% for host in groups['all'] %}
-                      - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
-                    {% endfor %}
+          {% for host in groups['all'] %}
+                    - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+          {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
@@ -210,6 +225,11 @@
         enabled: yes
 
     #### Configure Firewall to Allow Prometheus Port (9090)
+    - name: Install python3-firewalld on localhost
+      package:
+        name: python3-firewalld
+        state: present
+
     - name: Open port 9090 in firewalld
       firewalld:
         port: 9090/tcp
@@ -306,4 +326,4 @@
     - name: Restart rsyslog
       systemd:
         name: rsyslog
-        state: restarted 
+        state: restarted
