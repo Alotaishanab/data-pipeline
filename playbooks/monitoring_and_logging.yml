@@ -1,3 +1,4 @@
+---
 - name: Setup Monitoring and Logging
   hosts: all
   become: yes
@@ -51,16 +52,12 @@
             name: node_exporter
             state: started
             enabled: yes
-    
-        - name: Debug inventory_hostname
-          debug:
-            msg: "inventory_hostname on {{ ansible_hostname }} is {{ inventory_hostname }}"
 
     #### Install and Configure Grafana (Control Node Only)
-    - name: Install and Configure Grafana (Control Node Only)
-      when: inventory_hostname == 'localhost'
+    - name: Install and Configure Grafana on Control Node
+      hosts: localhost
       become: yes
-      block:
+      tasks:
         - name: Add Grafana repository
           yum_repository:
             name: grafana
@@ -80,20 +77,38 @@
             name: initscripts
             state: present
 
+        # Removed the task that creates the custom Grafana service file
+
         - name: Reload systemd daemon
           systemd:
             daemon_reload: yes
-        
-        - name: Remove custom Grafana service file if it exists
-          file:
-            path: /etc/systemd/system/grafana-server.service
-            state: absent
 
-        - name: Start and enable Grafana
+        - name: Ensure Grafana directories have correct ownership
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: grafana
+            group: grafana
+            recurse: yes
+          loop:
+            - /var/lib/grafana
+            - /var/log/grafana
+            - /etc/grafana
+
+        - name: Start and enable Grafana service
           systemd:
             name: grafana-server
             state: started
             enabled: yes
+
+        - name: Fetch Grafana service logs
+          shell: journalctl -u grafana-server -b --no-pager
+          register: grafana_logs
+          ignore_errors: yes
+
+        - name: Display Grafana service logs
+          debug:
+            var: grafana_logs.stdout
 
     #### Configure Logging
     - name: Configure Logging
@@ -107,11 +122,10 @@
           lineinfile:
             path: /etc/rsyslog.conf
             regexp: '^\*\.\*'
-            line: "*.* @@control-node:514"
+            line: "*.* @@localhost:514"  # Replace 'localhost' with control node IP if needed
             state: present
 
         - name: Restart rsyslog
           systemd:
             name: rsyslog
             state: restarted
-
