@@ -1,5 +1,5 @@
 ---
-- name: Setup Monitoring and Logging
+- name: Setup Monitoring and Logging on All Hosts
   hosts: all
   become: yes
   tasks:
@@ -53,79 +53,88 @@
             state: started
             enabled: yes
 
-    #### Install and Configure Grafana (Control Node Only)
-    - name: Install and Configure Grafana on Control Node
-      hosts: localhost
-      become: yes
-      tasks:
-        - name: Add Grafana repository
-          yum_repository:
-            name: grafana
-            description: Grafana Repository
-            baseurl: https://packages.grafana.com/oss/rpm
-            gpgcheck: yes
-            gpgkey: https://packages.grafana.com/gpg.key
-            enabled: yes
+- name: Install and Configure Grafana on Control Node
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Add Grafana repository
+      yum_repository:
+        name: grafana
+        description: Grafana Repository
+        baseurl: https://packages.grafana.com/oss/rpm
+        gpgcheck: yes
+        gpgkey: https://packages.grafana.com/gpg.key
+        enabled: yes
 
-        - name: Install Grafana
-          yum:
-            name: grafana
-            state: present
+    - name: Install Grafana
+      yum:
+        name: grafana
+        state: present
 
-        - name: Install initscripts package (for systemd-sysv-install)
-          yum:
-            name: initscripts
-            state: present
+    - name: Install initscripts package (for systemd-sysv-install)
+      yum:
+        name: initscripts
+        state: present
 
-        # Removed the task that creates the custom Grafana service file
+    # Removed the task that creates the custom Grafana service file
 
-        - name: Reload systemd daemon
-          systemd:
-            daemon_reload: yes
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
 
-        - name: Ensure Grafana directories have correct ownership
-          file:
-            path: "{{ item }}"
-            state: directory
-            owner: grafana
-            group: grafana
-            recurse: yes
-          loop:
-            - /var/lib/grafana
-            - /var/log/grafana
-            - /etc/grafana
+    - name: Ensure Grafana directories have correct ownership
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: grafana
+        group: grafana
+        recurse: yes
+      loop:
+        - /var/lib/grafana
+        - /var/log/grafana
+        - /etc/grafana
 
-        - name: Start and enable Grafana service
-          systemd:
-            name: grafana-server
-            state: started
-            enabled: yes
+    - name: Start and enable Grafana service
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
 
-        - name: Fetch Grafana service logs
-          shell: journalctl -u grafana-server -b --no-pager
-          register: grafana_logs
-          ignore_errors: yes
+    - name: Fetch Grafana service logs
+      shell: journalctl -u grafana-server -b --no-pager
+      register: grafana_logs
+      ignore_errors: yes
 
-        - name: Display Grafana service logs
-          debug:
-            var: grafana_logs.stdout
+    - name: Display Grafana service logs
+      debug:
+        var: grafana_logs.stdout
 
-    #### Configure Logging
-    - name: Configure Logging
-      block:
-        - name: Install rsyslog
-          yum:
-            name: rsyslog
-            state: present
+    - name: Verify default Grafana service file exists
+      stat:
+        path: /usr/lib/systemd/system/grafana-server.service
+      register: default_grafana_service
 
-        - name: Configure rsyslog to send logs to control node
-          lineinfile:
-            path: /etc/rsyslog.conf
-            regexp: '^\*\.\*'
-            line: "*.* @@localhost:514"  # Replace 'localhost' with control node IP if needed
-            state: present
+    - name: Debug default Grafana service file status
+      debug:
+        msg: "Default Grafana service file exists: {{ default_grafana_service.stat.exists }}"
 
-        - name: Restart rsyslog
-          systemd:
-            name: rsyslog
-            state: restarted
+- name: Configure Logging on All Hosts
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install rsyslog
+      yum:
+        name: rsyslog
+        state: present
+
+    - name: Configure rsyslog to send logs to control node
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^\*\.\*'
+        line: "*.* @@localhost:514"  # Replace 'localhost' with control node IP if needed
+        state: present
+
+    - name: Restart rsyslog
+      systemd:
+        name: rsyslog
+        state: restarted
