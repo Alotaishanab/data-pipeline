@@ -16,6 +16,8 @@
             src: "/tmp/node_exporter.tar.gz"
             dest: "/usr/local/bin/"
             remote_src: yes
+            copy: no
+            extra_opts: [--strip-components=1]
             creates: /usr/local/bin/node_exporter
 
         - name: Ensure Node Exporter binary is executable
@@ -53,33 +55,38 @@
   hosts: localhost
   become: yes
   tasks:
-    - name: Install required packages
-      yum:
-        name:
-          - wget
-          - yum-utils
-        state: present
+    - name: Download Prometheus binary
+      get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
+        dest: "/tmp/prometheus.tar.gz"
 
-    - name: Import Prometheus GPG Key
-      rpm_key:
-        state: present
-        key: "https://rpm.public.packages.cloud/prometheus/rpm/repodata/repomd.xml.key"
+    - name: Extract Prometheus
+      unarchive:
+        src: "/tmp/prometheus.tar.gz"
+        dest: "/usr/local/bin/"
+        remote_src: yes
+        copy: no
+        extra_opts: [--strip-components=1]
+        creates: /usr/local/bin/prometheus
 
-    - name: Add Prometheus repository
-      yum_repository:
+    - name: Create Prometheus user and group
+      user:
         name: prometheus
-        description: "Prometheus Repository"
-        baseurl: "https://rpm.public.packages.cloud/prometheus/rpm"
-        gpgcheck: yes
-        enabled: yes
-        gpgkey: "https://rpm.public.packages.cloud/prometheus/rpm/repodata/repomd.xml.key"
+        system: yes
+        shell: /sbin/nologin
 
-    - name: Install Prometheus
-      yum:
-        name: prometheus
-        state: present
+    - name: Create Prometheus directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /var/lib/prometheus
+        - /etc/prometheus
 
-    - name: Configure Prometheus
+    - name: Copy Prometheus configuration file
       template:
         src: prometheus.yml.j2
         dest: /etc/prometheus/prometheus.yml
@@ -87,16 +94,39 @@
         group: prometheus
         mode: '0644'
 
-    - name: Ensure Prometheus directories have correct ownership
+    - name: Set ownership of Prometheus files
       file:
         path: "{{ item }}"
-        state: directory
         owner: prometheus
         group: prometheus
-        recurse: yes
       loop:
-        - /var/lib/prometheus
-        - /etc/prometheus
+        - /usr/local/bin/prometheus
+        - /usr/local/bin/promtool
+
+    - name: Create Prometheus service
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        content: |
+          [Unit]
+          Description=Prometheus Service
+          After=network.target
+
+          [Service]
+          User=prometheus
+          Group=prometheus
+          Type=simple
+          ExecStart=/usr/local/bin/prometheus \
+            --config.file=/etc/prometheus/prometheus.yml \
+            --storage.tsdb.path=/var/lib/prometheus/ \
+            --web.console.templates=/usr/local/bin/consoles \
+            --web.console.libraries=/usr/local/bin/console_libraries
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon for Prometheus
+      systemd:
+        daemon_reload: yes
 
     - name: Start and enable Prometheus service
       systemd:
