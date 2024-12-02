@@ -53,6 +53,49 @@
             state: started
             enabled: yes
 
+- name: Install and Configure Prometheus on Control Node
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Add Prometheus repository
+      yum_repository:
+        name: prometheus
+        description: Prometheus Repository
+        baseurl: https://packagecloud.io/prometheus-rpm/release/el/7/$basearch
+        gpgcheck: yes
+        gpgkey: https://packagecloud.io/prometheus-rpm/release/gpgkey
+        enabled: yes
+
+    - name: Install Prometheus
+      yum:
+        name: prometheus
+        state: present
+
+    - name: Configure Prometheus
+      template:
+        src: prometheus.yml.j2
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
+
+    - name: Ensure Prometheus directories have correct ownership
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        recurse: yes
+      loop:
+        - /var/lib/prometheus
+        - /etc/prometheus
+
+    - name: Start and enable Prometheus service
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+
 - name: Install and Configure Grafana on Control Node
   hosts: localhost
   become: yes
