@@ -1,3 +1,4 @@
+---
 - name: Setup Monitoring and Logging on All Hosts
   hosts: all
   become: yes
@@ -42,9 +43,9 @@
 
               [Install]
               WantedBy=multi-user.target
-          owner: root
-          group: root
-          mode: '0644'
+            owner: root
+            group: root
+            mode: '0644'
 
         - name: Reload systemd daemon for Node Exporter
           systemd:
@@ -55,6 +56,20 @@
             name: node_exporter
             state: started
             enabled: yes
+
+    #### Configure Firewall to Allow Node Exporter Port (9100)
+    - name: Open port 9100 in firewalld
+      firewalld:
+        port: 9100/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld to apply changes
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
 
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
@@ -70,14 +85,48 @@
       get_url:
         url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
         dest: "/tmp/prometheus.tar.gz"
+        mode: '0644'
+        force: yes  # Force re-download to ensure we have the correct file
 
     - name: Extract Prometheus
       unarchive:
         src: "/tmp/prometheus.tar.gz"
-        dest: "/usr/local/bin/"
+        dest: "/tmp/"
         remote_src: yes
         extra_opts: [--strip-components=1]
-        creates: /usr/local/bin/prometheus
+        # Removed 'creates' parameter to force extraction
+
+    - name: Move Prometheus binaries to /usr/local/bin/
+      copy:
+        src: "/tmp/prometheus-2.47.0.linux-amd64/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - prometheus
+        - promtool
+
+    - name: Move Prometheus consoles directory
+      copy:
+        src: "/tmp/prometheus-2.47.0.linux-amd64/consoles"
+        dest: "/etc/prometheus/consoles"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        recurse: yes
+
+    - name: Move Prometheus console_libraries directory
+      copy:
+        src: "/tmp/prometheus-2.47.0.linux-amd64/console_libraries"
+        dest: "/etc/prometheus/console_libraries"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        recurse: yes
 
     - name: Create Prometheus directories
       file:
@@ -90,7 +139,7 @@
         - /var/lib/prometheus
         - /etc/prometheus
 
-    - name: Copy Prometheus configuration file
+    - name: Generate Prometheus configuration file
       copy:
         dest: /etc/prometheus/prometheus.yml
         content: |
@@ -105,14 +154,14 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-          {% for host in groups['all'] %}
+      {% for host in groups['all'] %}
                     - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
-          {% endfor %}
+      {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
 
-    - name: Set ownership of Prometheus files
+    - name: Set ownership of Prometheus binaries
       file:
         path: "{{ item }}"
         owner: prometheus
@@ -136,11 +185,14 @@
           ExecStart=/usr/local/bin/prometheus \
             --config.file=/etc/prometheus/prometheus.yml \
             --storage.tsdb.path=/var/lib/prometheus/ \
-            --web.console.templates=/usr/local/bin/consoles \
-            --web.console.libraries=/usr/local/bin/console_libraries
+            --web.console.templates=/etc/prometheus/consoles \
+            --web.console.libraries=/etc/prometheus/console_libraries
 
           [Install]
           WantedBy=multi-user.target
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
 
     - name: Reload systemd daemon for Prometheus
       systemd:
@@ -151,6 +203,20 @@
         name: prometheus
         state: started
         enabled: yes
+
+    #### Configure Firewall to Allow Prometheus Port (9090)
+    - name: Open port 9090 in firewalld
+      firewalld:
+        port: 9090/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld to apply changes
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
 
 - name: Install and Configure Grafana on Control Node
   hosts: localhost
