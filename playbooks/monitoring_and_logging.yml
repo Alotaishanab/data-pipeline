@@ -91,26 +91,31 @@
     - name: Extract Prometheus
       unarchive:
         src: "/tmp/prometheus.tar.gz"
-        dest: "/tmp/"
+        dest: "/tmp/prometheus/"
         remote_src: yes
-        extra_opts: [--strip-components=1]
-        # Removed 'creates' parameter to force extraction
+        extra_opts: []  # Do not strip components
 
     - name: Move Prometheus binaries to /usr/local/bin/
       copy:
-        src: "/tmp/prometheus-2.47.0.linux-amd64/{{ item }}"
-        dest: "/usr/local/bin/{{ item }}"
+        src: "/tmp/prometheus/prometheus"
+        dest: "/usr/local/bin/prometheus"
         remote_src: yes
         owner: prometheus
         group: prometheus
         mode: '0755'
-      loop:
-        - prometheus
-        - promtool
+
+    - name: Move Prometheus promtool binary to /usr/local/bin/
+      copy:
+        src: "/tmp/prometheus/promtool"
+        dest: "/usr/local/bin/promtool"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
 
     - name: Move Prometheus consoles directory
       copy:
-        src: "/tmp/prometheus-2.47.0.linux-amd64/consoles"
+        src: "/tmp/prometheus/consoles"
         dest: "/etc/prometheus/consoles"
         remote_src: yes
         owner: prometheus
@@ -120,7 +125,7 @@
 
     - name: Move Prometheus console_libraries directory
       copy:
-        src: "/tmp/prometheus-2.47.0.linux-amd64/console_libraries"
+        src: "/tmp/prometheus/console_libraries"
         dest: "/etc/prometheus/console_libraries"
         remote_src: yes
         owner: prometheus
@@ -154,9 +159,9 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-      {% for host in groups['all'] %}
-                    - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
-      {% endfor %}
+                    {% for host in groups['all'] %}
+                      - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+                    {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
@@ -301,4 +306,4 @@
     - name: Restart rsyslog
       systemd:
         name: rsyslog
-        state: restarted
+        state: restarted 
