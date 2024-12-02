@@ -57,14 +57,26 @@
   hosts: localhost
   become: yes
   tasks:
+    - name: Install required packages
+      yum:
+        name:
+          - wget
+          - yum-utils
+        state: present
+
+    - name: Import Prometheus GPG Key
+      rpm_key:
+        state: present
+        key: "https://packagecloud.io/prometheus-rpm/release/gpgkey"
+
     - name: Add Prometheus repository
       yum_repository:
         name: prometheus
-        description: Prometheus Repository
-        baseurl: https://packagecloud.io/prometheus-rpm/release/el/7/$basearch
+        description: "Prometheus Repository"
+        baseurl: "https://packagecloud.io/prometheus-rpm/release/el/7/$basearch"
         gpgcheck: yes
-        gpgkey: https://packagecloud.io/prometheus-rpm/release/gpgkey
         enabled: yes
+        gpgkey: "https://packagecloud.io/prometheus-rpm/release/gpgkey"
 
     - name: Install Prometheus
       yum:
@@ -119,7 +131,8 @@
         name: initscripts
         state: present
 
-    # Removed the task that creates the custom Grafana service file
+    # Ensure no custom service file is created
+    # (Assuming you've already manually removed it)
 
     - name: Reload systemd daemon
       systemd:
