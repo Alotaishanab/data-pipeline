@@ -14,12 +14,8 @@
         - name: Extract Node Exporter
           unarchive:
             src: "/tmp/node_exporter.tar.gz"
-            dest: "/tmp/"
+            dest: "/usr/local/bin/"
             remote_src: yes
-
-        - name: Move Node Exporter binary to /usr/local/bin/
-          command: mv /tmp/node_exporter-1.5.0.linux-amd64/node_exporter /usr/local/bin/
-          args:
             creates: /usr/local/bin/node_exporter
 
         - name: Ensure Node Exporter binary is executable
@@ -67,16 +63,16 @@
     - name: Import Prometheus GPG Key
       rpm_key:
         state: present
-        key: "https://packagecloud.io/prometheus-rpm/release/gpgkey"
+        key: "https://rpm.public.packages.cloud/prometheus/rpm/repodata/repomd.xml.key"
 
     - name: Add Prometheus repository
       yum_repository:
         name: prometheus
         description: "Prometheus Repository"
-        baseurl: "https://packagecloud.io/prometheus-rpm/release/el/7/$basearch"
+        baseurl: "https://rpm.public.packages.cloud/prometheus/rpm"
         gpgcheck: yes
         enabled: yes
-        gpgkey: "https://packagecloud.io/prometheus-rpm/release/gpgkey"
+        gpgkey: "https://rpm.public.packages.cloud/prometheus/rpm/repodata/repomd.xml.key"
 
     - name: Install Prometheus
       yum:
@@ -118,6 +114,7 @@
         description: Grafana Repository
         baseurl: https://packages.grafana.com/oss/rpm
         gpgcheck: yes
+        repo_gpgcheck: yes
         gpgkey: https://packages.grafana.com/gpg.key
         enabled: yes
 
@@ -130,9 +127,6 @@
       yum:
         name: initscripts
         state: present
-
-    # Ensure no custom service file is created
-    # (Assuming you've already manually removed it)
 
     - name: Reload systemd daemon
       systemd:
@@ -187,7 +181,7 @@
       lineinfile:
         path: /etc/rsyslog.conf
         regexp: '^\*\.\*'
-        line: "*.* @@localhost:514"  # Replace 'localhost' with control node IP if needed
+        line: "*.* @@{{ ansible_host | default('localhost') }}:514"  # Replace with control node IP if needed
         state: present
 
     - name: Restart rsyslog
