@@ -3,10 +3,30 @@
   hosts: all
   become: yes
   tasks:
+    #### Enable EPEL repository
+    - name: Install EPEL repository
+      yum:
+        name: epel-release
+        state: present
+
     #### Install Required Python Libraries for firewalld Module
     - name: Install python3-firewalld
       package:
         name: python3-firewalld
+        state: present
+      ignore_errors: yes
+      register: firewalld_pkg
+
+    - name: Install python3-pip (if python3-firewalld is not available)
+      when: firewalld_pkg.failed
+      yum:
+        name: python3-pip
+        state: present
+
+    - name: Install firewalld Python module via pip (if needed)
+      when: firewalld_pkg.failed
+      pip:
+        name: firewalld
         state: present
 
     #### Install Prometheus Node Exporter
@@ -25,7 +45,6 @@
             dest: "/usr/local/bin/"
             remote_src: yes
             extra_opts: [--strip-components=1]
-            # Removed 'creates' parameter to force extraction
 
         - name: Ensure Node Exporter binary is executable
           file:
@@ -174,9 +193,9 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-          {% for host in groups['all'] %}
+                  {% for host in groups['all'] %}
                     - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
-          {% endfor %}
+                  {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
@@ -225,11 +244,6 @@
         enabled: yes
 
     #### Configure Firewall to Allow Prometheus Port (9090)
-    - name: Install python3-firewalld on localhost
-      package:
-        name: python3-firewalld
-        state: present
-
     - name: Open port 9090 in firewalld
       firewalld:
         port: 9090/tcp
