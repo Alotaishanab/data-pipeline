@@ -2,6 +2,7 @@
   hosts: all
   become: yes
   tasks:
+    #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
         - name: Download Node Exporter binary
@@ -12,8 +13,18 @@
         - name: Extract Node Exporter
           unarchive:
             src: "/tmp/node_exporter.tar.gz"
-            dest: "/usr/local/bin/"
+            dest: "/tmp/"
             remote_src: yes
+
+        - name: Move Node Exporter binary to /usr/local/bin/
+          command: mv /tmp/node_exporter-1.5.0.linux-amd64/node_exporter /usr/local/bin/
+          args:
+            creates: /usr/local/bin/node_exporter
+
+        - name: Ensure Node Exporter binary is executable
+          file:
+            path: /usr/local/bin/node_exporter
+            mode: '0755'
 
         - name: Create Node Exporter service
           copy:
@@ -31,14 +42,20 @@
               [Install]
               WantedBy=multi-user.target
 
-        - name: Start Node Exporter service
+        - name: Reload systemd daemon for Node Exporter
+          systemd:
+            daemon_reload: yes
+
+        - name: Start and enable Node Exporter service
           systemd:
             name: node_exporter
             state: started
             enabled: yes
 
+    #### Install and Configure Grafana (Control Node Only)
     - name: Install and Configure Grafana (Control Node Only)
-      when: inventory_hostname == 'localhost'
+      when: inventory_hostname == 'host'
+      become: yes
       block:
         - name: Add Grafana repository
           yum_repository:
@@ -54,36 +71,22 @@
             name: grafana
             state: present
 
-        - name: Create Grafana systemd service
-          copy:
-            dest: /etc/systemd/system/grafana-server.service
-            content: |
-              [Unit]
-              Description=Grafana instance
-              After=network.target
-
-              [Service]
-              User=grafana
-              Group=grafana
-              Type=simple
-              ExecStart=/usr/sbin/grafana-server --config=/etc/grafana/grafana.ini --homepath=/usr/share/grafana
-
-              [Install]
-              WantedBy=multi-user.target
+        - name: Install initscripts package (for systemd-sysv-install)
+          yum:
+            name: initscripts
+            state: present
 
         - name: Reload systemd daemon
           systemd:
             daemon_reload: yes
-          when: inventory_hostname == 'localhost'
 
         - name: Start and enable Grafana
           systemd:
             name: grafana-server
             state: started
             enabled: yes
-          when: inventory_hostname == 'localhost'
 
-
+    #### Configure Logging
     - name: Configure Logging
       block:
         - name: Install rsyslog
@@ -94,9 +97,12 @@
         - name: Configure rsyslog to send logs to control node
           lineinfile:
             path: /etc/rsyslog.conf
+            regexp: '^\*\.\*'
             line: "*.* @@control-node:514"
+            state: present
 
         - name: Restart rsyslog
           systemd:
             name: rsyslog
             state: restarted
+
