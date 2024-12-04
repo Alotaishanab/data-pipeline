@@ -24,7 +24,7 @@
         name: firewalld
         state: started
         enabled: yes
-        
+
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
@@ -107,7 +107,7 @@
         url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
         dest: "/tmp/prometheus.tar.gz"
         mode: '0644'
-        force: yes  # Force re-download to ensure we have the correct file
+        force: yes
 
     - name: Create /tmp/prometheus directory
       file:
@@ -122,7 +122,7 @@
         src: "/tmp/prometheus.tar.gz"
         dest: "/tmp/prometheus/"
         remote_src: yes
-        extra_opts: []
+        extra_opts: ['--strip-components=1']
 
     - name: Move Prometheus binaries to /usr/local/bin/
       copy:
@@ -251,6 +251,7 @@
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
 
 - name: Install and Configure Grafana on Control Node
   hosts: localhost
