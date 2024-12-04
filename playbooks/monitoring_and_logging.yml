@@ -205,9 +205,9 @@
                     {% for host in groups['all'] %}
                       - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
                     {% endfor %}
-      owner: prometheus
-      group: prometheus
-      mode: '0644'
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
 
     - name: Set ownership of Prometheus binaries
       file:
@@ -265,6 +265,7 @@
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
 
 
 
