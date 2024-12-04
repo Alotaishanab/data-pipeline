@@ -9,18 +9,13 @@
         name: epel-release
         state: present
 
-    #### Install firewalld and python3-pip
-    - name: Install firewalld and python3-pip
+    #### Install firewalld, python3-pip, and python3-firewall
+    - name: Install firewalld, python3-pip, and python3-firewall
       yum:
         name:
           - firewalld
           - python3-pip
-        state: present
-
-    #### Install firewalld Python module via pip
-    - name: Install firewalld Python module via pip
-      pip:
-        name: firewalld
+          - python3-firewall
         state: present
 
     #### Ensure firewalld is running and enabled
@@ -29,7 +24,7 @@
         name: firewalld
         state: started
         enabled: yes
-
+        
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
