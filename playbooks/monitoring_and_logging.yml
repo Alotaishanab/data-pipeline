@@ -150,13 +150,27 @@
         owner: prometheus
         group: prometheus
         mode: '0755'
-        recurse: yes
 
     - name: Move Prometheus console_libraries directory
       copy:
         src: "/tmp/prometheus/console_libraries"
         dest: "/etc/prometheus/console_libraries"
         remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Set ownership and permissions for /etc/prometheus/consoles
+      file:
+        path: /etc/prometheus/consoles
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        recurse: yes
+
+    - name: Set ownership and permissions for /etc/prometheus/console_libraries
+      file:
+        path: /etc/prometheus/console_libraries
         owner: prometheus
         group: prometheus
         mode: '0755'
@@ -191,9 +205,9 @@
                     {% for host in groups['all'] %}
                       - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
                     {% endfor %}
-        owner: prometheus
-        group: prometheus
-        mode: '0644'
+      owner: prometheus
+      group: prometheus
+      mode: '0644'
 
     - name: Set ownership of Prometheus binaries
       file:
@@ -251,6 +265,7 @@
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
 
 
 - name: Install and Configure Grafana on Control Node
