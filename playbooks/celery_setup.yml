@@ -89,7 +89,10 @@
         mode: '0755'
         content: |
           import sys
-          from celery_worker import run_pipeline
+          from celery import Celery
+
+          # Initialize Celery app with the Redis broker
+          app = Celery('tasks', broker='redis://{{ redis_host }}:6379/0')  # Automatically uses the correct Redis host
 
           if __name__ == "__main__":
               if len(sys.argv) != 3:
@@ -98,8 +101,9 @@
 
               pdb_file = sys.argv[1]
               results_dir = sys.argv[2]
-              result = run_pipeline.delay(pdb_file, results_dir)
+              result = app.send_task('celery_worker.run_pipeline', args=[pdb_file, results_dir])
               print(f"Task {result.id} dispatched for {pdb_file}")
+
 
     - name: Reload systemd daemon
       systemd:
