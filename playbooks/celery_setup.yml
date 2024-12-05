@@ -43,7 +43,7 @@
           import os
 
           # Define the Redis broker URL using Ansible variable
-          app = Celery('tasks', broker='redis://{{ redis_host }}:6379/0')  
+          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')  
 
           @app.task
           def run_pipeline(pdb_file, results_dir):
@@ -92,7 +92,7 @@
           from celery import Celery
 
           # Initialize Celery app with the Redis broker
-          app = Celery('tasks', broker='redis://{{ redis_host }}:6379/0')
+          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
 
           if __name__ == "__main__":
               if len(sys.argv) != 3:

@@ -43,14 +43,6 @@
         owner: almalinux
         group: almalinux
 
-    - name: Create Symlink for CATH Foldclass Database
-      file:
-        src: /mnt/datasets/cath_foldclassdb
-        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
-        state: link
-        owner: almalinux
-        group: almalinux
-
     - name: Set Environment Variable for Merizo Search
       lineinfile:
         path: /home/almalinux/.bashrc
