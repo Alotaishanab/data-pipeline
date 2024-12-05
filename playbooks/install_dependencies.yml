@@ -43,6 +43,7 @@
         create: yes
         state: present
 
+
 - name: Install Dependencies on Storage Node
   hosts: storage
   become: yes
