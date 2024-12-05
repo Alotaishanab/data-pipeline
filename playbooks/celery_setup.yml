@@ -72,12 +72,13 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          ExecStart=/usr/bin/celery -A celery_worker worker --loglevel=info
+          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
-        force: yes  # Add this line
+        force: yes
+
 
 
     - name: Deploy Dispatch Tasks Script
