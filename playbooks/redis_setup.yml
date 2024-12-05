@@ -1,6 +1,7 @@
----
+# /home/almalinux/ansible/playbooks/setup_redis.yml
+
 - name: Setup Redis Server for Celery
-  hosts: host
+  hosts: storage_group
   become: yes
   tasks:
     - name: Install EPEL repository

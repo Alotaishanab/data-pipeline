@@ -1,8 +1,12 @@
+# /home/almalinux/ansible/playbooks/setup_celery_workers.yml
+
 - name: Setup Celery Workers and Host
-  hosts: workers, localhost  
+  hosts: workers, host
   become: yes
   vars:
-    redis_host: "host"  
+    redis_host: "{{ hostvars['storage']['ansible_host'] }}"
+    celery_user: "almalinux"
+    celery_group: "almalinux"
   tasks:
     - name: Install Python3 and pip
       yum:
@@ -18,15 +22,45 @@
           - redis
         state: present
 
-    - name: Deploy Celery Worker Script
-      copy:
-        src: /home/almalinux/ansible/files/celery_worker.py
-        dest: /opt/data_pipeline/celery_worker.py
+    - name: Create data pipeline directory
+      file:
+        path: /opt/data_pipeline/
+        state: directory
+        owner: "{{ celery_user }}"
+        group: "{{ celery_group }}"
         mode: '0755'
 
-    - name: Create Celery service
+    - name: Deploy Celery Worker Script
+      copy:
+        dest: /opt/data_pipeline/celery_worker.py
+        owner: "{{ celery_user }}"
+        group: "{{ celery_group }}"
+        mode: '0755'
+        content: |
+          from celery import Celery
+          import subprocess
+          import os
+
+          # Define the Redis broker URL using Ansible variable
+          app = Celery('tasks', broker='redis://{{ redis_host }}:6379/0')  
+
+          @app.task
+          def run_pipeline(pdb_file, results_dir):
+              pipeline_script = "/opt/data_pipeline/pipeline_script.py"
+              cmd = f"python3 {pipeline_script} {pdb_file} {results_dir}"
+              process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+              return {
+                  'stdout': process.stdout,
+                  'stderr': process.stderr,
+                  'returncode': process.returncode
+              }
+
+    - name: Deploy Celery Service File
       copy:
         dest: /etc/systemd/system/celery.service
+        owner: root
+        group: root
+        mode: '0644'
         content: |
           [Unit]
           Description=Celery Service
@@ -34,15 +68,46 @@
 
           [Service]
           Type=simple
-          User=root
+          User={{ celery_user }}
+          Group={{ celery_group }}
+          WorkingDirectory=/opt/data_pipeline/
           ExecStart=/usr/bin/celery -A celery_worker worker --loglevel=info
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
 
+    - name: Deploy Dispatch Tasks Script
+      copy:
+        dest: /opt/data_pipeline/dispatch_tasks.py
+        owner: "{{ celery_user }}"
+        group: "{{ celery_group }}"
+        mode: '0755'
+        content: |
+          import sys
+          from celery_worker import run_pipeline
+
+          if __name__ == "__main__":
+              if len(sys.argv) != 3:
+                  print("Usage: python3 dispatch_tasks.py [INPUT FILE] [OUTPUT DIRECTORY]")
+                  sys.exit(1)
+
+              pdb_file = sys.argv[1]
+              results_dir = sys.argv[2]
+              result = run_pipeline.delay(pdb_file, results_dir)
+              print(f"Task {result.id} dispatched for {pdb_file}")
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
     - name: Start and enable Celery service
       systemd:
         name: celery
         state: started
         enabled: yes
+
+    - name: Ensure Celery worker script is executable
+      file:
+        path: /opt/data_pipeline/celery_worker.py
+        mode: '0755'
