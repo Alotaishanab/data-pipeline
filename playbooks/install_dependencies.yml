@@ -36,13 +36,19 @@
         state: present
         executable: pip3
 
+    - name: Make merizo.py Executable
+      file:
+        path: /opt/merizo_search/merizo_search/merizo.py
+        mode: '0755'
+        owner: almalinux
+        group: almalinux
+
     - name: Set Environment Variable for Merizo Search
       lineinfile:
         path: /home/almalinux/.bashrc
         line: 'export MERIZO_HOME=/opt/merizo_search'
         create: yes
         state: present
-
 
 - name: Install Dependencies on Storage Node
   hosts: storage
