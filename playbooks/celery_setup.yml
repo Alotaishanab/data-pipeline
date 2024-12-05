@@ -1,5 +1,5 @@
-- name: Setup Celery Workers
-  hosts: workers
+- name: Setup Celery Workers and Host
+  hosts: workers, localhost  
   become: yes
   vars:
     redis_host: "host"  
