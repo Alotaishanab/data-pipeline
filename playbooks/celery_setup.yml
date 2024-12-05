@@ -7,6 +7,8 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
+    celery_bin: "/usr/local/bin/celery"  # Update the path based on where celery is installed
+
   tasks:
     - name: Install Python3 and pip
       yum:
