@@ -7,6 +7,8 @@
     ecoli_tarball: "{{ datasets_dir }}/UP000000625_83333_ECOLI_v4.tar"
     human_proteome_dir: "{{ datasets_dir }}/human_proteome"
     ecoli_proteome_dir: "{{ datasets_dir }}/ecoli_proteome"
+    cath_tarball: "{{ datasets_dir }}/cath_foldclassdb.tar.gz"
+    cath_extract_dir: "{{ datasets_dir }}/cath_foldclassdb"
   tasks:
     - name: Ensure directories exist for datasets
       file:
@@ -16,49 +18,50 @@
         - "{{ datasets_dir }}"
         - "{{ human_proteome_dir }}"
         - "{{ ecoli_proteome_dir }}"
-
+        - "{{ cath_extract_dir }}"
+    
     - name: Download Human Proteome Dataset
       get_url:
         url: https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000005640_9606_HUMAN_v4.tar
         dest: "{{ human_tarball }}"
         mode: '0644'
       register: download_human
-
+    
     - name: Extract Human Proteome Dataset
       unarchive:
         src: "{{ human_tarball }}"
         dest: "{{ human_proteome_dir }}"
         remote_src: yes
       when: download_human.changed
-
+    
     - name: Download E.coli Proteome Dataset
       get_url:
         url: https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000000625_83333_ECOLI_v4.tar
         dest: "{{ ecoli_tarball }}"
         mode: '0644'
       register: download_ecoli
-
+    
     - name: Extract E.coli Proteome Dataset
       unarchive:
         src: "{{ ecoli_tarball }}"
         dest: "{{ ecoli_proteome_dir }}"
         remote_src: yes
       when: download_ecoli.changed
-
+    
     - name: Download CATH Foldclass Database
       get_url:
         url: http://bioinfadmin.cs.ucl.ac.uk/downloads/merizo_search/cath_foldclassdb.tar.gz
-        dest: "{{ datasets_dir }}/cath_foldclassdb.tar.gz"
+        dest: "{{ cath_tarball }}"
         mode: '0644'
       register: download_cathdb
-
+    
     - name: Extract CATH Foldclass Database
       unarchive:
-        src: "{{ datasets_dir }}/cath_foldclassdb.tar.gz"
-        dest: "{{ datasets_dir }}/cath_foldclassdb"
+        src: "{{ cath_tarball }}"
+        dest: "{{ cath_extract_dir }}"
         remote_src: yes
       when: download_cathdb.changed
-
+    
     - name: Set permissions on datasets directories
       file:
         path: "{{ item }}"
@@ -69,4 +72,4 @@
       loop:
         - "{{ human_proteome_dir }}"
         - "{{ ecoli_proteome_dir }}"
-        - "{{ datasets_dir }}/cath_foldclassdb"
+        - "{{ cath_extract_dir }}"
