@@ -19,9 +19,15 @@
           - biopython
           - scipy
           - faiss-cpu
-          - torch
         executable: pip3
         state: present
+
+    - name: Install CPU-only PyTorch
+      pip:
+        name: torch
+        executable: pip3
+        state: present
+        extra_args: "--index-url https://download.pytorch.org/whl/cpu"
 
     - name: Clone Merizo Search Repository
       git:
