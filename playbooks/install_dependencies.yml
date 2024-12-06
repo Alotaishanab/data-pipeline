@@ -47,11 +47,11 @@
         version: main
         force: yes
 
-    - name: Modify requirements.txt to use CPU-only PyTorch
-      replace:
+    - name: Remove torch from requirements.txt
+      lineinfile:
         path: /opt/merizo_search/merizo_search/programs/Merizo/requirements.txt
         regexp: '^torch==.*$'
-        replace: 'torch==2.0.1+cpu'
+        state: absent
 
     - name: Install Merizo Search Dependencies without torch
       pip:
