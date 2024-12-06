@@ -39,7 +39,7 @@ def run_merizo_search(input_file, id):
         '/opt/merizo_search/merizo_search/merizo.py',
         'easy-search',
         input_file,
-        '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb',
+        '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt',
         id,
         'tmp',
         '--iterate',
@@ -69,6 +69,7 @@ def read_dir(input_dir):
     
     for file_path in file_ids:
         id = os.path.splitext(os.path.basename(file_path))[0]
+        # Correctly construct search file name by replacing '.pdb' with '_search.tsv'
         search_file = f"{id}_search.tsv"
         search_file_path = os.path.join(input_dir, search_file)
         analysis_files.append([file_path, id, search_file_path])
@@ -77,6 +78,10 @@ def read_dir(input_dir):
 
 def pipeline(filepath, id, search_file_path):
     run_merizo_search(filepath, id)
+    # After running Merizo Search, verify the search file exists
+    if not os.path.isfile(search_file_path):
+        logging.error(f"Search file {search_file_path} was not created by Merizo Search.")
+        return
     run_parser(search_file_path, "/mnt/results/")
 
 if __name__ == "__main__":
