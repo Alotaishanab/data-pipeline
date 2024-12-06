@@ -33,17 +33,17 @@ def run_parser(search_file_path, output_dir):
     if p.returncode != 0:
         logging.error("Parser encountered an error.")
 
-def run_merizo_search(input_file, id):
-    # **Remove the '.pt' extension from the database path**
+def run_merizo_search(input_file, id, output_dir):
+    # **Set the database path without the '.pt' extension**
     database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     cmd = [
         'python3',
         '/opt/merizo_search/merizo_search/merizo.py',
         'easy-search',
         input_file,
-        database_base_path,  # Removed '.pt' to prevent double extension
+        database_base_path,  # No '.pt' here to prevent duplication
         id,
-        'tmp',
+        output_dir,          # Output directory set to '/mnt/results/'
         '--iterate',
         '--output_headers',
         '-d',
@@ -73,18 +73,19 @@ def read_dir(input_dir):
         id = os.path.splitext(os.path.basename(file_path))[0]
         # Correctly construct search file name by replacing '.pdb' with '_search.tsv'
         search_file = f"{id}_search.tsv"
-        search_file_path = os.path.join(input_dir, search_file)
+        search_file_path = os.path.join("/mnt/results/", search_file)  # Search file in output directory
         analysis_files.append([file_path, id, search_file_path])
     
     return analysis_files
 
 def pipeline(filepath, id, search_file_path):
-    run_merizo_search(filepath, id)
+    output_dir = "/mnt/results/"  # Define output directory
+    run_merizo_search(filepath, id, output_dir)
     # After running Merizo Search, verify the search file exists
     if not os.path.isfile(search_file_path):
         logging.error(f"Search file {search_file_path} was not created by Merizo Search.")
         return
-    run_parser(search_file_path, "/mnt/results/")
+    run_parser(search_file_path, output_dir)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
