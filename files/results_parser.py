@@ -16,8 +16,8 @@ def main():
     # Extract the filename from the search file path
     search_filename = os.path.basename(search_file_path)
 
-    # Construct the full path to the search file in the output directory
-    full_search_path = os.path.join(output_dir, search_filename)
+    # Use the absolute search file path directly
+    full_search_path = search_file_path
 
     try:
         with open(full_search_path, "r") as fhIn:
