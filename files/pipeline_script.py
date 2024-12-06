@@ -1,4 +1,8 @@
 import sys
+import csv
+import json
+from collections import defaultdict
+import statistics
 from subprocess import Popen, PIPE
 import glob
 import os
@@ -19,9 +23,12 @@ def run_parser(input_file, output_dir):
     logging.info(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
-    logging.info(out.decode("utf-8"))
+    logging.info(f"PARSER STDOUT:\n{out.decode('utf-8')}")
     if err:
-        logging.error(err.decode("utf-8"))
+        logging.error(f"PARSER STDERR:\n{err.decode('utf-8')}")
+    logging.info(f"PARSER Return Code: {p.returncode}")
+    if p.returncode != 0:
+        logging.error("Parser encountered an error.")
 
 def run_merizo_search(input_file, id):
     cmd = [
@@ -42,10 +49,12 @@ def run_merizo_search(input_file, id):
     logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
-    if out:
-        logging.info(out.decode("utf-8"))
+    logging.info(f"MERIZO STDOUT:\n{out.decode('utf-8')}")
     if err:
-        logging.error(err.decode("utf-8"))
+        logging.error(f"MERIZO STDERR:\n{err.decode('utf-8')}")
+    logging.info(f"MERIZO Return Code: {p.returncode}")
+    if p.returncode != 0:
+        logging.error("Merizo Search encountered an error.")
 
 def read_dir(input_dir):
     logging.info("Getting file list")
@@ -62,5 +71,8 @@ def pipeline(filepath, id, outpath):
 
 if __name__ == "__main__":
     pdbfiles = read_dir(sys.argv[1])
+    if not pdbfiles:
+        logging.error("No PDB files found in the input directory.")
+        sys.exit(1)
     p = multiprocessing.Pool(1)
     p.starmap(pipeline, pdbfiles[:10])
