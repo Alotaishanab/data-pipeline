@@ -1,6 +1,6 @@
 ---
 - name: Setup Symbolic Links on Worker and Host Machines
-  hosts: workers, hosts
+  hosts: workers, host
   become: yes
   tasks:
     - name: Ensure parent directories exist for CATH Foldclass Database

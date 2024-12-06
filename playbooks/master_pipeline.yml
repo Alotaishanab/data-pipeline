@@ -3,7 +3,7 @@
 - import_playbook: nfs_server.yml
 - import_playbook: nfs_clients.yml
 - import_playbook: download_and_prepare_datasets.yml
-- import_playbook: setup_symlinks.yml        # <-- Add this line
+- import_playbook: setup_symlinks.yml       
 - import_playbook: uncompress_files.yml
 - import_playbook: deploy_scripts.yml
 - import_playbook: monitoring_and_logging.yml  
