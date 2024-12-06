@@ -14,15 +14,16 @@
 
     - name: Create symbolic link for CATH Foldclass Database
       file:
-        src: /mnt/datasets/cath_foldclassdb
-        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
+        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt
+        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
         state: link
         owner: almalinux
         group: almalinux
+        force: yes
 
     - name: Verify symbolic link creation
       stat:
-        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
       register: cathdb_symlink
 
     - name: Fail if symbolic link was not created
@@ -31,11 +32,11 @@
       when: not cathdb_symlink.stat.islnk
 
     - name: Ensure the symlink points to the correct target
-      command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
+      command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
       register: symlink_target
       changed_when: false
 
     - name: Fail if symlink target is incorrect
       fail:
-        msg: "Symbolic link points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb, Got: {{ symlink_target.stdout }}"
-      when: symlink_target.stdout != '/mnt/datasets/cath_foldclassdb'
+        msg: "Symbolic link points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt, Got: {{ symlink_target.stdout }}"
+      when: symlink_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt'
