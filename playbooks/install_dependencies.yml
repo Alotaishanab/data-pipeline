@@ -11,7 +11,19 @@
           - git
         state: present
 
-    - name: Install required Python packages via pip
+    - name: Upgrade pip
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
+
+    - name: Uninstall existing torch if present
+      pip:
+        name: torch
+        state: absent
+        executable: pip3
+
+    - name: Install required Python packages via pip (excluding torch)
       pip:
         name:
           - pandas
@@ -56,20 +68,11 @@
         create: yes
         state: present
 
-- name: Install Dependencies on Storage Node
-  hosts: storage
-  become: yes
-  tasks:
-    - name: Install EPEL repository (for pigz)
-      yum:
-        name: epel-release
-        state: present
-      when: ansible_distribution == "CentOS"
+    - name: Verify PyTorch Installation
+      command: python3 -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+      register: torch_check
+      changed_when: false
 
-    - name: Install required packages
-      dnf:
-        name:
-          - wget
-          - tar
-          - pigz
-        state: present
+    - name: Display PyTorch Installation Details
+      debug:
+        msg: "PyTorch Version: {{ torch_check.stdout_lines[0] }}, CUDA Available: {{ torch_check.stdout_lines[1] }}"
