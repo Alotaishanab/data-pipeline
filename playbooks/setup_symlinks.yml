@@ -12,7 +12,7 @@
         mode: '0755'
         recurse: yes
 
-    - name: Create symbolic link for CATH Foldclass Database
+    - name: Create symbolic link for CATH Foldclass Database (.pt)
       file:
         src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt
         dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
@@ -21,22 +21,51 @@
         group: almalinux
         force: yes
 
-    - name: Verify symbolic link creation
+    - name: Verify symbolic link creation for .pt file
       stat:
         path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
-      register: cathdb_symlink
+      register: cathdb_pt_symlink
 
-    - name: Fail if symbolic link was not created
+    - name: Fail if .pt symbolic link was not created
       fail:
-        msg: "Symbolic link for CATH Foldclass Database was not created successfully."
-      when: not cathdb_symlink.stat.islnk
+        msg: "Symbolic link for CATH Foldclass Database (.pt) was not created successfully."
+      when: not cathdb_pt_symlink.stat.islnk
 
-    - name: Ensure the symlink points to the correct target
+    - name: Ensure the .pt symlink points to the correct target
       command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
-      register: symlink_target
+      register: symlink_pt_target
       changed_when: false
 
-    - name: Fail if symlink target is incorrect
+    - name: Fail if .pt symlink target is incorrect
       fail:
-        msg: "Symbolic link points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt, Got: {{ symlink_target.stdout }}"
-      when: symlink_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt'
+        msg: "Symbolic link for CATH Foldclass Database (.pt) points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt, Got: {{ symlink_pt_target.stdout }}"
+      when: symlink_pt_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt'
+
+    - name: Create symbolic link for CATH Foldclass Database (.index)
+      file:
+        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index
+        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
+        state: link
+        owner: almalinux
+        group: almalinux
+        force: yes
+
+    - name: Verify symbolic link creation for .index file
+      stat:
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
+      register: cathdb_index_symlink
+
+    - name: Fail if .index symbolic link was not created
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database (.index) was not created successfully."
+      when: not cathdb_index_symlink.stat.islnk
+
+    - name: Ensure the .index symlink points to the correct target
+      command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
+      register: symlink_index_target
+      changed_when: false
+
+    - name: Fail if .index symlink target is incorrect
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database (.index) points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index, Got: {{ symlink_index_target.stdout }}"
+      when: symlink_index_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index'
