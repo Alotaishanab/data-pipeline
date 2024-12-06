@@ -34,12 +34,14 @@ def run_parser(search_file_path, output_dir):
         logging.error("Parser encountered an error.")
 
 def run_merizo_search(input_file, id):
+    # **Remove the '.pt' extension from the database path**
+    database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     cmd = [
         'python3',
         '/opt/merizo_search/merizo_search/merizo.py',
         'easy-search',
         input_file,
-        '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt',
+        database_base_path,  # Removed '.pt' to prevent double extension
         id,
         'tmp',
         '--iterate',
