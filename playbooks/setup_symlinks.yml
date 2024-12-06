@@ -1,0 +1,41 @@
+---
+- name: Setup Symbolic Links on Worker and Host Machines
+  hosts: workers, hosts
+  become: yes
+  tasks:
+    - name: Ensure parent directories exist for CATH Foldclass Database
+      file:
+        path: /home/almalinux/merizo_search/examples/database/
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+        recurse: yes
+
+    - name: Create symbolic link for CATH Foldclass Database
+      file:
+        src: /mnt/datasets/cath_foldclassdb
+        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
+        state: link
+        owner: almalinux
+        group: almalinux
+
+    - name: Verify symbolic link creation
+      stat:
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
+      register: cathdb_symlink
+
+    - name: Fail if symbolic link was not created
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database was not created successfully."
+      when: not cathdb_symlink.stat.islnk
+
+    - name: Ensure the symlink points to the correct target
+      command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb
+      register: symlink_target
+      changed_when: false
+
+    - name: Fail if symlink target is incorrect
+      fail:
+        msg: "Symbolic link points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb, Got: {{ symlink_target.stdout }}"
+      when: symlink_target.stdout != '/mnt/datasets/cath_foldclassdb'
