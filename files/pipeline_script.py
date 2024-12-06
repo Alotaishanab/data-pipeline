@@ -9,24 +9,27 @@ import os
 import multiprocessing
 import logging
 
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 """
-usage: python3 pipeline_script.py [INPUT DIR] [OUTPUT DIR]
-approx 5 seconds per analysis
+Usage: python3 pipeline_script.py [INPUT_DIR] [OUTPUT_DIR]
+Approx 5 seconds per analysis
 """
 
-def run_parser(input_file, output_dir):
-    search_file = input_file + "_search.tsv"
-    logging.info(f"Search file: {search_file}, Output directory: {output_dir}")
-    cmd = ['python3', '/opt/data_pipeline/results_parser.py', output_dir, search_file]
+def run_parser(search_file_path, output_dir):
+    logging.info(f"Search file: {search_file_path}, Output directory: {output_dir}")
+    cmd = ['python3', '/opt/data_pipeline/results_parser.py', output_dir, search_file_path]
     logging.info(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
+    
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
+    
     logging.info(f"PARSER STDOUT:\n{out.decode('utf-8')}")
     if err:
         logging.error(f"PARSER STDERR:\n{err.decode('utf-8')}")
     logging.info(f"PARSER Return Code: {p.returncode}")
+    
     if p.returncode != 0:
         logging.error("Parser encountered an error.")
 
@@ -47,32 +50,47 @@ def run_merizo_search(input_file, id):
         '1'
     ]
     logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
+    
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
+    
     logging.info(f"MERIZO STDOUT:\n{out.decode('utf-8')}")
     if err:
         logging.error(f"MERIZO STDERR:\n{err.decode('utf-8')}")
     logging.info(f"MERIZO Return Code: {p.returncode}")
+    
     if p.returncode != 0:
         logging.error("Merizo Search encountered an error.")
 
 def read_dir(input_dir):
     logging.info("Getting file list")
-    file_ids = list(glob.glob(os.path.join(input_dir, "*.pdb")))
+    file_ids = glob.glob(os.path.join(input_dir, "*.pdb"))
     analysis_files = []
-    for file in file_ids:
-        id = os.path.splitext(os.path.basename(file))[0]
-        analysis_files.append([file, id, sys.argv[2]])
+    
+    for file_path in file_ids:
+        id = os.path.splitext(os.path.basename(file_path))[0]
+        search_file = f"{id}_search.tsv"
+        search_file_path = os.path.join(input_dir, search_file)
+        analysis_files.append([file_path, id, search_file_path])
+    
     return analysis_files
 
-def pipeline(filepath, id, outpath):
+def pipeline(filepath, id, search_file_path):
     run_merizo_search(filepath, id)
-    run_parser(filepath, outpath)
+    run_parser(search_file_path, "/mnt/results/")
 
 if __name__ == "__main__":
-    pdbfiles = read_dir(sys.argv[1])
+    if len(sys.argv) != 3:
+        print("Usage: python3 pipeline_script.py <INPUT_DIR> <OUTPUT_DIR>")
+        sys.exit(1)
+    
+    input_dir = sys.argv[1]
+    output_dir = sys.argv[2]
+    
+    pdbfiles = read_dir(input_dir)
     if not pdbfiles:
         logging.error("No PDB files found in the input directory.")
         sys.exit(1)
-    p = multiprocessing.Pool(1)
-    p.starmap(pipeline, pdbfiles[:10])
+    
+    pool = multiprocessing.Pool(processes=1)
+    pool.starmap(pipeline, pdbfiles[:10])
