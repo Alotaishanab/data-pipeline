@@ -8,6 +8,7 @@ import glob
 import os
 import multiprocessing
 import logging
+import uuid  # For generating unique directory names
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -34,7 +35,16 @@ def run_parser(search_file_path, output_dir):
         logging.error("Parser encountered an error.")
 
 def run_merizo_search(input_file, id, output_dir):
-    # **Set the database path without the '.pt' extension**
+    # Generate a unique identifier for the run
+    unique_id = uuid.uuid4().hex
+    # Create a unique subdirectory within the output directory
+    unique_output_dir = os.path.join(output_dir, f"{id}_{unique_id}")
+    
+    # Ensure the unique output directory exists
+    os.makedirs(unique_output_dir, exist_ok=True)
+    logging.info(f"Created unique output directory: {unique_output_dir}")
+    
+    # Set the database path without the '.pt' extension
     database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     cmd = [
         'python3',
@@ -43,7 +53,7 @@ def run_merizo_search(input_file, id, output_dir):
         input_file,
         database_base_path,  # No '.pt' here to prevent duplication
         id,
-        output_dir,          # Output directory set to '/mnt/results/'
+        unique_output_dir,    # Output directory set to the unique subdirectory
         '--iterate',
         '--output_headers',
         '-d',
@@ -71,9 +81,10 @@ def read_dir(input_dir):
     
     for file_path in file_ids:
         id = os.path.splitext(os.path.basename(file_path))[0]
-        # Correctly construct search file name by replacing '.pdb' with '_search.tsv'
+        # Construct search file name by replacing '.pdb' with '_search.tsv'
         search_file = f"{id}_search.tsv"
-        search_file_path = os.path.join("/mnt/results/", search_file)  # Search file in output directory
+        # The search file will be in the unique_output_dir
+        search_file_path = os.path.join("/mnt/results/", search_file)
         analysis_files.append([file_path, id, search_file_path])
     
     return analysis_files
