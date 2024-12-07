@@ -73,6 +73,8 @@ def run_merizo_search(input_file, id, output_dir):
     
     if p.returncode != 0:
         logging.error("Merizo Search encountered an error.")
+    
+    return unique_output_dir
 
 def read_dir(input_dir):
     logging.info("Getting file list")
@@ -81,17 +83,13 @@ def read_dir(input_dir):
     
     for file_path in file_ids:
         id = os.path.splitext(os.path.basename(file_path))[0]
-        # Construct search file name by replacing '.pdb' with '_search.tsv'
-        search_file = f"{id}_search.tsv"
-        # The search file will be in the unique_output_dir
-        search_file_path = os.path.join("/mnt/results/", search_file)
-        analysis_files.append([file_path, id, search_file_path])
+        analysis_files.append([file_path, id])
     
     return analysis_files
 
-def pipeline(filepath, id, search_file_path):
-    output_dir = "/mnt/results/"  # Define output directory
-    run_merizo_search(filepath, id, output_dir)
+def pipeline(filepath, id, output_dir):
+    unique_output_dir = run_merizo_search(filepath, id, output_dir)
+    search_file_path = os.path.join(unique_output_dir, "test_search.tsv")
     # After running Merizo Search, verify the search file exists
     if not os.path.isfile(search_file_path):
         logging.error(f"Search file {search_file_path} was not created by Merizo Search.")
@@ -112,4 +110,4 @@ if __name__ == "__main__":
         sys.exit(1)
     
     pool = multiprocessing.Pool(processes=1)
-    pool.starmap(pipeline, pdbfiles[:10])
+    pool.starmap(pipeline, [[fp, id, output_dir] for fp, id in pdbfiles[:10]])
