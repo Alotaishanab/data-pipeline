@@ -21,7 +21,10 @@ def main():
     search_filename = os.path.basename(search_file_path)
 
     # Extract the ID by removing '_search.tsv'
-    id = search_filename.rstrip("_search.tsv")
+    if search_filename.endswith("_search.tsv"):
+        id = search_filename[:-11]  # Remove '_search.tsv'
+    else:
+        id = os.path.splitext(search_filename)[0]
 
     try:
         with open(search_file_path, "r") as fhIn:
@@ -32,11 +35,24 @@ def main():
             plDDT_values = []
 
             for i, row in enumerate(msreader):
+                if len(row) < 16:
+                    print(f"Warning: Row {i+2} has insufficient columns.")
+                    continue
                 tot_entries = i + 1
-                plDDT_values.append(float(row[3]))
-                meta = row[15]
-                data = json.loads(meta)
-                cath_ids[data["cath"]] += 1
+                try:
+                    plDDT = float(row[3])
+                    plDDT_values.append(plDDT)
+                except ValueError:
+                    print(f"Warning: Invalid plDDT value on row {i+2}.")
+                    continue
+                try:
+                    meta = row[15]
+                    data = json.loads(meta)
+                    cath_id = data.get("cath", "Unknown")
+                    cath_ids[cath_id] += 1
+                except (IndexError, json.JSONDecodeError):
+                    print(f"Warning: Invalid metadata on row {i+2}.")
+                    continue
 
         # Define the parsed file name
         parsed_filename = f"{id}.parsed"
