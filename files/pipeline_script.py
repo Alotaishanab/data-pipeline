@@ -10,7 +10,8 @@ Usage: python3 pipeline_script.py [INPUT DIR] [OUTPUT DIR]
 Approx 5 seconds per analysis
 """
 
-VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'  # Direct path to virtualenv's Python executable
+# Corrected path to the virtual environment's Python executable
+VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 
 def run_parser(search_file, output_dir):
     """
@@ -19,7 +20,10 @@ def run_parser(search_file, output_dir):
     print(f"Search File: {search_file}")
     print(f"Output Directory: {output_dir}")
     
-    cmd = [VIRTUALENV_PYTHON, '/opt/data_pipeline/results_parser.py', output_dir, search_file]
+    # Corrected path to results_parser.py
+    parser_script = '/opt/data_pipeline/results_parser.py'
+    
+    cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file]
     print(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
     
     p = Popen(cmd, stdout=PIPE, stderr=PIPE)
@@ -29,6 +33,8 @@ def run_parser(search_file, output_dir):
         print(f"PARSER STDOUT:\n{out.decode('utf-8')}")
     if err:
         print(f"PARSER STDERR:\n{err.decode('utf-8')}")
+    if p.returncode != 0:
+        print("Parser encountered an error.")
 
 def run_merizo_search(input_file, id, output_dir):
     """
@@ -41,9 +47,12 @@ def run_merizo_search(input_file, id, output_dir):
     os.makedirs(unique_output_dir, exist_ok=True)
     print(f"Created unique output directory: {unique_output_dir}")
     
+    # Corrected path to merizo.py
+    merizo_script = '/opt/merizo_search/merizo_search/merizo.py'
+    
     cmd = [
         VIRTUALENV_PYTHON,
-        '/home/almalinux/merizo_search/merizo_search/merizo.py',
+        merizo_script,
         'easy-search',
         input_file,
         '/mnt/datasets/cath_foldclassdb',
@@ -65,6 +74,8 @@ def run_merizo_search(input_file, id, output_dir):
         print(f"MERIZO STDOUT:\n{out.decode('utf-8')}")
     if err:
         print(f"MERIZO STDERR:\n{err.decode('utf-8')}")
+    if p.returncode != 0:
+        print("Merizo Search encountered an error.")
     
     return unique_output_dir
 
