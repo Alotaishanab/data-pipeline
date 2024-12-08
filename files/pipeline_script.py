@@ -1,127 +1,69 @@
 import sys
-import csv
-import json
-from collections import defaultdict
-import statistics
 from subprocess import Popen, PIPE
 import glob
 import os
 import multiprocessing
-import logging
-import uuid  # For generating unique directory names
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
 """
-Usage: python3 pipeline_script.py [INPUT_DIR] [OUTPUT_DIR]
-Approx 5 seconds per analysis
+usage: python pipeline_script.py [INPUT DIR] [OUTPUT DIR]
+approx 5seconds per analysis
 """
 
-VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'  # Direct path to virtualenv's Python executable
+def run_parser(input_file, output_dir):
+    """
+    Run the results_parser.py over the hhr file to produce the output summary
+    """
+    search_file = input_file+"_search.tsv"
+    print(search_file, output_dir)
+    cmd = ['python', './results_parser.py', output_dir, search_file]
+    print(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
+    p = Popen(cmd, stdin=PIPE,stdout=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    print(out.decode("utf-8"))
 
-def run_parser(search_file_path, output_dir):
-    logging.info(f"Search file: {search_file_path}, Output directory: {output_dir}")
-    parser_script = '/opt/data_pipeline/results_parser.py'
-    cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file_path]
-    logging.info(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
-    
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+def run_merizo_search(input_file, id):
+    """
+    Runs the merizo domain predictor to produce domains
+    """
+    cmd = ['python3',
+           '/home/almalinux/merizo_search/merizo_search/merizo.py',
+           'easy-search',
+           input_file,
+           '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb',
+           id,
+           'tmp',
+           '--iterate',
+           '--output_headers',
+           '-d',
+           'cpu',
+           '--threads',
+           '1'
+           ]
+    print(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
+    p = Popen(cmd, stdin=PIPE,stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
-    logging.info(f"PARSER STDOUT:\n{out.decode('utf-8')}")
-    if err:
-        logging.error(f"PARSER STDERR:\n{err.decode('utf-8')}")
-    logging.info(f"PARSER Return Code: {p.returncode}")
-    
-    if p.returncode != 0:
-        logging.error("Parser encountered an error.")
-
-def run_merizo_search(input_file, id, output_dir):
-    # Generate a unique identifier for the run
-    unique_id = uuid.uuid4().hex
-    # Create a unique subdirectory within the output directory
-    unique_output_dir = os.path.join(output_dir, f"{id}_{unique_id}")
-    
-    # Ensure the unique output directory exists
-    os.makedirs(unique_output_dir, exist_ok=True)
-    logging.info(f"Created unique output directory: {unique_output_dir}")
-    
-    # Set the database path without the '.pt' extension
-    database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
-    
-    # Construct the Merizo Search command using virtualenv's Python
-    merizo_script = '/opt/merizo_search/merizo_search/merizo.py'
-    cmd = [
-        VIRTUALENV_PYTHON,
-        merizo_script,
-        'easy-search',
-        input_file,
-        database_base_path,
-        id,
-        unique_output_dir,
-        '--iterate',
-        '--output_headers',
-        '-d',
-        'cpu',
-        '--threads',
-        '1'
-    ]
-    logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
-    
-    # Execute the command
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-    out, err = p.communicate()
-    
-    logging.info(f"MERIZO STDOUT:\n{out.decode('utf-8')}")
-    if err:
-        logging.error(f"MERIZO STDERR:\n{err.decode('utf-8')}")
-    logging.info(f"MERIZO Return Code: {p.returncode}")
-    
-    if p.returncode != 0:
-        logging.error("Merizo Search encountered an error.")
-    
-    # List contents of the unique_output_dir
-    try:
-        contents = os.listdir(unique_output_dir)
-        logging.info(f"Contents of {unique_output_dir}: {contents}")
-    except Exception as e:
-        logging.error(f"Failed to list contents of {unique_output_dir}: {e}")
-    
-    return unique_output_dir
-
 def read_dir(input_dir):
-    logging.info("Getting file list")
-    file_ids = glob.glob(os.path.join(input_dir, "*.pdb"))
+    """
+    Function reads a fasta formatted file of protein sequences
+    """
+    print("Getting file list")
+    file_ids = list(glob.glob(input_dir+"*.pdb"))
     analysis_files = []
-    
-    for file_path in file_ids:
-        id = os.path.splitext(os.path.basename(file_path))[0]
-        analysis_files.append([file_path, id])
-    
-    return analysis_files
+    for file in file_ids:
+        id = file.rsplit('/', 1)[-1]
+        analysis_files.append([file, id, sys.argv[2]])
+    return(analysis_files)
 
-def pipeline(filepath, id, output_dir):
-    unique_output_dir = run_merizo_search(filepath, id, output_dir)
-    search_file_path = os.path.join(unique_output_dir, "test_search.tsv")
-    # After running Merizo Search, verify the search file exists
-    if not os.path.isfile(search_file_path):
-        logging.error(f"Search file {search_file_path} was not created by Merizo Search.")
-        return
-    run_parser(search_file_path, output_dir)
+def pipeline(filepath, id, outpath):
+    # STEP 1
+    run_merizo_search(filepath, id)
+    # STEP 2
+    run_parser(id, outpath)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python3 pipeline_script.py <INPUT_DIR> <OUTPUT_DIR>")
-        sys.exit(1)
-    
-    input_dir = sys.argv[1]
-    output_dir = sys.argv[2]
-    
-    pdbfiles = read_dir(input_dir)
-    if not pdbfiles:
-        logging.error("No PDB files found in the input directory.")
-        sys.exit(1)
-    
-    pool = multiprocessing.Pool(processes=1)
-    pool.starmap(pipeline, [[fp, id, output_dir] for fp, id in pdbfiles[:10]])
+    pdbfiles = read_dir(sys.argv[1])
+    p = multiprocessing.Pool(1)
+    p.starmap(pipeline, pdbfiles[:10])
+
+        
