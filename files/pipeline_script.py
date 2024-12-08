@@ -48,9 +48,24 @@ def run_merizo_search(input_file, id, output_dir):
     
     # Set the database path without the '.pt' extension
     database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
-    cmd = f'source {VIRTUALENV_PATH}/bin/activate && python3 /opt/merizo_search/merizo_search/merizo.py easy-search {input_file} {database_base_path} {id} {unique_output_dir} --iterate --output_headers -d cpu --threads 1'
+    
+    # Construct the Merizo Search command with virtualenv activation
+    cmd = (
+        f'source {VIRTUALENV_PATH}/bin/activate && '
+        f'python3 /opt/merizo_search/merizo_search/merizo.py easy-search '
+        f'{input_file} '
+        f'{database_base_path} '
+        f'{id} '
+        f'{unique_output_dir} '
+        f'--iterate '
+        f'--output_headers '
+        f'-d cpu '
+        f'--threads 1'
+    )
+    
     logging.info(f'STEP 1: RUNNING MERIZO: {cmd}')
     
+    # Execute the command within a bash shell
     p = Popen(cmd, shell=True, executable='/bin/bash', stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
