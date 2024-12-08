@@ -18,12 +18,14 @@ Usage: python3 pipeline_script.py [INPUT_DIR] [OUTPUT_DIR]
 Approx 5 seconds per analysis
 """
 
+VIRTUALENV_PATH = '/opt/merizo_search/merizosearch_env'  # Path to your virtual environment
+
 def run_parser(search_file_path, output_dir):
     logging.info(f"Search file: {search_file_path}, Output directory: {output_dir}")
-    cmd = ['python3', '/opt/data_pipeline/results_parser.py', output_dir, search_file_path]
-    logging.info(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
+    cmd = f'source {VIRTUALENV_PATH}/bin/activate && python3 /opt/data_pipeline/results_parser.py {output_dir} {search_file_path}'
+    logging.info(f'STEP 2: RUNNING PARSER: {cmd}')
     
-    p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    p = Popen(cmd, shell=True, executable='/bin/bash', stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
     logging.info(f"PARSER STDOUT:\n{out.decode('utf-8')}")
@@ -46,24 +48,10 @@ def run_merizo_search(input_file, id, output_dir):
     
     # Set the database path without the '.pt' extension
     database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
-    cmd = [
-        'python3',
-        '/opt/merizo_search/merizo_search/merizo.py',
-        'easy-search',
-        input_file,
-        database_base_path,  # No '.pt' here to prevent duplication
-        id,
-        unique_output_dir,    # Output directory set to the unique subdirectory
-        '--iterate',
-        '--output_headers',
-        '-d',
-        'cpu',
-        '--threads',
-        '1'
-    ]
-    logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
+    cmd = f'source {VIRTUALENV_PATH}/bin/activate && python3 /opt/merizo_search/merizo_search/merizo.py easy-search {input_file} {database_base_path} {id} {unique_output_dir} --iterate --output_headers -d cpu --threads 1'
+    logging.info(f'STEP 1: RUNNING MERIZO: {cmd}')
     
-    p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    p = Popen(cmd, shell=True, executable='/bin/bash', stdin=PIPE, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
     logging.info(f"MERIZO STDOUT:\n{out.decode('utf-8')}")

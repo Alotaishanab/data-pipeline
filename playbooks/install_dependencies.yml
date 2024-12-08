@@ -1,12 +1,23 @@
+---
 - name: Install Dependencies on Worker Nodes
   hosts: workers
   become: yes
+  vars:
+    merizo_search_repo: https://github.com/psipred/merizo_search.git
+    merizo_search_dest: /opt/merizo_search
+    virtualenv_path: /opt/merizo_search/merizosearch_env
+    python_version: "3.9"
+    torch_version: "2.0.1+cpu"
+    torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
+    user_home: "/home/almalinux"
+
   tasks:
-    - name: Install required packages
+    - name: Install required system packages
       package:
         name:
           - python3
           - python3-pip
+          - python3-venv
           - pigz
           - git
         state: present
@@ -42,47 +53,61 @@
 
     - name: Clone Merizo Search Repository
       git:
-        repo: https://github.com/psipred/merizo_search.git
-        dest: /opt/merizo_search
+        repo: "{{ merizo_search_repo }}"
+        dest: "{{ merizo_search_dest }}"
         version: main
         force: yes
 
     - name: Remove torch from requirements.txt
       lineinfile:
-        path: /opt/merizo_search/merizo_search/programs/Merizo/requirements.txt
+        path: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
         regexp: '^torch==.*$'
         state: absent
 
-    - name: Install Merizo Search Dependencies without torch
+    - name: Create Python Virtual Environment for Merizo Search
+      command: python3 -m venv "{{ virtualenv_path }}"
+      args:
+        creates: "{{ virtualenv_path }}"
+
+    - name: Install Merizo Search Dependencies without torch in Virtualenv
       pip:
-        requirements: /opt/merizo_search/merizo_search/programs/Merizo/requirements.txt
+        requirements: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
+        virtualenv: "{{ virtualenv_path }}"
+        executable: "{{ virtualenv_path }}/bin/pip"
         state: present
-        executable: pip3
         extra_args: "--no-deps"
 
-    - name: Install CPU-only PyTorch
+    - name: Install CPU-only PyTorch in Virtualenv
       pip:
-        name: "torch==2.0.1+cpu"
-        executable: pip3
+        name: "torch=={{ torch_version }}"
+        virtualenv: "{{ virtualenv_path }}"
+        executable: "{{ virtualenv_path }}/bin/pip"
         state: present
-        extra_args: "-f https://download.pytorch.org/whl/cpu/torch_stable.html"
+        extra_args: "--find-links {{ torch_url }}"
 
     - name: Make merizo.py Executable
       file:
-        path: /opt/merizo_search/merizo_search/merizo.py
+        path: "{{ merizo_search_dest }}/merizo_search/merizo.py"
         mode: '0755'
         owner: almalinux
         group: almalinux
 
-    - name: Set Environment Variable for Merizo Search
+    - name: Set Environment Variable for Merizo Search in .bashrc
       lineinfile:
-        path: /home/almalinux/.bashrc
-        line: 'export MERIZO_HOME=/opt/merizo_search'
+        path: "{{ user_home }}/.bashrc"
+        line: 'export MERIZO_HOME={{ merizo_search_dest }}'
         create: yes
         state: present
 
-    - name: Verify PyTorch Installation
-      command: python3 -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+    - name: Source .bashrc to apply environment variable
+      shell: source {{ user_home }}/.bashrc
+      args:
+        executable: /bin/bash
+
+    - name: Verify PyTorch Installation in Virtualenv
+      shell: |
+        source "{{ virtualenv_path }}/bin/activate"
+        python3 -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
       register: torch_check
       changed_when: false
       ignore_errors: true
@@ -90,3 +115,20 @@
     - name: Display PyTorch Installation Details
       debug:
         msg: "PyTorch Version: {{ torch_check.stdout_lines[0] | default('Not Installed') }}, CUDA Available: {{ torch_check.stdout_lines[1] | default('N/A') }}"
+
+    - name: Ensure Ownership of Merizo Search Directory
+      file:
+        path: "{{ merizo_search_dest }}"
+        state: directory
+        recurse: yes
+        owner: almalinux
+        group: almalinux
+
+    - name: Ensure Write Permissions on NFS-mounted Results Directory
+      file:
+        path: "/mnt/results"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0775'
+        recurse: yes
