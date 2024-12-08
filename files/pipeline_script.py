@@ -35,7 +35,7 @@ def run_parser(search_file, output_dir):
     if p.returncode != 0:
         print("Parser encountered an error.")
 
-def run_merizo_search(input_file, output_dir):
+def run_merizo_search(input_file, output_dir, id):
     """
     Runs the Merizo Search domain predictor to produce domains
     """
@@ -82,7 +82,25 @@ def run_merizo_search(input_file, output_dir):
     if p.returncode != 0:
         print("Merizo Search encountered an error.")
     
-    return output_dir
+    # Rename _search.tsv to test_search.tsv
+    old_search = os.path.join(output_dir, "_search.tsv")
+    new_search = os.path.join(output_dir, f"{id}_search.tsv")
+    if os.path.isfile(old_search):
+        os.rename(old_search, new_search)
+        print(f"Renamed '_search.tsv' to '{new_search}'")
+    else:
+        print(f"Error: '_search.tsv' not found in {output_dir}")
+    
+    # Similarly, rename _segment.tsv to test_segment.tsv
+    old_segment = os.path.join(output_dir, "_segment.tsv")
+    new_segment = os.path.join(output_dir, f"{id}_segment.tsv")
+    if os.path.isfile(old_segment):
+        os.rename(old_segment, new_segment)
+        print(f"Renamed '_segment.tsv' to '{new_segment}'")
+    else:
+        print(f"Error: '_segment.tsv' not found in {output_dir}")
+    
+    return new_search
 
 def read_dir(input_dir):
     """
@@ -98,11 +116,10 @@ def read_dir(input_dir):
 
 def pipeline(filepath, id, outpath):
     # STEP 1: Run Merizo Search
-    run_merizo_search(filepath, outpath)
+    search_file = run_merizo_search(filepath, outpath, id)
     
     # STEP 2: Run Parser on the generated search file
-    search_file_path = os.path.join(outpath, "test_search.tsv")
-    run_parser(search_file_path, outpath)
+    run_parser(search_file, outpath)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
