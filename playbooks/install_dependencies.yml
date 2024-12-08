@@ -74,7 +74,6 @@
       pip:
         requirements: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
         virtualenv: "{{ virtualenv_path }}"
-        executable: "{{ virtualenv_path }}/bin/pip"
         state: present
         extra_args: "--no-deps"
 
@@ -82,7 +81,6 @@
       pip:
         name: "torch=={{ torch_version }}"
         virtualenv: "{{ virtualenv_path }}"
-        executable: "{{ virtualenv_path }}/bin/pip"
         state: present
         extra_args: "--find-links {{ torch_url }}"
 
