@@ -75,7 +75,7 @@
         requirements: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
         virtualenv: "{{ virtualenv_path }}"
         state: present
-        extra_args: "--no-deps"
+        # Removed 'extra_args: "--no-deps"' to allow dependency installation
 
     - name: Install CPU-only PyTorch in Virtualenv
       pip:
