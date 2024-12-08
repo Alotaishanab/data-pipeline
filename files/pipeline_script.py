@@ -35,7 +35,7 @@ def run_parser(search_file, output_dir):
     if p.returncode != 0:
         print("Parser encountered an error.")
 
-def run_merizo_search(input_file, id, output_dir):
+def run_merizo_search(input_file, output_dir):
     """
     Runs the Merizo Search domain predictor to produce domains
     """
@@ -49,13 +49,19 @@ def run_merizo_search(input_file, id, output_dir):
     # Use the symbolic link path for database
     database_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     
+    # Define tmp_dir inside output_dir
+    tmp_dir = os.path.join(output_dir, "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    print(f"Using tmp directory: {tmp_dir}")
+    
     cmd = [
         VIRTUALENV_PYTHON,
         merizo_script,
         'easy-search',
         input_file,
         database_path,  # Use symlink path
-        '.',  # Output to current directory
+        output_dir,     # Output directory: /mnt/results/
+        tmp_dir,        # Temporary directory: /mnt/results/tmp/
         '--iterate',
         '--output_headers',
         '-d',
@@ -65,8 +71,8 @@ def run_merizo_search(input_file, id, output_dir):
     ]
     print(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
     
-    # Run merizo.py in output_dir
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE, cwd=output_dir)
+    # Run merizo.py
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
     if out:
@@ -92,7 +98,7 @@ def read_dir(input_dir):
 
 def pipeline(filepath, id, outpath):
     # STEP 1: Run Merizo Search
-    run_merizo_search(filepath, id, outpath)
+    run_merizo_search(filepath, outpath)
     
     # STEP 2: Run Parser on the generated search file
     search_file_path = os.path.join(outpath, "test_search.tsv")
