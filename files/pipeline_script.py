@@ -74,6 +74,13 @@ def run_merizo_search(input_file, id, output_dir):
     if p.returncode != 0:
         logging.error("Merizo Search encountered an error.")
     
+    # List contents of the unique_output_dir
+    try:
+        contents = os.listdir(unique_output_dir)
+        logging.info(f"Contents of {unique_output_dir}: {contents}")
+    except Exception as e:
+        logging.error(f"Failed to list contents of {unique_output_dir}: {e}")
+    
     return unique_output_dir
 
 def read_dir(input_dir):
