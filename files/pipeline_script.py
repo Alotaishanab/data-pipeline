@@ -11,7 +11,7 @@ import logging
 import uuid  # For generating unique directory names
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
 """
 Usage: python3 pipeline_script.py [INPUT_DIR] [OUTPUT_DIR]
