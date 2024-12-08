@@ -3,14 +3,13 @@ from subprocess import Popen, PIPE
 import glob
 import os
 import multiprocessing
-import uuid  # For generating unique directory names
 
 """
 Usage: python3 pipeline_script.py [INPUT DIR] [OUTPUT DIR]
 Approx 5 seconds per analysis
 """
 
-# Corrected path to the virtual environment's Python executable
+# Path to the virtual environment's Python executable
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 
 def run_parser(search_file, output_dir):
@@ -20,7 +19,7 @@ def run_parser(search_file, output_dir):
     print(f"Search File: {search_file}")
     print(f"Output Directory: {output_dir}")
     
-    # Corrected path to results_parser.py
+    # Correct path to results_parser.py
     parser_script = '/opt/data_pipeline/results_parser.py'
     
     cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file]
@@ -40,27 +39,23 @@ def run_merizo_search(input_file, id, output_dir):
     """
     Runs the Merizo Search domain predictor to produce domains
     """
-    unique_id = uuid.uuid4().hex[:8]
-    unique_output_dir = os.path.join(output_dir, f"{id}_{unique_id}")
+    # Ensure output_dir exists
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Using output directory: {output_dir}")
     
-    # Ensure the unique output directory exists
-    os.makedirs(unique_output_dir, exist_ok=True)
-    print(f"Created unique output directory: {unique_output_dir}")
-    
-    # Corrected path to merizo.py
+    # Path to merizo.py using symbolic links
     merizo_script = '/opt/merizo_search/merizo_search/merizo.py'
     
-    # Corrected database path to point directly to the .pt file without extension
-    database_path = '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb'
+    # Use the symbolic link path for database
+    database_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     
     cmd = [
         VIRTUALENV_PYTHON,
         merizo_script,
         'easy-search',
         input_file,
-        database_path,  # Updated database path
-        id,
-        unique_output_dir,
+        database_path,  # Use symlink path
+        '.',  # Output to current directory
         '--iterate',
         '--output_headers',
         '-d',
@@ -70,7 +65,8 @@ def run_merizo_search(input_file, id, output_dir):
     ]
     print(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
     
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    # Run merizo.py in output_dir
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE, cwd=output_dir)
     out, err = p.communicate()
     
     if out:
@@ -80,7 +76,7 @@ def run_merizo_search(input_file, id, output_dir):
     if p.returncode != 0:
         print("Merizo Search encountered an error.")
     
-    return unique_output_dir
+    return output_dir
 
 def read_dir(input_dir):
     """
@@ -96,10 +92,10 @@ def read_dir(input_dir):
 
 def pipeline(filepath, id, outpath):
     # STEP 1: Run Merizo Search
-    unique_output_dir = run_merizo_search(filepath, id, outpath)
+    run_merizo_search(filepath, id, outpath)
     
     # STEP 2: Run Parser on the generated search file
-    search_file_path = os.path.join(unique_output_dir, "test_search.tsv")
+    search_file_path = os.path.join(outpath, "test_search.tsv")
     run_parser(search_file_path, outpath)
 
 if __name__ == "__main__":
