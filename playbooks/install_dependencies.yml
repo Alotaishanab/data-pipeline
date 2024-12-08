@@ -9,6 +9,7 @@
     python_version: "3.9"
     torch_version: "2.0.1+cpu"
     torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
+    user_name: "almalinux"
     user_home: "/home/almalinux"
 
   tasks:
@@ -17,7 +18,7 @@
         name:
           - python3
           - python3-pip
-          - python3-venv
+          - python3-devel    # Provides development headers required for building virtual environments
           - pigz
           - git
         state: present
@@ -89,8 +90,8 @@
       file:
         path: "{{ merizo_search_dest }}/merizo_search/merizo.py"
         mode: '0755'
-        owner: almalinux
-        group: almalinux
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
 
     - name: Set Environment Variable for Merizo Search in .bashrc
       lineinfile:
@@ -121,14 +122,14 @@
         path: "{{ merizo_search_dest }}"
         state: directory
         recurse: yes
-        owner: almalinux
-        group: almalinux
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
 
     - name: Ensure Write Permissions on NFS-mounted Results Directory
       file:
         path: "/mnt/results"
         state: directory
-        owner: almalinux
-        group: almalinux
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
         mode: '0775'
         recurse: yes
