@@ -18,14 +18,15 @@ Usage: python3 pipeline_script.py [INPUT_DIR] [OUTPUT_DIR]
 Approx 5 seconds per analysis
 """
 
-VIRTUALENV_PATH = '/opt/merizo_search/merizosearch_env'  # Path to your virtual environment
+VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'  # Direct path to virtualenv's Python executable
 
 def run_parser(search_file_path, output_dir):
     logging.info(f"Search file: {search_file_path}, Output directory: {output_dir}")
-    cmd = f'source {VIRTUALENV_PATH}/bin/activate && python3 /opt/data_pipeline/results_parser.py {output_dir} {search_file_path}'
-    logging.info(f'STEP 2: RUNNING PARSER: {cmd}')
+    parser_script = '/opt/data_pipeline/results_parser.py'
+    cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file_path]
+    logging.info(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
     
-    p = Popen(cmd, shell=True, executable='/bin/bash', stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
     logging.info(f"PARSER STDOUT:\n{out.decode('utf-8')}")
@@ -49,24 +50,27 @@ def run_merizo_search(input_file, id, output_dir):
     # Set the database path without the '.pt' extension
     database_base_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     
-    # Construct the Merizo Search command with virtualenv activation
-    cmd = (
-        f'source {VIRTUALENV_PATH}/bin/activate && '
-        f'python3 /opt/merizo_search/merizo_search/merizo.py easy-search '
-        f'{input_file} '
-        f'{database_base_path} '
-        f'{id} '
-        f'{unique_output_dir} '
-        f'--iterate '
-        f'--output_headers '
-        f'-d cpu '
-        f'--threads 1'
-    )
+    # Construct the Merizo Search command using virtualenv's Python
+    merizo_script = '/opt/merizo_search/merizo_search/merizo.py'
+    cmd = [
+        VIRTUALENV_PYTHON,
+        merizo_script,
+        'easy-search',
+        input_file,
+        database_base_path,
+        id,
+        unique_output_dir,
+        '--iterate',
+        '--output_headers',
+        '-d',
+        'cpu',
+        '--threads',
+        '1'
+    ]
+    logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
     
-    logging.info(f'STEP 1: RUNNING MERIZO: {cmd}')
-    
-    # Execute the command within a bash shell
-    p = Popen(cmd, shell=True, executable='/bin/bash', stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    # Execute the command
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
     out, err = p.communicate()
     
     logging.info(f"MERIZO STDOUT:\n{out.decode('utf-8')}")
