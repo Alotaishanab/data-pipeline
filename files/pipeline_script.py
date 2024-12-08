@@ -50,12 +50,15 @@ def run_merizo_search(input_file, id, output_dir):
     # Corrected path to merizo.py
     merizo_script = '/opt/merizo_search/merizo_search/merizo.py'
     
+    # Corrected database path to point directly to the .pt file without extension
+    database_path = '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb'
+    
     cmd = [
         VIRTUALENV_PYTHON,
         merizo_script,
         'easy-search',
         input_file,
-        '/mnt/datasets/cath_foldclassdb',
+        database_path,  # Updated database path
         id,
         unique_output_dir,
         '--iterate',
