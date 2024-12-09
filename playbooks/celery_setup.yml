@@ -7,15 +7,14 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
-    celery_bin: "/usr/local/bin/celery"  # Standard Celery binary path
+    celery_bin: "/usr/local/bin/celery"  # Updated to standard Celery binary path
   tasks:
-    - name: Install Celery and Redis Python packages in virtualenv
+    - name: Install Celery and Redis Python packages globally
       pip:
         name:
           - celery
           - redis
         state: present
-        virtualenv: /opt/merizo_search/merizosearch_env/bin/activate  # Ensure correct virtualenv
 
     - name: Create data pipeline directory
       file:
@@ -36,7 +35,7 @@
           import subprocess
           import os
 
-          # Define the Redis broker URL using Ansible variable
+          # Define the Redis broker URL
           app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')  
 
           @app.task
@@ -115,7 +114,6 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          Environment="PATH=/opt/merizo_search/merizosearch_env/bin:/usr/bin:/bin"
           ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4
           Restart=always
 
@@ -127,7 +125,7 @@
       systemd:
         daemon_reload: yes
 
-    - name: Start and enable Celery service
+    - name: Restart and enable Celery service
       systemd:
         name: celery
         state: restarted  # Use 'restarted' to apply any changes
