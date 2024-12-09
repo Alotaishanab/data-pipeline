@@ -5,42 +5,45 @@
   tasks:
 
     - name: Clean YUM/DNF cache
-      package:
-        name: "*"
-        state: latest
       when: ansible_facts['pkg_mgr'] in ['dnf', 'yum']
+      command: yum clean all
+      ignore_errors: yes
 
     - name: Clean APT cache
+      when: ansible_facts['pkg_mgr'] == 'apt'
       apt:
         autoclean: yes
         autoremove: yes
         clean: yes
-      when: ansible_facts['pkg_mgr'] == 'apt'
+      ignore_errors: yes
 
     - name: Remove old kernels (keep latest 2)
-      shell: |
-        package-cleanup --oldkernels --count=2 -y
-      args:
-        warn: false
       when: ansible_facts['pkg_mgr'] in ['dnf', 'yum']
+      shell: package-cleanup --oldkernels --count=2 -y
+      ignore_errors: yes
 
     - name: Remove unused packages
-      package:
+      when: ansible_facts['pkg_mgr'] in ['dnf', 'yum']
+      yum:
         name: "*"
         state: absent
         autoremove: yes
-      when: ansible_facts['pkg_mgr'] in ['dnf', 'yum']
-
-    - name: Clean pip cache
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "/root/.cache/pip"
-        - "/home/*/.cache/pip"
       ignore_errors: yes
 
-    - name: Truncate large log files
+    - name: Clean pip cache for root
+      file:
+        path: "/root/.cache/pip"
+        state: absent
+      ignore_errors: yes
+
+    - name: Clean pip cache for all users
+      file:
+        path: "/home/{{ item }}/.cache/pip"
+        state: absent
+      loop: "{{ ansible_facts.users | default([]) }}"
+      ignore_errors: yes
+
+    - name: Truncate large log files over 100MB
       find:
         paths: /var/log
         patterns: "*.log"
@@ -48,13 +51,14 @@
         size: "+100M"
       register: large_logs
 
-    - name: Truncate log files over 100MB
+    - name: Truncate log files
       file:
         path: "{{ item.path }}"
         state: touch
         mode: '0644'
       loop: "{{ large_logs.files }}"
       when: large_logs.matched > 0
+      ignore_errors: yes
 
     - name: Remove temporary files
       file:
@@ -65,16 +69,27 @@
         - /var/tmp/*
       ignore_errors: yes
 
-    - name: Find and remove large unused files (optional)
-      shell: |
-        find / -type f -size +500M -exec ls -lh {} \; | awk '{ print $NF }' > /tmp/large_files.txt
-      args:
-        warn: false
+    - name: Find large unused files over 500MB
+      find:
+        paths: /
+        patterns: "*"
+        file_type: file
+        size: "+500M"
+      register: large_files
 
-    - name: Review large files before deletion
+    - name: List large files
       debug:
-        msg: "Large file found: {{ item }}"
-      with_lines: cat /tmp/large_files.txt
+        msg: "Large file: {{ item.path }}"
+      loop: "{{ large_files.files }}"
+
+    # Uncomment the following to delete large files automatically
+    # - name: Delete large files over 500MB
+    #   file:
+    #     path: "{{ item.path }}"
+    #     state: absent
+    #   loop: "{{ large_files.files }}"
+    #   when: "'/important/path' not in item.path"  # Add conditions as needed
+    #   ignore_errors: yes
 
     - name: Check disk usage after cleanup
       command: df -h
