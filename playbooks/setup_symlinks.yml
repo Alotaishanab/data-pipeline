@@ -69,3 +69,62 @@
       fail:
         msg: "Symbolic link for CATH Foldclass Database (.index) points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index, Got: {{ symlink_index_target.stdout }}"
       when: symlink_index_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index'
+
+    # New Tasks for Metadata Files
+    - name: Create symbolic link for CATH Foldclass Database (.metadata)
+      file:
+        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata
+        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata
+        state: link
+        owner: almalinux
+        group: almalinux
+        force: yes
+
+    - name: Verify symbolic link creation for .metadata file
+      stat:
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata
+      register: cathdb_metadata_symlink
+
+    - name: Fail if .metadata symbolic link was not created
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database (.metadata) was not created successfully."
+      when: not cathdb_metadata_symlink.stat.islnk
+
+    - name: Ensure the .metadata symlink points to the correct target
+      command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata
+      register: symlink_metadata_target
+      changed_when: false
+
+    - name: Fail if .metadata symlink target is incorrect
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database (.metadata) points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata, Got: {{ symlink_metadata_target.stdout }}"
+      when: symlink_metadata_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata'
+
+    - name: Create symbolic link for CATH Foldclass Database (.metadata.index)
+      file:
+        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata.index
+        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata.index
+        state: link
+        owner: almalinux
+        group: almalinux
+        force: yes
+
+    - name: Verify symbolic link creation for .metadata.index file
+      stat:
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata.index
+      register: cathdb_metadata_index_symlink
+
+    - name: Fail if .metadata.index symbolic link was not created
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database (.metadata.index) was not created successfully."
+      when: not cathdb_metadata_index_symlink.stat.islnk
+
+    - name: Ensure the .metadata.index symlink points to the correct target
+      command: readlink -f /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata.index
+      register: symlink_metadata_index_target
+      changed_when: false
+
+    - name: Fail if .metadata.index symlink target is incorrect
+      fail:
+        msg: "Symbolic link for CATH Foldclass Database (.metadata.index) points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata.index, Got: {{ symlink_metadata_index_target.stdout }}"
+      when: symlink_metadata_index_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata.index'
