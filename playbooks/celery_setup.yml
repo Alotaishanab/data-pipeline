@@ -7,14 +7,15 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
-    celery_bin: "/usr/local/bin/celery"  # Updated to standard Celery binary path
+    celery_bin: "/usr/local/bin/celery"  # Standard Celery binary path
   tasks:
-    - name: Install Celery and Redis Python packages
+    - name: Install Celery and Redis Python packages in virtualenv
       pip:
         name:
           - celery
           - redis
         state: present
+        virtualenv: /opt/merizo_search/merizosearch_env/bin/activate  # Ensure correct virtualenv
 
     - name: Create data pipeline directory
       file:
@@ -24,7 +25,7 @@
         group: "{{ celery_group }}"
         mode: '0755'
 
-    - name: Deploy Celery Worker Script
+    - name: Deploy Updated Celery Worker Script
       copy:
         dest: /opt/data_pipeline/celery_worker.py
         owner: "{{ celery_user }}"
@@ -39,19 +40,21 @@
           app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')  
 
           @app.task
-          def run_pipeline(input_dir, output_dir):
+          def run_pipeline(input_dir, output_dir, organism):
               """
               Celery task to run the data pipeline on a specified input directory.
               
-              :param input_dir: Directory containing the input PDB files
+              :param input_dir: Path to the input .pdb file
               :param output_dir: Directory where output files will be saved
+              :param organism: Organism type ('human' or 'ecoli')
               """
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
               cmd = [
                   "python3",
                   pipeline_script,
                   input_dir,
-                  output_dir
+                  output_dir,
+                  organism
               ]
               try:
                   process = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -66,6 +69,35 @@
                       'stderr': e.stderr,
                       'returncode': e.returncode
                   }
+
+    - name: Deploy Updated Dispatch Tasks Script
+      copy:
+        dest: /opt/data_pipeline/dispatch_tasks.py
+        owner: "{{ celery_user }}"
+        group: "{{ celery_group }}"
+        mode: '0755'
+        content: |
+          import sys
+          from celery import Celery
+
+          # Initialize Celery app with the Redis broker
+          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
+
+          if __name__ == "__main__":
+              if len(sys.argv) != 4:
+                  print("Usage: python3 dispatch_tasks.py [INPUT FILE] [OUTPUT DIRECTORY] [ORGANISM]")
+                  sys.exit(1)
+
+              input_file = sys.argv[1]
+              output_dir = sys.argv[2]
+              organism = sys.argv[3].lower()
+
+              if organism not in ["human", "ecoli"]:
+                  print("Error: ORGANISM must be either 'human' or 'ecoli'")
+                  sys.exit(1)
+
+              result = app.send_task('celery_worker.run_pipeline', args=[input_file, output_dir, organism])
+              print(f"Task {result.id} dispatched for {input_file} with organism '{organism}'")
 
     - name: Deploy Celery Service File
       copy:
@@ -83,35 +115,13 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=2
+          Environment="PATH=/opt/merizo_search/merizosearch_env/bin:/usr/bin:/bin"
+          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
         force: yes
-
-    - name: Deploy Dispatch Tasks Script
-      copy:
-        dest: /opt/data_pipeline/dispatch_tasks.py
-        owner: "{{ celery_user }}"
-        group: "{{ celery_group }}"
-        mode: '0755'
-        content: |
-          import sys
-          from celery import Celery
-
-          # Initialize Celery app with the Redis broker
-          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
-
-          if __name__ == "__main__":
-              if len(sys.argv) != 3:
-                  print("Usage: python3 dispatch_tasks.py [INPUT DIR] [OUTPUT DIRECTORY]")
-                  sys.exit(1)
-
-              input_dir = sys.argv[1]
-              output_dir = sys.argv[2]
-              result = app.send_task('celery_worker.run_pipeline', args=[input_dir, output_dir])
-              print(f"Task {result.id} dispatched for {input_dir}")
 
     - name: Reload systemd daemon
       systemd:
@@ -120,7 +130,7 @@
     - name: Start and enable Celery service
       systemd:
         name: celery
-        state: started
+        state: restarted  # Use 'restarted' to apply any changes
         enabled: yes
 
     - name: Ensure Celery worker script is executable

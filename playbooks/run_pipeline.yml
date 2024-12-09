@@ -1,18 +1,37 @@
+# /home/almalinux/ansible/playbooks/run_pipeline.yml
+
 - name: Distribute and Run Data Analysis Pipeline via Celery
   hosts: host
   become: yes
   vars:
-    data_input_dir: "/mnt/datasets/human_proteome/"
-    results_dir: "/mnt/results/"
+    datasets:
+      - organism: "human"
+        data_input_dir: "/mnt/datasets/human_proteome/"
+        results_dir: "/mnt/results/human/"
+      - organism: "ecoli"
+        data_input_dir: "/mnt/datasets/ecoli_proteome/"
+        results_dir: "/mnt/results/ecoli/"
   tasks:
-    - name: Find all .pdb files
+    - name: Find all .pdb files for each dataset
       find:
-        paths: "{{ data_input_dir }}"
+        paths: "{{ item.data_input_dir }}"
         patterns: "*.pdb"
       register: pdb_files
-
-    - name: Enqueue pipeline tasks
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+    
+    - name: Set fact for datasets and their PDB files
+      set_fact:
+        datasets_pdb: "{{ datasets_pdb | default([]) + [ {'organism': item.item.organism, 'results_dir': item.item.results_dir, 'files': item.files | map(attribute='path') | list } ] }}"
+      loop: "{{ pdb_files.results }}"
+      loop_control:
+        label: "{{ item.item.organism }}"
+    
+    - name: Enqueue pipeline tasks for each PDB file
       shell: |
-        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.path }}" "{{ results_dir }}"
-      loop: "{{ pdb_files.files }}"
-      when: pdb_files.matched > 0
+        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.1 }}" "{{ item.0.results_dir }}" "{{ item.0.organism }}"
+      loop: "{{ datasets_pdb | subelements('files') }}"
+      loop_control:
+        label: "{{ item.1 }}"
+      when: item.1 is defined
