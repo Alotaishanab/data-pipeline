@@ -46,15 +46,33 @@
           app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')  
 
           @app.task
-          def run_pipeline(pdb_file, results_dir):
+          def run_pipeline(input_dir, output_dir):
+              """
+              Celery task to run the data pipeline on a specified input directory.
+              
+              :param input_dir: Directory containing the input PDB files
+              :param output_dir: Directory where output files will be saved
+              """
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
-              cmd = f"python3 {pipeline_script} {pdb_file} {results_dir}"
-              process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-              return {
-                  'stdout': process.stdout,
-                  'stderr': process.stderr,
-                  'returncode': process.returncode
-              }
+              cmd = [
+                  "python3",
+                  pipeline_script,
+                  input_dir,
+                  output_dir
+              ]
+              try:
+                  process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                  return {
+                      'stdout': process.stdout,
+                      'stderr': process.stderr,
+                      'returncode': process.returncode
+                  }
+              except subprocess.CalledProcessError as e:
+                  return {
+                      'stdout': e.stdout,
+                      'stderr': e.stderr,
+                      'returncode': e.returncode
+                  }
 
     - name: Deploy Celery Service File
       copy:
@@ -72,14 +90,12 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info
+          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=2
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
         force: yes
-
-
 
     - name: Deploy Dispatch Tasks Script
       copy:
@@ -96,15 +112,13 @@
 
           if __name__ == "__main__":
               if len(sys.argv) != 3:
-                  print("Usage: python3 dispatch_tasks.py [INPUT FILE] [OUTPUT DIRECTORY]")
+                  print("Usage: python3 dispatch_tasks.py [INPUT DIR] [OUTPUT DIRECTORY]")
                   sys.exit(1)
 
-              pdb_file = sys.argv[1]
-              results_dir = sys.argv[2]
-              result = app.send_task('celery_worker.run_pipeline', args=[pdb_file, results_dir])
-              print(f"Task {result.id} dispatched for {pdb_file}")
-
-
+              input_dir = sys.argv[1]
+              output_dir = sys.argv[2]
+              result = app.send_task('celery_worker.run_pipeline', args=[input_dir, output_dir])
+              print(f"Task {result.id} dispatched for {input_dir}")
 
     - name: Reload systemd daemon
       systemd:
