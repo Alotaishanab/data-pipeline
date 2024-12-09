@@ -2,6 +2,7 @@
 
 import sys
 from subprocess import Popen, PIPE
+import glob
 import os
 
 """
@@ -35,7 +36,7 @@ def run_parser(search_file, output_dir):
     if p.returncode != 0:
         print("Parser encountered an error.")
 
-def run_merizo_search(input_dir, output_dir):
+def run_merizo_search(input_file, output_dir, id):
     """
     Runs the Merizo Search domain predictor to produce domains
     """
@@ -58,7 +59,7 @@ def run_merizo_search(input_dir, output_dir):
         VIRTUALENV_PYTHON,
         merizo_script,
         'easy-search',
-        input_dir,       # Pass directory instead of single file
+        input_file,      # Pass individual file
         database_path,   # Use symlink path
         output_dir,      # Output directory: /mnt/results/
         tmp_dir,         # Temporary directory: /mnt/results/tmp/
@@ -84,7 +85,7 @@ def run_merizo_search(input_dir, output_dir):
     
     # Rename _search.tsv to test_search.tsv
     old_search = os.path.join(output_dir, "_search.tsv")
-    new_search = os.path.join(output_dir, "test_search.tsv")
+    new_search = os.path.join(output_dir, f"{id}_search.tsv")
     if os.path.isfile(old_search):
         os.rename(old_search, new_search)
         print(f"Renamed '_search.tsv' to '{new_search}'")
@@ -93,7 +94,7 @@ def run_merizo_search(input_dir, output_dir):
     
     # Similarly, rename _segment.tsv to test_segment.tsv
     old_segment = os.path.join(output_dir, "_segment.tsv")
-    new_segment = os.path.join(output_dir, "test_segment.tsv")
+    new_segment = os.path.join(output_dir, f"{id}_segment.tsv")
     if os.path.isfile(old_segment):
         os.rename(old_segment, new_segment)
         print(f"Renamed '_segment.tsv' to '{new_segment}'")
@@ -102,12 +103,24 @@ def run_merizo_search(input_dir, output_dir):
     
     return new_search
 
-def pipeline(input_dir, output_dir):
+def read_dir(input_dir):
+    """
+    Reads all PDB files in the input directory
+    """
+    print("Getting file list")
+    file_ids = glob.glob(os.path.join(input_dir, "*.pdb"))
+    analysis_files = []
+    for file_path in file_ids:
+        id = os.path.splitext(os.path.basename(file_path))[0]
+        analysis_files.append([file_path, id, sys.argv[2]])
+    return analysis_files
+
+def pipeline(filepath, id, outpath):
     # STEP 1: Run Merizo Search
-    search_file = run_merizo_search(input_dir, output_dir)
+    search_file = run_merizo_search(filepath, outpath, id)
     
     # STEP 2: Run Parser on the generated search file
-    run_parser(search_file, output_dir)
+    run_parser(search_file, outpath)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -117,4 +130,11 @@ if __name__ == "__main__":
     input_dir = sys.argv[1]
     output_dir = sys.argv[2]
     
-    pipeline(input_dir, output_dir)
+    pdbfiles = read_dir(input_dir)
+    if not pdbfiles:
+        print("No PDB files found in the input directory.")
+        sys.exit(1)
+    
+    for file_info in pdbfiles:
+        filepath, id, outpath = file_info
+        pipeline(filepath, id, outpath)
