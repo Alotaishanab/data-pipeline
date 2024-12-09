@@ -1,3 +1,5 @@
+# /opt/data_pipeline/results_parser.py
+
 import sys
 import csv
 import json
@@ -48,10 +50,12 @@ def main():
                 try:
                     meta = row[15]
                     data = json.loads(meta)
+                    print(f"Row {i+2} metadata: {data}")  # Debug print
                     cath_id = data.get("cath", "Unknown")
                     cath_ids[cath_id] += 1
                 except (IndexError, json.JSONDecodeError):
-                    print(f"Warning: Invalid metadata on row {i+2}.")
+                    print(f"Warning: Invalid metadata on row {i+2}. Content: {row[15] if len(row) > 15 else 'N/A'}")
+                    print(f"Row content: {row}")
                     continue
 
         # Define the parsed file name
