@@ -1,7 +1,7 @@
 # /home/almalinux/ansible/playbooks/setup_celery_workers.yml
 
 - name: Setup Celery Workers
-  hosts: workers
+  hosts: workers,host
   become: yes
   vars:
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
