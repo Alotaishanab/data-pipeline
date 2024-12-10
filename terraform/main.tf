@@ -21,8 +21,9 @@ resource "harvester_cloudinit_secret" "cloud_config" {
 }
 
 data "harvester_image" "img" {
+  # The image exists in harvester-public namespace
   name      = local.image_name
-  namespace = local.namespace
+  namespace = "harvester-public"
 }
 
 # Management VM: CPU=2, Mem=4Gi, Disk=10Gi
