@@ -13,5 +13,5 @@ terraform {
 }
 
 provider "harvester" {
-  kubeconfig = file("./kubeconfig.yaml")
+  kubeconfig = file("./kubeconfig.yml")
 }
