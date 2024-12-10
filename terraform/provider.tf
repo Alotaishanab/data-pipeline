@@ -13,7 +13,7 @@ terraform {
 }
 
 provider "harvester" {
-  kubeconfig_raw = <<-EOF
+  kubeconfig = <<-EOF
 apiVersion: v1
 kind: Config
 clusters:
