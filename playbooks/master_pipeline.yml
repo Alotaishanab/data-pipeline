@@ -1,8 +1,8 @@
-- import_playbook: cleanup_disk_space.yml
 - import_playbook: common.yml
 - import_playbook: install_dependencies.yml
 - import_playbook: nfs_server.yml
 - import_playbook: nfs_clients.yml
+- import_playbook: cleanup_disk_space.yml
 - import_playbook: download_and_prepare_datasets.yml
 - import_playbook: setup_symlinks.yml       
 - import_playbook: uncompress_files.yml
@@ -10,4 +10,5 @@
 - import_playbook: monitoring_and_logging.yml  
 - import_playbook: redis_setup.yml
 - import_playbook: celery_setup.yml
+- import_playbook: cleanup_disk_space.yml
 - import_playbook: run_pipeline.yml  
