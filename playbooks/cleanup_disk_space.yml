@@ -35,23 +35,21 @@
 
     # Find log files over 100MB (100MB = 104857600 bytes)
     # Using +104857600 means strictly greater than 100MB in bytes
-    - name: Find log files over 100MB
-      find:
-        paths: /var/log
-        patterns: "*.log"
-        recurse: yes
-        size: "+104857600"
-      register: large_logs
+    - name: Find log files over 100MB using shell
+      shell: find /var/log -type f -name '*.log' -size +100M
+      register: large_logs_shell
+      args:
+        executable: /bin/bash
       ignore_errors: yes
 
     - name: Truncate large log files
-      file:
-        path: "{{ item.path }}"
-        state: touch
-        mode: '0644'
-      loop: "{{ large_logs.files | default([]) }}"
-      when: large_logs.matched|default(0) > 0
+      shell: truncate -s 0 "{{ item }}"
+      loop: "{{ large_logs_shell.stdout_lines | default([]) }}"
+      args:
+        executable: /bin/bash
+      when: large_logs_shell.stdout_lines is defined and large_logs_shell.stdout_lines|length > 0
       ignore_errors: yes
+
 
     # Remove temporary files
     - name: Remove /tmp and /var/tmp files
