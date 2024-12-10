@@ -2,21 +2,14 @@ resource "random_id" "secret" {
   byte_length = 4
 }
 
-# SSH key as provided
-# NOTE: If your SSH key differs, put the full SSH key line below:
 locals {
-  ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDEGYMIHQdWQv/nwFf7zN2Pue60T+Outmr202vz3/DPAA+ufAWfo9FRw4r4dR44jFZpqmwIm2GCIH/JmB9/ETJsYgOJLBhxC+1Dea75jsQh7deYIcyfJQKJpnb0S5FJbg2+6H3jfGLj/MvoU/tVVqz2lNOmpApSj7B0Npo/qkea/3kzXhFz8Bhu4K1Glr0bh1d4YYLQ20SrSpFR+uGcwkKuOBMX12T25tNPADQ+Wi/nVK7jD9124oqcpgCGLDHWpSULX/AYCxCqMQOih3Kb2B6x7OPnCxXPpQugAOJ7zclfdRVpVN07RAPJKjMpVeQ+87EEH5ZFWpuOortUrrGE8xac+OsDOzQzmNCkchcq6rhs3YuPb/U86a6RswimkOGl/J2wT4Dd9npnCtkNyhFKc1Ucr+z63qQ/Pc0binfmgQ9XpX6A0FdMHs0d2XQzgKMjtDVfEEfclVO9ieGUMziDDdNzSce9xeAKWFyXZGXX3kBvmYDJOcs0HRjggUQXhmrHmbff6hkCd8qn2yoTIHtBgSH8VCR0tbT8UEyJFmqrBRt5qdDk4ITiPomdxOcEmdG9ivPtcDgcvP5RMNwUSBbEMWPGn7SHv36Glzm0t4Z4PPZouLr8pnrBzR9xUrd/5soyul0XkkcRGeA9Nj5ChtSsTMZbK26sk3UQjwNCm3+arAouSw== abdullah.alotaishan@kcl.ac.uk"
-}
-
-# We'll use "harvester-public" namespace and "ds4eng" network
-locals {
-  namespace = "harvester-public"
+  ssh_key      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDEGYMIHQdWQv/nwFf7zN2Pue60T+Outmr202vz3/DPAA+ufAWfo9FRw4r4dR44jFZpqmwIm2GCIH/JmB9/ETJsYgOJLBhxC+1Dea75jsQh7deYIcyfJQKJpnb0S5FJbg2+6H3jfGLj/MvoU/tVVqz2lNOmpApSj7B0Npo/qkea/3kzXhFz8Bhu4K1Glr0bh1d4YYLQ20SrSpFR+uGcwkKuOBMX12T25tNPADQ+Wi/nVK7jD9124oqcpgCGLDHWpSULX/AYCxCqMQOih3Kb2B6x7OPnCxXPpQugAOJ7zclfdRVpVN07RAPJKjMpVeQ+87EEH5ZFWpuOortUrrGE8xac+OsDOzQzmNCkchcq6rhs3YuPb/U86a6RswimkOGl/J2wT4Dd9npnCtkNyhFKc1Ucr+z63qQ/Pc0binfmgQ9XpX6A0FdMHs0d2XQzgKMjtDVfEEfclVO9ieGUMziDDdNzSce9xeAKWFyXZGXX3kBvmYDJOcs0HRjggUQXhmrHmbff6hkCd8qn2yoTIHtBgSH8VCR0tbT8UEyJFmqrBRt5qdDk4ITiPomdxOcEmdG9ivPtcDgcvP5RMNwUSBbEMWPGn7SHv36Glzm0t4Z4PPZouLr8pnrBzR9xUrd/5soyul0XkkcRGeA9Nj5ChtSsTMZbK26sk3UQjwNCm3+arAouSw== abdullah.alotaishan@kcl.ac.uk"
+  namespace    = "ucabbaa-comp0235-ns"
   network_name = "ds4eng"
-  image_name = "harvester-public/almalinux-9.4-20240805"
-  username = "abdullah"
+  image_name   = "almalinux-9.4-20240805"
+  username     = "ucabbaa@ucl.ac.uk"
 }
 
-# Create a cloud-init secret for SSH key injection
 resource "harvester_cloudinit_secret" "cloud_config" {
   name      = "${local.username}-cloudinit-${random_id.secret.hex}"
   namespace = local.namespace
@@ -32,7 +25,7 @@ data "harvester_image" "img" {
   namespace = local.namespace
 }
 
-# Create 1 management (host) VM: CPU=2, Mem=4Gi, Disk=10Gi
+# Management VM: CPU=2, Mem=4Gi, Disk=10Gi
 resource "harvester_virtualmachine" "mgmt" {
   name                 = "${local.username}-mgmt-${random_id.secret.hex}"
   namespace            = local.namespace
@@ -70,7 +63,7 @@ resource "harvester_virtualmachine" "mgmt" {
   }
 }
 
-# Create 3 worker VMs: CPU=4, Mem=32Gi, Disk=25Gi each
+# Workers: 3 VMs, CPU=4, Mem=32Gi, Disk=25Gi
 resource "harvester_virtualmachine" "worker" {
   count               = 3
   name                = "${local.username}-worker-${count.index + 1}-${random_id.secret.hex}"
@@ -109,7 +102,7 @@ resource "harvester_virtualmachine" "worker" {
   }
 }
 
-# Create 1 storage VM: CPU=4, Mem=8Gi, root=10Gi + extra 200Gi disk
+# Storage VM: CPU=4, Mem=8Gi, root=10Gi + extra 200Gi disk
 resource "harvester_virtualmachine" "storage" {
   name                 = "${local.username}-storage-${random_id.secret.hex}"
   namespace            = local.namespace
@@ -132,7 +125,6 @@ resource "harvester_virtualmachine" "storage" {
     network_name   = local.network_name
   }
 
-  # Root disk 10Gi
   disk {
     name       = "rootdisk"
     type       = "disk"
@@ -143,7 +135,6 @@ resource "harvester_virtualmachine" "storage" {
     auto_delete = true
   }
 
-  # Extra 200Gi disk
   disk {
     name       = "datadisk"
     type       = "disk"

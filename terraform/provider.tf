@@ -7,7 +7,7 @@ terraform {
     }
     random = {
       source  = "hashicorp/random"
-      version = ">= 3.1.0"
+      version = ">=3.1.0"
     }
   }
 }
@@ -36,7 +36,7 @@ TZweTNlCmZVdU1TTFVXVjd0TFhXTlhyU2pPN0NrPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t"
 users:
 - name: "sl-p01"
   user:
-    token: "kubeconfig-u-fhgdi4zayztbpvr:dwrdmsvv68wbnq7vp7sb25bgl9qgmk466dghxvwb7ns756g8ggcn9b"
+    token: "kubeconfig-u-fhgdi4zayzt44cf:vpnbspq6drps267tt2cb2vm4s2l5mk6xxh79fjcvmx77g86mr98pj4"
 
 contexts:
 - name: "sl-p01"
