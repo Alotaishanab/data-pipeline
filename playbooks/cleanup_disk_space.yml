@@ -4,16 +4,13 @@
   become: yes
   tasks:
 
-    # Clean package caches (safe operation)
+    # Clean YUM/DNF cache if RedHat-based
     - name: Clean YUM/DNF cache if RedHat-based
       when: ansible_facts['pkg_mgr'] in ['dnf', 'yum']
-      block:
-        - name: Clean YUM/DNF cache
-          command: yum clean all
-          args:
-            warn: false
-          ignore_errors: yes
+      command: yum clean all
+      ignore_errors: yes
 
+    # Clean APT cache if Debian-based
     - name: Clean APT cache if Debian-based
       when: ansible_facts['pkg_mgr'] == 'apt'
       apt:
@@ -22,64 +19,48 @@
         clean: yes
       ignore_errors: yes
 
-    # Remove pip cache (non-essential)
+    # Remove root pip cache
     - name: Remove root pip cache
       file:
         path: "/root/.cache/pip"
         state: absent
       ignore_errors: yes
 
+    # Remove user pip caches
     - name: Remove user pip caches
-      shell: "rm -rf /home/*/.cache/pip"
+      shell: rm -rf /home/*/.cache/pip
       args:
-        warn: false
+        executable: /bin/bash
       ignore_errors: yes
 
-    # Truncate large log files instead of deleting them
+    # Find log files over 100MB (100MB = 104857600 bytes)
+    # Using +104857600 means strictly greater than 100MB in bytes
     - name: Find log files over 100MB
       find:
         paths: /var/log
         patterns: "*.log"
         recurse: yes
-        size: "+100M"
+        size: "+104857600"
       register: large_logs
+      ignore_errors: yes
 
     - name: Truncate large log files
       file:
         path: "{{ item.path }}"
         state: touch
         mode: '0644'
-      loop: "{{ large_logs.files }}"
-      when: large_logs.matched > 0
+      loop: "{{ large_logs.files | default([]) }}"
+      when: large_logs.matched|default(0) > 0
       ignore_errors: yes
 
-    # Remove temp files
+    # Remove temporary files
     - name: Remove /tmp and /var/tmp files
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /tmp/*
-        - /var/tmp/*
+      shell: rm -rf /tmp/* /var/tmp/*
+      args:
+        executable: /bin/bash
       ignore_errors: yes
 
-    # (Optional) If you suspect large stray files, you can find & print them.
-    # Uncomment if you want to monitor large files, but do not delete automatically.
-    # - name: Find large unused files over 500MB
-    #   find:
-    #     paths: /
-    #     patterns: "*"
-    #     file_type: file
-    #     size: "+500M"
-    #   register: large_files
-    #   ignore_errors: yes
-
-    # - name: List large files
-    #   debug:
-    #     msg: "Large file: {{ item.path }}"
-    #   loop: "{{ large_files.files }}"
-    #   when: large_files.matched > 0
-
+    # Check disk usage after cleanup
     - name: Check disk usage after cleanup
       command: df -h
       register: disk_usage
