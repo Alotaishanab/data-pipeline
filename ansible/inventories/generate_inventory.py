@@ -9,7 +9,7 @@ def run(command):
 
 def generate_inventory():
     # Fetch mgmt VM IPs (we know it's one VM, but output is an array)
-    mgmt_command = "terraform output --json mgmt_vm_ips".split()
+    mgmt_command = ["terraform", "output", "--json", "mgmt_vm_ips"]
     mgmt_data = json.loads(run(mgmt_command).stdout)
     # mgmt_data should be an array with one IP
     mgmt_node = mgmt_data[0]
@@ -18,11 +18,19 @@ def generate_inventory():
     host_vars[mgmt_node] = {"ip": [mgmt_node]}
 
     # Fetch worker VM IPs
-    worker_command = "terraform output --json vm_ips".split()
-    ip_data = json.loads(run(worker_command).stdout)
+    worker_command = ["terraform", "output", "--json", "worker_vm_ips"]
+    worker_data = json.loads(run(worker_command).stdout)
 
     workers = []
-    for a in ip_data:
+    for a in worker_data:
+        workers.append(a)
+        host_vars[a] = {"ip": [a]}
+
+    # Fetch storage VM IPs
+    storage_command = ["terraform", "output", "--json", "storage_vm_ips"]
+    storage_data = json.loads(run(storage_command).stdout)
+
+    for a in storage_data:
         workers.append(a)
         host_vars[a] = {"ip": [a]}
 
@@ -49,7 +57,7 @@ if __name__ == "__main__":
     )
 
     mo = ap.add_mutually_exclusive_group()
-    mo.add_argument("--list", action="store", nargs="*", default="dummy", help="Show JSON of all managed hosts")
+    mo.add_argument("--list", action="store_true", help="Show JSON of all managed hosts")
     mo.add_argument("--host", action="store", help="Display vars related to the host")
 
     args = ap.parse_args()
@@ -57,8 +65,10 @@ if __name__ == "__main__":
     if args.host:
         # If we query a specific host, just print an empty vars dict
         print(json.dumps({}))
-    elif len(args.list) >= 0:
+    elif args.list:
         jd = generate_inventory()
         print(jd)
     else:
-        raise ValueError("Expecting either --host $HOSTNAME or --list")
+        # Default to --list behavior
+        jd = generate_inventory()
+        print(jd)

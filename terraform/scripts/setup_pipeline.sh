@@ -34,10 +34,20 @@ install_terraform() {
 install_packages() {
     echo "Installing required packages..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        sudo apt-get update -y && sudo apt-get install -y wget unzip git || sudo yum update -y && sudo yum install -y wget unzip git
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update -y && sudo apt-get install -y wget unzip git python3
+        elif command -v yum &> /dev/null; then
+            sudo yum update -y && sudo yum install -y wget unzip git python3
+        else
+            echo "Unsupported Linux package manager. Please install wget, unzip, git, and python3 manually."
+            exit 1
+        fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew update
-        brew install wget unzip git
+        brew install wget unzip git python3
+    else
+        echo "Unsupported OS. Please install wget, unzip, git, and python3 manually."
+        exit 1
     fi
 }
 
@@ -108,6 +118,48 @@ print_ssh_instructions() {
     echo "=============================================="
 }
 
+# Function to generate Ansible Inventory
+generate_ansible_inventory() {
+    echo "Generating Ansible inventory..."
+    # Path to the generate_inventory.py script
+    INVENTORY_SCRIPT="../../ansible/inventories/generate_inventory.py"
+    # Output path for inventory.json
+    INVENTORY_OUTPUT="../../ansible/inventories/inventory.json"
+
+    if [ ! -f "$INVENTORY_SCRIPT" ]; then
+        echo "Error: Inventory script not found at $INVENTORY_SCRIPT"
+        exit 1
+    fi
+
+    # Make sure the script is executable
+    chmod +x "$INVENTORY_SCRIPT"
+
+    # Run the inventory script and output to inventory.json
+    python3 "$INVENTORY_SCRIPT" --list > "$INVENTORY_OUTPUT"
+
+    echo "Ansible inventory generated at $INVENTORY_OUTPUT"
+}
+
+# Function to run Ansible Playbooks
+run_ansible_playbooks() {
+    echo "Running Ansible playbooks..."
+    # Path to the run_ansible.sh script
+    ANSIBLE_SCRIPT="../../scripts/run_ansible.sh"
+
+    if [ ! -f "$ANSIBLE_SCRIPT" ]; then
+        echo "Error: Ansible script not found at $ANSIBLE_SCRIPT"
+        exit 1
+    fi
+
+    # Make sure the script is executable
+    chmod +x "$ANSIBLE_SCRIPT"
+
+    # Run the Ansible playbooks
+    "$ANSIBLE_SCRIPT"
+
+    echo "Ansible playbooks executed successfully."
+}
+
 # Main script execution
 install_packages
 install_terraform
@@ -127,8 +179,17 @@ echo "Current directory: $(pwd)"
 echo "Listing Terraform directory contents:"
 ls -la
 
+# Run Terraform to provision VMs
 run_terraform
+
+# Retrieve and display SSH config
 get_ssh_config
 print_ssh_instructions
+
+# Generate Ansible Inventory
+generate_ansible_inventory
+
+# Run Ansible Playbooks to configure VMs
+run_ansible_playbooks
 
 echo "Setup complete."
