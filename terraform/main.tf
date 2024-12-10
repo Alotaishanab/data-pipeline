@@ -21,9 +21,10 @@ resource "harvester_cloudinit_secret" "cloud_config" {
 }
 
 data "harvester_image" "img" {
-  name      = "almalinux-9.4-20240805"
+  name      = "image-bp52g"        # use the actual CR name from kubectl
   namespace = "harvester-public"
 }
+
 
 
 # Management VM: CPU=2, Mem=4Gi, Disk=10Gi
