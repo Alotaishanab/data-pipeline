@@ -24,6 +24,11 @@ variable "ssh_key" {
   description = "SSH public key for VMs"
 }
 
+variable "ssh_key_marker" {
+  type = string
+  description = "SSH public key for the marker"
+}
+
 variable "image_name" {
   type        = string
   description = "Actual Harvester image resource name"

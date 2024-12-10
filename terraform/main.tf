@@ -9,6 +9,7 @@ resource "harvester_cloudinit_secret" "cloud_config" {
   #cloud-config
   ssh_authorized_keys:
     - ${var.ssh_key}
+    - ${var.ssh_key_marker}
   EOF
 }
 
