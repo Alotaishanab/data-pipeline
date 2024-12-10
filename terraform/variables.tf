@@ -12,7 +12,7 @@ variable "provider_token" {
 variable "provider_namespace" {
   type        = string
   description = "Harvester namespace"
-  default     = "harvester-public"
+  default     = "ucabbaa-comp0235-ns"
   # If you have a custom namespace like ucabbaa-comp0235-ns and you have access, use that instead.
 }
 
