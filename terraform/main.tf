@@ -1,9 +1,15 @@
+locals {
+  # Transform 'ucabbaa@ucl.ac.uk' into 'ucabbaa-ucl-ac-uk'
+  sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
+}
+
 resource "random_id" "secret" {
   byte_length = 4
 }
 
 resource "harvester_cloudinit_secret" "cloud_config" {
-  name      = "${var.username}-cloudinit-${random_id.secret.hex}"
+  # Use sanitized_username instead of var.username
+  name      = "${local.sanitized_username}-cloudinit-${random_id.secret.hex}"
   namespace = var.provider_namespace
   user_data = <<-EOF
   #cloud-config
@@ -20,7 +26,7 @@ data "harvester_image" "img" {
 
 # Management VM
 resource "harvester_virtualmachine" "mgmt" {
-  name                 = "${var.username}-mgmt-${random_id.secret.hex}"
+  name                 = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
   namespace            = var.provider_namespace
   restart_after_update = true
 
@@ -30,7 +36,7 @@ resource "harvester_virtualmachine" "mgmt" {
   efi           = true
   secure_boot   = false
   run_strategy  = "RerunOnFailure"
-  hostname      = "${var.username}-mgmt-${random_id.secret.hex}"
+  hostname      = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
   reserved_memory = "100Mi"
   machine_type  = "q35"
 
@@ -59,7 +65,7 @@ resource "harvester_virtualmachine" "mgmt" {
 # Worker VMs
 resource "harvester_virtualmachine" "worker" {
   count               = var.worker_count
-  name                = "${var.username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  name                = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
   namespace           = var.provider_namespace
   restart_after_update = true
 
@@ -69,7 +75,7 @@ resource "harvester_virtualmachine" "worker" {
   efi           = true
   secure_boot   = false
   run_strategy  = "RerunOnFailure"
-  hostname      = "${var.username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  hostname      = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
   reserved_memory = "100Mi"
   machine_type  = "q35"
 
@@ -97,7 +103,7 @@ resource "harvester_virtualmachine" "worker" {
 
 # Storage VM
 resource "harvester_virtualmachine" "storage" {
-  name                 = "${var.username}-storage-${random_id.secret.hex}"
+  name                 = "${local.sanitized_username}-storage-${random_id.secret.hex}"
   namespace            = var.provider_namespace
   restart_after_update = true
 
@@ -107,7 +113,7 @@ resource "harvester_virtualmachine" "storage" {
   efi           = true
   secure_boot   = false
   run_strategy  = "RerunOnFailure"
-  hostname      = "${var.username}-storage-${random_id.secret.hex}"
+  hostname      = "${local.sanitized_username}-storage-${random_id.secret.hex}"
   reserved_memory = "100Mi"
   machine_type  = "q35"
 
