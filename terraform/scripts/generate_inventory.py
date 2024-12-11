@@ -28,7 +28,6 @@ def get_terraform_ips():
     worker_nodes = []
     storage_nodes = []
 
-    # mgmt_vm_ips should be a list. We assume the first element is mgmt_node
     if "mgmt_vm_ips" in outputs and outputs["mgmt_vm_ips"]["value"]:
         mgmt_list = outputs["mgmt_vm_ips"]["value"]
         if isinstance(mgmt_list, list) and len(mgmt_list) > 0:
@@ -58,24 +57,19 @@ def get_terraform_ips():
     return mgmt_node, worker_nodes, storage_nodes
 
 def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
-    host_vars = {}
-    host_vars[mgmt_node] = {"ip": [mgmt_node]}
+    # Assign friendly hostnames
+    mgmt_name = "host"
+    storage_name = "storage"
+    worker_names = [f"worker{i+1}" for i in range(len(worker_nodes))]
 
-    # Create dictionaries for hosts instead of lists
-    # mgmtnode group
-    mgmtnode_hosts = { mgmt_node: None }
+    host_vars = {
+        mgmt_name: {"ansible_host": mgmt_node, "ip": [mgmt_node]},
+        storage_name: {"ansible_host": storage_nodes[0], "ip": [storage_nodes[0]]}
+    }
 
-    # workers group includes both worker_nodes and storage_nodes
-    workers_hosts = {}
-    for worker in worker_nodes:
-        host_vars[worker] = {"ip": [worker]}
-        workers_hosts[worker] = None
+    for i, w_ip in enumerate(worker_nodes):
+        host_vars[worker_names[i]] = {"ansible_host": w_ip, "ip": [w_ip]}
 
-    for storage in storage_nodes:
-        host_vars[storage] = {"ip": [storage]}
-        workers_hosts[storage] = None
-
-    # Construct the inventory structure with dictionaries
     inventory = {
         "_meta": {
             "hostvars": host_vars
@@ -83,14 +77,22 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
         "all": {
             "children": {
                 "mgmtnode": {},
-                "workers": {}
+                "workers": {},
+                "storage": {}
             }
         },
         "mgmtnode": {
-            "hosts": mgmtnode_hosts
+            "hosts": {
+                mgmt_name: None
+            }
+        },
+        "storage": {
+            "hosts": {
+                storage_name: None
+            }
         },
         "workers": {
-            "hosts": workers_hosts
+            "hosts": {name: None for name in worker_names}
         }
     }
 
@@ -130,6 +132,4 @@ if __name__ == "__main__":
         f.write(jd)
 
     print(f"Inventory saved to {inventory_file_path}")
-
-    # Print to stdout as well
     print(jd)
