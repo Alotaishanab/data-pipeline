@@ -1,50 +1,37 @@
 {
-    "_meta": {
-        "hostvars": {
-            "host": {
-                "ansible_host": "10.134.12.115",
-                "ip": ["10.134.12.115"]
-            },
-            "storage": {
-                "ansible_host": "10.134.12.154",
-                "ip": ["10.134.12.154"]
-            },
-            "worker1": {
-                "ansible_host": "10.134.12.210",
-                "ip": ["10.134.12.210"]
-            },
-            "worker2": {
-                "ansible_host": "10.134.12.180",
-                "ip": ["10.134.12.180"]
-            },
-            "worker3": {
-                "ansible_host": "10.134.12.201",
-                "ip": ["10.134.12.201"]
-            }
-        }
-    },
     "all": {
-        "children": {
-            "mgmtnode": {},
-            "workers": {},
-            "storage": {}
-        }
+      "children": [
+        "mgmtnode",
+        "workers",
+        "storagegroup"
+      ]
     },
     "mgmtnode": {
-        "hosts": {
-            "host": null
+      "hosts": {
+        "host": {
+          "ansible_host": "10.134.12.115"
         }
+      }
     },
-    "storage": {
-        "hosts": {
-            "storage": null
+    "storagegroup": {
+      "hosts": {
+        "storage": {
+          "ansible_host": "10.134.12.154"
         }
+      }
     },
     "workers": {
-        "hosts": {
-            "worker1": null,
-            "worker2": null,
-            "worker3": null
+      "hosts": {
+        "worker1": {
+          "ansible_host": "10.134.12.210"
+        },
+        "worker2": {
+          "ansible_host": "10.134.12.180"
+        },
+        "worker3": {
+          "ansible_host": "10.134.12.201"
         }
+      }
     }
-}
+  }
+  

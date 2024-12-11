@@ -60,40 +60,48 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
     # Assign friendly hostnames
     mgmt_name = "host"
     storage_name = "storage"
+    storage_group = "storagegroup"
     worker_names = [f"worker{i+1}" for i in range(len(worker_nodes))]
 
-    host_vars = {
-        mgmt_name: {"ansible_host": mgmt_node, "ip": [mgmt_node]},
-        storage_name: {"ansible_host": storage_nodes[0], "ip": [storage_nodes[0]]}
+    # Build mgmt node group
+    mgmtnode_group = {
+        "hosts": {
+            mgmt_name: {
+                "ansible_host": mgmt_node
+            }
+        }
     }
 
-    for i, w_ip in enumerate(worker_nodes):
-        host_vars[worker_names[i]] = {"ansible_host": w_ip, "ip": [w_ip]}
-
-    inventory = {
-        "_meta": {
-            "hostvars": host_vars
-        },
-        "all": {
-            "children": {
-                "mgmtnode": {},
-                "workers": {},
-                "storage": {}
+    # Build storage group
+    storage_group_dict = {
+        "hosts": {
+            storage_name: {
+                "ansible_host": storage_nodes[0]
             }
-        },
-        "mgmtnode": {
-            "hosts": {
-                mgmt_name: None
-            }
-        },
-        "storage": {
-            "hosts": {
-                storage_name: None
-            }
-        },
-        "workers": {
-            "hosts": {name: None for name in worker_names}
         }
+    }
+
+    # Build workers group
+    workers_group = {
+        "hosts": {}
+    }
+    for i, w_ip in enumerate(worker_nodes):
+        workers_group["hosts"][worker_names[i]] = {
+            "ansible_host": w_ip
+        }
+
+    # Construct the final inventory structure
+    inventory = {
+        "all": {
+            "children": [
+                "mgmtnode",
+                "workers",
+                storage_group
+            ]
+        },
+        "mgmtnode": mgmtnode_group,
+        storage_group: storage_group_dict,
+        "workers": workers_group
     }
 
     jd = json.dumps(inventory, indent=4)
