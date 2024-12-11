@@ -142,6 +142,18 @@
         group: prometheus
         mode: '0755'
 
+    # Create Prometheus directories before copying consoles and console_libraries
+    - name: Create Prometheus directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /var/lib/prometheus
+        - /etc/prometheus
+
     - name: Move Prometheus consoles directory
       copy:
         src: "/tmp/prometheus/consoles"
@@ -175,17 +187,6 @@
         group: prometheus
         mode: '0755'
         recurse: yes
-
-    - name: Create Prometheus directories
-      file:
-        path: "{{ item }}"
-        state: directory
-        owner: prometheus
-        group: prometheus
-        mode: '0755'
-      loop:
-        - /var/lib/prometheus
-        - /etc/prometheus
 
     - name: Generate Prometheus configuration file
       copy:
@@ -252,7 +253,7 @@
         state: started
         enabled: yes
 
-    #### Configure Firewall to Allow Prometheus Port (9090)
+    # Configure Firewall to Allow Prometheus Port (9090)
     - name: Open port 9090 in firewalld
       firewalld:
         port: 9090/tcp
@@ -265,6 +266,7 @@
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
 
 
 
