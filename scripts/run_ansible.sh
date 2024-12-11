@@ -4,10 +4,10 @@
 set -e
 
 # Path to the Ansible inventory
-INVENTORY="../../ansible/inventories/inventory.json"
+INVENTORY="/home/almalinux/data-pipeline/ansible/inventories/inventory.json"
 
 # Path to the Ansible playbook
-PLAYBOOK="../../ansible/playbooks/master_pipeline.yml"
+PLAYBOOK="/home/almalinux/data-pipeline/ansible/playbooks/master_pipeline.yml"
 
 if [ ! -f "$INVENTORY" ]; then
     echo "Error: Ansible inventory not found at $INVENTORY"

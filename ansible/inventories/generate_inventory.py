@@ -11,8 +11,8 @@ def generate_inventory():
     # Fetch mgmt VM IPs (we know it's one VM, but output is an array)
     mgmt_node = input("Enter the Management Node IP: ")
 
-    worker_nodes = input("Enter the Worker Node IPs (comma separated): ").split(',')
-    storage_nodes = input("Enter the Storage Node IPs (comma separated): ").split(',')
+    worker_nodes = input("Enter the Worker Node IPs (comma separated no space): ").split(',')
+    storage_nodes = input("Enter the Storage Node IPs (comma separated no space): ").split(',')
 
     host_vars = {}
     host_vars[mgmt_node] = {"ip": [mgmt_node]}
