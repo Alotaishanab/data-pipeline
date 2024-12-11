@@ -11,7 +11,7 @@ def run(command):
 def get_terraform_ips():
     """
     Fetch mgmt, worker, and storage node IPs from Terraform output -json.
-    We now look for 'mgmt_vm_ips', 'worker_vm_ips', and 'storage_vm_ips'.
+    We look for 'mgmt_vm_ips', 'worker_vm_ips', and 'storage_vm_ips'.
     """
     tf = run(["terraform", "output", "-json"])
     if tf.returncode != 0:
@@ -43,7 +43,7 @@ def get_terraform_ips():
         if isinstance(s_list, list):
             storage_nodes = s_list
 
-    # If we fail to get mgmt_node or worker_nodes or storage_nodes, fail
+    # Fail if we can't find required IPs
     if not mgmt_node:
         print("Error: No mgmt_vm_ips found in Terraform outputs.")
         sys.exit(1)
@@ -57,13 +57,13 @@ def get_terraform_ips():
     return mgmt_node, worker_nodes, storage_nodes
 
 def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
-    # Assign friendly hostnames
+    # Friendly hostnames
     mgmt_name = "host"
     storage_name = "storage"
     storage_group = "storagegroup"
     worker_names = [f"worker{i+1}" for i in range(len(worker_nodes))]
 
-    # Build mgmt node group
+    # mgmtnode group
     mgmtnode_group = {
         "hosts": {
             mgmt_name: {
@@ -72,7 +72,7 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
         }
     }
 
-    # Build storage group
+    # storagegroup group
     storage_group_dict = {
         "hosts": {
             storage_name: {
@@ -81,7 +81,7 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
         }
     }
 
-    # Build workers group
+    # workers group
     workers_group = {
         "hosts": {}
     }
@@ -90,14 +90,14 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
             "ansible_host": w_ip
         }
 
-    # Construct the final inventory structure
+    # all group with children as a dictionary
     inventory = {
         "all": {
-            "children": [
-                "mgmtnode",
-                "workers",
-                storage_group
-            ]
+            "children": {
+                "mgmtnode": {},
+                "workers": {},
+                storage_group: {}
+            }
         },
         "mgmtnode": mgmtnode_group,
         storage_group: storage_group_dict,
@@ -119,23 +119,18 @@ if __name__ == "__main__":
 
     args = ap.parse_args()
 
-    # If we query a specific host, just print empty vars
     if args.host:
+        # If we query a specific host, print empty vars
         print(json.dumps({}))
         sys.exit(0)
 
-    # Default to --list if no argument given
     if not args.list:
         args.list = True
 
-    # Attempt to get IPs from Terraform
     mgmt_node, worker_nodes, storage_nodes = get_terraform_ips()
-
-    # Generate inventory
     jd = generate_inventory(mgmt_node, worker_nodes, storage_nodes)
 
-    # Save the generated inventory to a file
-    inventory_file_path = "../ansible/inventories/inventory.json"  # Adjust path if needed
+    inventory_file_path = "../ansible/inventories/inventory.json"
     with open(inventory_file_path, "w") as f:
         f.write(jd)
 
