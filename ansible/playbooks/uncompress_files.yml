@@ -8,12 +8,27 @@
     parallel_jobs: 4  # Adjust based on CPU cores
 
   tasks:
-    - name: Uncompress files directly using find and xargs
-      shell: |
-        find {{ dataset_dir }} -type f \( -name '*.pdb.gz' -o -name '*.cif.gz' \) -print0 | xargs -0 -n 1 -P {{ parallel_jobs }} pigz -d -f
+    - name: Find compressed files first
+      find:
+        paths: "{{ dataset_dir }}"
+        patterns:
+          - "*.pdb.gz"
+          - "*.cif.gz"
+        recurse: yes
+      register: gz_files
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: dataset_dir
+        index_var: idx
+
+    - name: Uncompress files directly using find and xargs if any found
+      shell: |
+        find {{ dataset_dir }} -type f \( -name '*.pdb.gz' -o -name '*.cif.gz' \) -print0 | xargs -0 -n 1 -P {{ parallel_jobs }} pigz -d -f
+      when: gz_files.results[idx].matched > 0
+      loop: "{{ datasets_dirs }}"
+      loop_control:
+        loop_var: dataset_dir
+        index_var: idx
       args:
         executable: /bin/bash
 
@@ -29,10 +44,12 @@
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: dataset_dir
+        index_var: idx
 
     - name: Debug - Number of uncompressed files
       debug:
-        msg: "Total number of uncompressed files in {{ dataset_dir }}: {{ original_files.results[0].matched }}"
+        msg: "Total number of uncompressed files in {{ dataset_dir }}: {{ original_files.results[idx].matched }}"
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: dataset_dir
+        index_var: idx
