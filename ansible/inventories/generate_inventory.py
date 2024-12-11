@@ -7,27 +7,30 @@ import argparse
 def run(command):
     return subprocess.run(command, capture_output=True, encoding='UTF-8')
 
-def generate_inventory(mgmt_ip, worker_ips, storage_ips):
+def generate_inventory():
+    # Fetch mgmt VM IPs (we know it's one VM, but output is an array)
+    mgmt_node = input("Enter the Management Node IP: ")
+
+    worker_nodes = input("Enter the Worker Node IPs (comma separated): ").split(',')
+    storage_nodes = input("Enter the Storage Node IPs (comma separated): ").split(',')
+
     host_vars = {}
-    
-    # Add management node IP
-    host_vars[mgmt_ip] = {"ip": [mgmt_ip]}
+    host_vars[mgmt_node] = {"ip": [mgmt_node]}
 
     workers = []
-    for ip in worker_ips:
-        workers.append(ip)
-        host_vars[ip] = {"ip": [ip]}
+    for worker in worker_nodes:
+        workers.append(worker.strip())
+        host_vars[worker.strip()] = {"ip": [worker.strip()]}
 
-    # Add storage node IPs
-    for ip in storage_ips:
-        workers.append(ip)
-        host_vars[ip] = {"ip": [ip]}
+    for storage in storage_nodes:
+        workers.append(storage.strip())
+        host_vars[storage.strip()] = {"ip": [storage.strip()]}
 
     _meta = {"hostvars": host_vars}
     _all = {"children": ["mgmtnode", "workers"]}
 
     _workers = {"hosts": workers}
-    _mgmtnode = {"hosts": [mgmt_ip]}
+    _mgmtnode = {"hosts": [mgmt_node]}
 
     _jd = {
         "_meta": _meta,
@@ -39,16 +42,9 @@ def generate_inventory(mgmt_ip, worker_ips, storage_ips):
     jd = json.dumps(_jd, indent=4)
     return jd
 
-def get_ips_from_input():
-    mgmt_ip = input("Enter the Management Node IP: ")
-    worker_ips = input("Enter the Worker Node IPs (comma separated): ").split(',')
-    storage_ips = input("Enter the Storage Node IPs (comma separated): ").split(',')
-
-    return mgmt_ip, worker_ips, storage_ips
-
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
-        description="Generate a cluster inventory with dynamic IPs.",
+        description="Generate a cluster inventory from user input.",
         prog=__file__
     )
 
@@ -59,12 +55,15 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     if args.host:
+        # If we query a specific host, just print an empty vars dict
         print(json.dumps({}))
     elif args.list:
-        mgmt_ip, worker_ips, storage_ips = get_ips_from_input()
-        jd = generate_inventory(mgmt_ip, worker_ips, storage_ips)
-        print(jd)
+        jd = generate_inventory()
+        # Save the generated inventory to a file
+        with open("../../ansible/inventories/inventory.json", "w") as f:
+            f.write(jd)
+        print(f"Inventory saved to ../../ansible/inventories/inventory.json")
     else:
-        mgmt_ip, worker_ips, storage_ips = get_ips_from_input()
-        jd = generate_inventory(mgmt_ip, worker_ips, storage_ips)
+        # Default to --list behavior
+        jd = generate_inventory()
         print(jd)
