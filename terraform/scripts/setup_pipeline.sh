@@ -30,7 +30,7 @@ install_terraform() {
     fi
 }
 
-# Function to install required packages
+# Function to install required packages without updating Homebrew
 install_packages() {
     echo "Installing required packages..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -43,8 +43,14 @@ install_packages() {
             exit 1
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew update
+        # Removed brew update to prevent extensive upgrades
         brew install wget unzip git python3
+
+        # Ensure jq is installed for JSON parsing in SSH instructions
+        if ! command -v jq &> /dev/null; then
+            echo "jq not found. Installing jq..."
+            brew install jq
+        fi
     else
         echo "Unsupported OS. Please install wget, unzip, git, and python3 manually."
         exit 1
@@ -95,69 +101,19 @@ print_ssh_instructions() {
     echo "         SSH Access Instructions              "
     echo "=============================================="
     echo ""
+
     echo "You can SSH into your VMs using the following commands:"
     echo ""
 
     # Extract VM entries from SSH_CONFIG
-    echo "$SSH_CONFIG" | awk '/^Host / {host=$2} /^    HostName / {print "ssh -J condenser-proxy almalinux@"$2" # "host}' 
+    echo "$SSH_CONFIG" | awk '/^Host / {host=$2} /^    HostName / {print "ssh -J condenser-proxy almalinux@"$2" # "host}'
 
-    echo ""
-    echo "Alternatively, you can SSH directly using the IP addresses with ProxyJump:"
-    echo ""
-    echo "Example Commands:"
-    echo "  ssh -J condenser-proxy almalinux@10.134.12.125  # Host Machine"
-    echo "  ssh -J condenser-proxy almalinux@10.134.12.87   # Worker1"
-    echo "  ssh -J condenser-proxy almalinux@10.134.12.121  # Worker2"
-    echo "  ssh -J condenser-proxy almalinux@10.134.12.93   # Worker3"
-    echo "  ssh -J condenser-proxy almalinux@10.134.12.141  # Storage Machine"
     echo ""
     echo "Ensure that your SSH keys are correctly set up and that the public key (~/.ssh/id_rsa.pub) is added to the ~/.ssh/authorized_keys on each VM."
     echo ""
     echo "If you encounter any issues, please contact your system administrator."
     echo ""
     echo "=============================================="
-}
-
-# Function to generate Ansible Inventory
-generate_ansible_inventory() {
-    echo "Generating Ansible inventory..."
-    # Path to the generate_inventory.py script
-    INVENTORY_SCRIPT="../../ansible/inventories/generate_inventory.py"
-    # Output path for inventory.json
-    INVENTORY_OUTPUT="../../ansible/inventories/inventory.json"
-
-    if [ ! -f "$INVENTORY_SCRIPT" ]; then
-        echo "Error: Inventory script not found at $INVENTORY_SCRIPT"
-        exit 1
-    fi
-
-    # Make sure the script is executable
-    chmod +x "$INVENTORY_SCRIPT"
-
-    # Run the inventory script and output to inventory.json
-    python3 "$INVENTORY_SCRIPT" --list > "$INVENTORY_OUTPUT"
-
-    echo "Ansible inventory generated at $INVENTORY_OUTPUT"
-}
-
-# Function to run Ansible Playbooks
-run_ansible_playbooks() {
-    echo "Running Ansible playbooks..."
-    # Path to the run_ansible.sh script
-    ANSIBLE_SCRIPT="../../scripts/run_ansible.sh"
-
-    if [ ! -f "$ANSIBLE_SCRIPT" ]; then
-        echo "Error: Ansible script not found at $ANSIBLE_SCRIPT"
-        exit 1
-    fi
-
-    # Make sure the script is executable
-    chmod +x "$ANSIBLE_SCRIPT"
-
-    # Run the Ansible playbooks
-    "$ANSIBLE_SCRIPT"
-
-    echo "Ansible playbooks executed successfully."
 }
 
 # Main script execution
@@ -186,10 +142,5 @@ run_terraform
 get_ssh_config
 print_ssh_instructions
 
-# Generate Ansible Inventory
-generate_ansible_inventory
-
-# Run Ansible Playbooks to configure VMs
-run_ansible_playbooks
-
-echo "Setup complete."
+echo "Provisioning and setup complete."
+echo "You can now SSH into the Host VM using the instructions above."

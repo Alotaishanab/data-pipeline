@@ -7,38 +7,27 @@ import argparse
 def run(command):
     return subprocess.run(command, capture_output=True, encoding='UTF-8')
 
-def generate_inventory():
-    # Fetch mgmt VM IPs (we know it's one VM, but output is an array)
-    mgmt_command = ["terraform", "output", "--json", "mgmt_vm_ips"]
-    mgmt_data = json.loads(run(mgmt_command).stdout)
-    # mgmt_data should be an array with one IP
-    mgmt_node = mgmt_data[0]
-
+def generate_inventory(mgmt_ip, worker_ips, storage_ips):
     host_vars = {}
-    host_vars[mgmt_node] = {"ip": [mgmt_node]}
-
-    # Fetch worker VM IPs
-    worker_command = ["terraform", "output", "--json", "worker_vm_ips"]
-    worker_data = json.loads(run(worker_command).stdout)
+    
+    # Add management node IP
+    host_vars[mgmt_ip] = {"ip": [mgmt_ip]}
 
     workers = []
-    for a in worker_data:
-        workers.append(a)
-        host_vars[a] = {"ip": [a]}
+    for ip in worker_ips:
+        workers.append(ip)
+        host_vars[ip] = {"ip": [ip]}
 
-    # Fetch storage VM IPs
-    storage_command = ["terraform", "output", "--json", "storage_vm_ips"]
-    storage_data = json.loads(run(storage_command).stdout)
-
-    for a in storage_data:
-        workers.append(a)
-        host_vars[a] = {"ip": [a]}
+    # Add storage node IPs
+    for ip in storage_ips:
+        workers.append(ip)
+        host_vars[ip] = {"ip": [ip]}
 
     _meta = {"hostvars": host_vars}
     _all = {"children": ["mgmtnode", "workers"]}
 
     _workers = {"hosts": workers}
-    _mgmtnode = {"hosts": [mgmt_node]}
+    _mgmtnode = {"hosts": [mgmt_ip]}
 
     _jd = {
         "_meta": _meta,
@@ -50,9 +39,16 @@ def generate_inventory():
     jd = json.dumps(_jd, indent=4)
     return jd
 
+def get_ips_from_input():
+    mgmt_ip = input("Enter the Management Node IP: ")
+    worker_ips = input("Enter the Worker Node IPs (comma separated): ").split(',')
+    storage_ips = input("Enter the Storage Node IPs (comma separated): ").split(',')
+
+    return mgmt_ip, worker_ips, storage_ips
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
-        description="Generate a cluster inventory from Terraform.",
+        description="Generate a cluster inventory with dynamic IPs.",
         prog=__file__
     )
 
@@ -63,12 +59,12 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     if args.host:
-        # If we query a specific host, just print an empty vars dict
         print(json.dumps({}))
     elif args.list:
-        jd = generate_inventory()
+        mgmt_ip, worker_ips, storage_ips = get_ips_from_input()
+        jd = generate_inventory(mgmt_ip, worker_ips, storage_ips)
         print(jd)
     else:
-        # Default to --list behavior
-        jd = generate_inventory()
+        mgmt_ip, worker_ips, storage_ips = get_ips_from_input()
+        jd = generate_inventory(mgmt_ip, worker_ips, storage_ips)
         print(jd)
