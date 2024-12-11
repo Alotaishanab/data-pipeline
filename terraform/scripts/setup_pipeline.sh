@@ -43,10 +43,7 @@ install_packages() {
             exit 1
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        # Removed brew update to prevent extensive upgrades
         brew install wget unzip git python3
-
-        # Ensure jq is installed for JSON parsing in SSH instructions
         if ! command -v jq &> /dev/null; then
             echo "jq not found. Installing jq..."
             brew install jq
@@ -57,7 +54,6 @@ install_packages() {
     fi
 }
 
-# Function to run Terraform
 run_terraform() {
     echo "Initializing Terraform..."
     terraform init
@@ -66,7 +62,6 @@ run_terraform() {
     terraform apply -auto-approve
 }
 
-# Function to generate placeholder files for CertificateFile and IdentityFile
 generate_placeholder_files() {
     CONDENSER_CERT_FILE=~/.ssh/id_arc_rsa.signed
     CONDENSER_IDENTITY_FILE=~/.ssh/id_rsa
@@ -88,13 +83,11 @@ generate_placeholder_files() {
     fi
 }
 
-# Function to retrieve Terraform SSH Config Output
 get_ssh_config() {
     echo "Fetching SSH configuration from Terraform output..."
     SSH_CONFIG=$(terraform output -raw ssh_config)
 }
 
-# Function to print SSH Instructions
 print_ssh_instructions() {
     echo ""
     echo "=============================================="
@@ -104,14 +97,9 @@ print_ssh_instructions() {
 
     echo "You can SSH into your VMs using the following commands:"
     echo ""
-
-    # Extract VM entries from SSH_CONFIG
     echo "$SSH_CONFIG" | awk '/^Host / {host=$2} /^    HostName / {print "ssh -J condenser-proxy almalinux@"$2" # "host}'
-
     echo ""
-    echo "Ensure that your SSH keys are correctly set up and that the public key (~/.ssh/id_rsa.pub) is added to the ~/.ssh/authorized_keys on each VM."
-    echo ""
-    echo "If you encounter any issues, please contact your system administrator."
+    echo "Ensure that your SSH keys are correctly set up."
     echo ""
     echo "=============================================="
 }
@@ -120,14 +108,12 @@ print_ssh_instructions() {
 install_packages
 install_terraform
 
-# Generate placeholder files for condenser-proxy if needed
 generate_placeholder_files
 
 # Change directory to the terraform directory
 echo "Changing directory to the terraform directory..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$(dirname "$SCRIPT_DIR")"
-
 echo "Terraform directory resolved to: $TERRAFORM_DIR"
 cd "$TERRAFORM_DIR" || { echo "Failed to change directory to $TERRAFORM_DIR"; exit 1; }
 
@@ -141,6 +127,10 @@ run_terraform
 # Retrieve and display SSH config
 get_ssh_config
 print_ssh_instructions
+
+# After Terraform is done, generate the Ansible inventory
+echo "Generating updated Ansible inventory from Terraform outputs..."
+python3 scripts/generate_inventory.py --list
 
 echo "Provisioning and setup complete."
 echo "You can now SSH into the Host VM using the instructions above."
