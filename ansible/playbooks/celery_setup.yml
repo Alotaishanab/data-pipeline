@@ -7,7 +7,15 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
-    celery_bin: "/usr/local/bin/celery"  # Updated to standard Celery binary path
+    celery_bin: "/usr/local/bin/celery"  # Celery binary path
+    # Define worker->queue mapping. Adjust names as needed.
+    # Make sure you know which worker is which, for example:
+    # if "host" is also a worker, assign a queue. If not, remove it.
+    worker_queues:
+      host: "host_queue"
+      worker1: "worker1_queue"
+      worker2: "worker2_queue"
+      worker3: "worker3_queue"
   tasks:
     - name: Install Celery and Redis Python packages globally
       pip:
@@ -36,7 +44,7 @@
           import os
 
           # Define the Redis broker URL
-          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')  
+          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
 
           @app.task
           def run_pipeline(input_dir, output_dir, organism):
@@ -77,10 +85,28 @@
         mode: '0755'
         content: |
           import sys
+          import redis
           from celery import Celery
 
-          # Initialize Celery app with the Redis broker
-          app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
+          redis_host = "{{ redis_host }}"
+          redis_port = 6379
+          redis_db = 0
+
+          # Worker queue mapping, derived from Ansible var
+          WORKER_QUEUES = {
+          {% for w, q in worker_queues.items() %}
+            "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
+          {% endfor %}
+          }
+
+          app = Celery('celery_worker', broker='redis://{}:{}/0'.format(redis_host, redis_port))
+
+          def get_enabled_workers():
+              r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+              disabled = r.smembers('disabled_workers')
+              disabled = {d.decode('utf-8') for d in disabled}
+              enabled = {w: q for w, q in WORKER_QUEUES.items() if w not in disabled}
+              return enabled
 
           if __name__ == "__main__":
               if len(sys.argv) != 4:
@@ -95,8 +121,18 @@
                   print("Error: ORGANISM must be either 'human' or 'ecoli'")
                   sys.exit(1)
 
-              result = app.send_task('celery_worker.run_pipeline', args=[input_file, output_dir, organism])
-              print(f"Task {result.id} dispatched for {input_file} with organism '{organism}'")
+              enabled_workers = get_enabled_workers()
+              if not enabled_workers:
+                  print("No enabled workers available. Check CPU load or alerts.")
+                  sys.exit(1)
+
+              # Just pick one enabled worker arbitrarily
+              some_worker, queue_name = next(iter(enabled_workers.items()))
+
+              result = app.send_task('celery_worker.run_pipeline',
+                                     args=[input_file, output_dir, organism],
+                                     queue=queue_name)
+              print(f"Task {result.id} dispatched to {some_worker} with organism '{organism}'")
 
     - name: Deploy Celery Service File
       copy:
@@ -114,7 +150,11 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4
+          # IMPORTANT: Specify the queue name for this particular worker.
+          # For example, if this is worker1, add: --queues=worker1_queue
+          # On each worker VM, you must template this service file differently,
+          # or use inventory vars to set the queue name dynamically.
+          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
           Restart=always
 
           [Install]
@@ -128,7 +168,7 @@
     - name: Restart and enable Celery service
       systemd:
         name: celery
-        state: restarted  # Use 'restarted' to apply any changes
+        state: restarted
         enabled: yes
 
     - name: Ensure Celery worker script is executable
