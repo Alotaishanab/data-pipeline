@@ -12,7 +12,7 @@
 
     - name: Copy pipeline_script.py
       copy:
-        src: /home/almalinux/ansible/files/pipeline_script.py
+        src: /home/almalinux/data-pipeline/ansible/files/pipeline_script.py
         dest: /opt/data_pipeline/pipeline_script.py
         owner: almalinux
         group: almalinux
@@ -20,7 +20,7 @@
 
     - name: Copy results_parser.py
       copy:
-        src: /home/almalinux/ansible/files/results_parser.py
+        src: /home/almalinux/data-pipeline/ansible/files/results_parser.py
         dest: /opt/data_pipeline/results_parser.py
         owner: almalinux
         group: almalinux
