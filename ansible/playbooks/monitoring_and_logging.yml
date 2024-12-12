@@ -95,6 +95,8 @@
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
   become: yes
+  roles:
+    - prometheus_alerts  # Add this line to include the prometheus_alerts role
   tasks:
     - name: Create Prometheus user and group
       user:
