@@ -12,5 +12,5 @@
 - import_playbook: celery_setup.yml
 - import_playbook: cleanup_disk_space.yml
 - import_playbook: setup_webhook_server.yml
-- import_playbook: install_alertmanager_and_rules.yml  
+- import_playbook: rules.yml  
 #- import_playbook: run_pipeline.yml  
