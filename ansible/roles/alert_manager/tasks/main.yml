@@ -81,11 +81,6 @@
     enabled: yes
   notify: Restart Alertmanager
 
-handlers:
-  - name: Restart Alertmanager
-    systemd:
-      name: alertmanager
-      state: restarted
-      enabled: yes
+
 
 
