@@ -13,9 +13,14 @@
     remote_src: yes
     extra_opts: [--strip-components=1]
 
+- name: Remove existing /opt/alertmanager if it exists
+  file:
+    path: /opt/alertmanager
+    state: absent
+
 - name: Create Alertmanager symlink
   file:
-    src: /opt/alertmanager
+    src: /opt/alertmanager-0.25.0.linux-amd64
     dest: /opt/alertmanager
     state: link
 
