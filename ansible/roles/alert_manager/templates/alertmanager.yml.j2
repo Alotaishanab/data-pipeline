@@ -1,24 +1,14 @@
+global:
+  resolve_timeout: 5m
+
 route:
-  receiver: 'slack_channel'
+  receiver: 'webhook_receiver'
   routes:
     - match:
         alertname: 'HighDiskUsage'
       receiver: 'webhook_receiver'
 
 receivers:
-  - name: 'slack_channel'
-    slack_configs:
-      - channel: '#alerts'
-        send_resolved: true
-        title: "High Disk Usage Alert"
-        text: "Disk usage exceeded threshold."
-
   - name: 'webhook_receiver'
     webhook_configs:
-      - url: 'http://10.134.12.115:8080/alertmanager-webhook'
-
-  # Optionally, if you want email notification:
-  # - name: 'email_receiver'
-  #   email_configs:
-  #     - to: 'alert@example.com'
-  #       send_resolved: true
+      - url: 'http://10.134.12.115:8080/alertmanager-webhook'  # Replace with your Flask server URL
