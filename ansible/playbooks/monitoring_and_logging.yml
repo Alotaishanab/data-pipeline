@@ -249,12 +249,6 @@
         group: prometheus
         mode: '0644'
 
-    - name: Deploy Prometheus Alert Rules
-      hosts: host
-      become: yes
-      roles:
-        - prometheus_alerts
-
     - name: Reload systemd daemon for Prometheus
       systemd:
         daemon_reload: yes
