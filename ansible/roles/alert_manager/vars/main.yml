@@ -1,0 +1,4 @@
+alertmanager_version: "0.25.0"
+alertmanager_tarball: "alertmanager-{{ alertmanager_version }}.linux-amd64.tar.gz"
+alertmanager_url: "https://github.com/prometheus/alertmanager/releases/download/v{{ alertmanager_version }}/{{ alertmanager_tarball }}"
+alertmanager_extract_dir: "/opt/alertmanager-{{ alertmanager_version }}.linux-amd64"

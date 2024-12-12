@@ -1,21 +1,26 @@
 ---
 - name: Download Alertmanager binary
   get_url:
-    url: "https://github.com/prometheus/alertmanager/releases/download/v0.25.0/alertmanager-0.25.0.linux-amd64.tar.gz"
-    dest: "/tmp/alertmanager.tar.gz"
+    url: "{{ alertmanager_url }}"
+    dest: "/tmp/{{ alertmanager_tarball }}"
     mode: '0644'
     force: yes
 
 - name: Extract Alertmanager
   unarchive:
-    src: "/tmp/alertmanager.tar.gz"
+    src: "/tmp/{{ alertmanager_tarball }}"
     dest: "/opt/"
     remote_src: yes
-    extra_opts: [--strip-components=1]
+    extra_opts: []  # Remove '--strip-components=1'
+
+- name: Remove existing /opt/alertmanager if it exists
+  file:
+    path: /opt/alertmanager
+    state: absent
 
 - name: Create Alertmanager symlink
   file:
-    src: /opt/alertmanager
+    src: "{{ alertmanager_extract_dir }}"
     dest: /opt/alertmanager
     state: link
 
@@ -35,6 +40,16 @@
   loop:
     - /etc/alertmanager
     - /var/lib/alertmanager
+
+- name: Set ownership for Alertmanager binaries
+  file:
+    path: "{{ item }}"
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - "{{ alertmanager_extract_dir }}/alertmanager"
+    - "{{ alertmanager_extract_dir }}/amtool"
 
 - name: Deploy Alertmanager configuration file
   template:
@@ -61,3 +76,4 @@
     name: alertmanager
     state: started
     enabled: yes
+
