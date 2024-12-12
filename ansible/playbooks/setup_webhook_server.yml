@@ -1,0 +1,112 @@
+- name: Setup Webhook and HTTP Server for Results
+  hosts: host
+  become: yes
+  vars:
+    flask_app_path: /opt/data_pipeline/webhook_server.py
+    flask_app_port: 8080
+    results_path: /mnt/results
+
+  tasks:
+    - name: Install Python3 and pip
+      yum:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Install Flask
+      pip:
+        name: flask
+        state: present
+
+    - name: Ensure pipeline directory exists
+      file:
+        path: /opt/data_pipeline
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+    - name: Copy webhook_server.py
+      copy:
+        src: ../../scripts/webhook_server.py
+        dest: "{{ flask_app_path }}"
+        mode: '0755'
+        owner: almalinux
+        group: almalinux
+
+    - name: Create systemd service for webhook_server
+      copy:
+        dest: /etc/systemd/system/webhook_server.service
+        content: |
+          [Unit]
+          Description=Alertmanager Webhook Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=almalinux
+          Group=almalinux
+          WorkingDirectory=/opt/data_pipeline
+          ExecStart=/usr/bin/python3 {{ flask_app_path }}
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart_webhook_server
+
+    - name: Start and enable the webhook server
+      systemd:
+        name: webhook_server
+        state: started
+        enabled: yes
+
+    - name: Allow port 8080 in firewall for webhook server
+      firewalld:
+        port: 8080/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld (webhook port)
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+    # Install and configure a simple HTTP server to serve results
+    - name: Install Apache httpd
+      yum:
+        name: httpd
+        state: present
+
+    - name: Start and enable httpd
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Link results directory to web root
+      file:
+        src: "{{ results_path }}"
+        dest: /var/www/html/results
+        state: link
+
+    - name: Allow HTTP service in firewall
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld (http service)
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+  handlers:
+    - name: restart_webhook_server
+      systemd:
+        name: webhook_server
+        state: restarted

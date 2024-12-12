@@ -6,8 +6,8 @@ import json
 app = Flask(__name__)
 
 # Adjust paths to match your actual directory structure
-CLEANUP_PLAYBOOK_PATH = "/home/almalinux/data-pipeline/ansible/playbooks/cleanup_disk_space.yml"
-UPDATE_WORKERS_SCRIPT = "/home/almalinux/data-pipeline/scripts/update_disabled_workers.py"
+CLEANUP_PLAYBOOK_PATH = "../ansible/playbooks/cleanup_disk_space.yml"
+UPDATE_WORKERS_SCRIPT = "./update_disabled_workers.py"
 
 @app.route('/alertmanager-webhook', methods=['POST'])
 def alertmanager_webhook():
@@ -23,7 +23,7 @@ def alertmanager_webhook():
 
         if alertname == 'HighDiskUsage' and status == 'firing':
             # Run the cleanup disk space playbook
-            subprocess.run(["ansible-playbook", CLEANUP_PLAYBOOK_PATH], check=False)
+            subprocess.run(["ansible-playbook", "-i", "../ansible/inventories/inventory.json", CLEANUP_PLAYBOOK_PATH], check=False)
 
         if alertname == 'HighCPULoad':
             # Disable or enable worker based on alert status

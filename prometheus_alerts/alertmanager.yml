@@ -18,7 +18,7 @@ receivers:
 
 - name: 'webhook_receiver'
   webhook_configs:
-    - url: 'http://YOUR_ANSIBLE_TOWER_URL/api/v2/job_templates/YOUR_TEMPLATE_ID/launch/'
+    - url: 'http://10.134.12.115:8080/alertmanager-webhook'
 
 # Optionally, if you want email notification:
 # - name: 'email_receiver'
