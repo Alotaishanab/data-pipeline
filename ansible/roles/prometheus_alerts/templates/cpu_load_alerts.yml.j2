@@ -1,0 +1,11 @@
+groups:
+  - name: cpu_load_alerts
+    rules:
+      - alert: HighCPULoad
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU Load"
+          description: "CPU load is above 90% for more than 5 minutes"

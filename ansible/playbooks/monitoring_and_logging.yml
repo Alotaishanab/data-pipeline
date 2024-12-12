@@ -195,6 +195,11 @@
           global:
             scrape_interval: 15s
 
+          alerting:
+            alertmanagers:
+              - static_configs:
+                  - targets: ['localhost:9093']
+
           scrape_configs:
             - job_name: 'prometheus'
               static_configs:
@@ -209,6 +214,7 @@
         owner: prometheus
         group: prometheus
         mode: '0644'
+
 
     - name: Set ownership of Prometheus binaries
       file:
@@ -242,6 +248,12 @@
         owner: prometheus
         group: prometheus
         mode: '0644'
+
+    - name: Deploy Prometheus Alert Rules
+      hosts: host
+      become: yes
+      roles:
+        - prometheus_alerts
 
     - name: Reload systemd daemon for Prometheus
       systemd:

@@ -158,3 +158,9 @@
         name: terraform
         state: latest
 
+- name: Install and Configure Alertmanager on Host
+  hosts: host
+  become: yes
+  roles:
+    - alert_manager
+

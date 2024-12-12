@@ -1,0 +1,32 @@
+# roles/prometheus_alerts/tasks/main.yml
+
+- name: Ensure Prometheus rules directory exists
+  file:
+    path: /etc/prometheus/rules
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+
+- name: Deploy CPU Load Alert Rules
+  template:
+    src: cpu_load_alerts.yml.j2
+    dest: /etc/prometheus/rules/cpu_load_alerts.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+
+- name: Deploy Disk Usage Alert Rules
+  template:
+    src: disk_usage_alerts.yml.j2
+    dest: /etc/prometheus/rules/disk_usage_alerts.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+
+- name: Reload Prometheus to apply new alert rules
+  systemd:
+    name: prometheus
+    state: reloaded
+  notify:
+    - Restart Prometheus
