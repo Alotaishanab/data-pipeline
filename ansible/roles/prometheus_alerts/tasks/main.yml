@@ -33,7 +33,7 @@
       rule_files:
         - "/etc/prometheus/rules/cpu_load_alerts.yml"
         - "/etc/prometheus/rules/disk_usage_alerts.yml"
-  notify: Reload Prometheus
+  notify: Restart Prometheus
 
 - name: Reload Prometheus to apply new alert rules
   systemd:
