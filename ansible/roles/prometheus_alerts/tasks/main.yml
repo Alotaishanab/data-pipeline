@@ -1,5 +1,6 @@
 # roles/prometheus_alerts/tasks/main.yml
 
+---
 - name: Ensure Prometheus rules directory exists
   file:
     path: /etc/prometheus/rules
@@ -24,9 +25,19 @@
     group: prometheus
     mode: '0644'
 
-- name: Restart Prometheus to apply new alert rules
+- name: Ensure Prometheus configuration includes rule_files
+  blockinfile:
+    path: /etc/prometheus/prometheus.yml
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    block: |
+      rule_files:
+        - "/etc/prometheus/rules/cpu_load_alerts.yml"
+        - "/etc/prometheus/rules/disk_usage_alerts.yml"
+  notify: Reload Prometheus
+
+- name: Reload Prometheus to apply new alert rules
   systemd:
     name: prometheus
-    state: restarted
-  notify:
-    - Restart Prometheus
+    state: reloaded
+  when: ansible_os_family == "RedHat"
+
