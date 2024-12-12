@@ -58,6 +58,7 @@
     owner: alertmanager
     group: alertmanager
     mode: '0644'
+  notify: Restart Alertmanager
 
 - name: Deploy Alertmanager systemd service file
   template:
@@ -66,14 +67,25 @@
     owner: root
     group: root
     mode: '0644'
+  notify: Reload and Restart Alertmanager
 
 - name: Reload systemd daemon
   systemd:
     daemon_reload: yes
+  notify: Restart Alertmanager
 
 - name: Start and enable Alertmanager service
   systemd:
     name: alertmanager
     state: started
     enabled: yes
+  notify: Restart Alertmanager
+
+handlers:
+  - name: Restart Alertmanager
+    systemd:
+      name: alertmanager
+      state: restarted
+      enabled: yes
+
 
