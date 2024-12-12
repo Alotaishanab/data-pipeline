@@ -24,9 +24,9 @@
     group: prometheus
     mode: '0644'
 
-- name: Reload Prometheus to apply new alert rules
+- name: Restart Prometheus to apply new alert rules
   systemd:
     name: prometheus
-    state: reloaded
+    state: restarted
   notify:
     - Restart Prometheus
