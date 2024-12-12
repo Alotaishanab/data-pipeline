@@ -1,15 +1,58 @@
+# /home/almalinux/ansible/playbooks/configure_nfs_server.yml
 - name: Configure NFS Server
   hosts: storage
   become: yes
-  vars:
-    data_device: /dev/vdb
-    data_partition: /dev/vdb1
-    data_mount_point: /mnt/datasets
-    results_mount_point: /mnt/results
   tasks:
+    - name: Ensure nfs-utils is installed
+      yum:
+        name: nfs-utils
+        state: present
+
+    - name: Ensure rpcbind is installed (usually part of nfs-utils, but just to be sure)
+      yum:
+        name: rpcbind
+        state: present
+
+    - name: Ensure firewalld is installed
+      yum:
+        name: firewalld
+        state: present
+
+    - name: Start and enable firewalld
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    # Add firewall services for NFS
+    # NFS usually needs rpc-bind, nfs, and mountd services allowed
+    - name: Allow NFS related services in firewall
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+      loop:
+        - nfs
+        - rpc-bind
+        - mountd
+      notify: reload firewalld
+
+    - name: Enable and start RPC services
+      systemd:
+        name: rpcbind
+        state: started
+        enabled: yes
+
+    - name: Start and enable NFS server
+      systemd:
+        name: nfs-server
+        state: started
+        enabled: yes
+
+    # Your existing tasks for partitioning, mounting, and exporting NFS directories
     - name: Create partition on data disk
       community.general.parted:
-        device: "{{ data_device }}"
+        device: /dev/vdb
         number: 1
         state: present
         part_type: primary
@@ -20,26 +63,25 @@
     - name: Create filesystem on data partition
       community.general.filesystem:
         fstype: ext4
-        dev: "{{ data_partition }}"
+        dev: /dev/vdb1
 
     - name: Create mount point for datasets
       file:
-        path: "{{ data_mount_point }}"
+        path: /mnt/datasets
         state: directory
 
     - name: Mount the data partition
-      ansible.posix.mount:
-        path: "{{ data_mount_point }}"
-        src: "{{ data_partition }}"
+      mount:
+        path: /mnt/datasets
+        src: /dev/vdb1
         fstype: ext4
-        opts: defaults
         state: mounted
 
-    - name: Enable and start NFS services
+    - name: Enable and start NFS services (redundant check, ensures NFS is running)
       systemd:
         name: nfs-server
-        enabled: yes
         state: started
+        enabled: yes
 
     - name: Ensure 'nfsnobody' group exists
       group:
@@ -56,7 +98,7 @@
 
     - name: Create mount point for results
       file:
-        path: "{{ results_mount_point }}"
+        path: /mnt/results
         state: directory
 
     - name: Ensure proper permissions on datasets and results directories
@@ -66,14 +108,14 @@
         group: nfsnobody
         mode: '0777'
       loop:
-        - "{{ data_mount_point }}"
-        - "{{ results_mount_point }}"
+        - /mnt/datasets
+        - /mnt/results
 
     - name: Configure NFS exports
       copy:
         content: |
-          {{ data_mount_point }} *(rw,sync,no_root_squash)
-          {{ results_mount_point }} *(rw,sync,no_root_squash)
+          /mnt/datasets *(rw,sync,no_root_squash)
+          /mnt/results *(rw,sync,no_root_squash)
         dest: /etc/exports
         owner: root
         group: root
@@ -81,3 +123,9 @@
 
     - name: Export NFS shares
       command: exportfs -rav
+
+  handlers:
+    - name: reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
