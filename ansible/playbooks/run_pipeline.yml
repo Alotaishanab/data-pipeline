@@ -29,7 +29,12 @@
 
     - name: Set fact for datasets and their PDB files
       set_fact:
-        datasets_pdb: "{{ datasets_pdb | default([]) + [ {'organism': item.item.organism, 'results_dir': item.item.results_dir, 'files': item.files | map(attribute='path') | list } ] }}"
+        datasets_pdb: "{{ datasets_pdb | default([]) + [ {
+          'organism': item.item.organism,
+          'results_dir': item.item.results_dir,
+          'data_input_dir': item.item.data_input_dir,
+          'files': item.files | map(attribute='path') | list
+        } ] }}"
       loop: "{{ pdb_files.results }}"
       loop_control:
         label: "{{ item.item.organism }}"
@@ -37,13 +42,18 @@
     # Limit each dataset to the first 100 PDB files (adjust batch_size if needed)
     - name: Limit each dataset to batch_size .pdb files
       set_fact:
-        datasets_pdb_limited: "{{ datasets_pdb_limited | default([]) + [ {'organism': item.organism, 'results_dir': item.results_dir, 'files': (item.files | list)[0:batch_size] } ] }}"
+        datasets_pdb_limited: "{{ datasets_pdb_limited | default([]) + [ {
+          'organism': item.organism,
+          'results_dir': item.results_dir,
+          'data_input_dir': item.data_input_dir,
+          'files': (item.files | list)[0:batch_size]
+        } ] }}"
       loop: "{{ datasets_pdb }}"
 
-    - name: Enqueue pipeline tasks for each limited batch of PDB files
+    - name: Enqueue pipeline tasks for each dataset
       shell: |
-        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.1 }}" "{{ item.0.results_dir }}" "{{ item.0.organism }}"
-      loop: "{{ datasets_pdb_limited | subelements('files') }}"
+        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.data_input_dir }}" "{{ item.results_dir }}" "{{ item.organism }}"
+      loop: "{{ datasets_pdb_limited }}"
       loop_control:
-        label: "{{ item.1 }}"
-      when: item.1 is defined
+        label: "{{ item.organism }}"
+      when: item.files | length > 0
