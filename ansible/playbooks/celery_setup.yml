@@ -1,4 +1,4 @@
-# setup_celery.yml
+# celery_setup.yml
 
 ---
 - name: Setup Celery Workers
@@ -125,12 +125,11 @@
       worker2: "worker2_queue"
       worker3: "worker3_queue"
   tasks:
-    - name: Install Celery and Redis Python packages on host in virtualenv
+    - name: Install Celery and Redis Python packages globally
       pip:
         name:
           - celery
           - redis
-        virtualenv: /opt/merizo_search/merizosearch_env
         state: present
 
     - name: Create data pipeline directory on host
