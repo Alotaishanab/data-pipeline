@@ -95,8 +95,6 @@
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
   become: yes
-  roles:
-    - prometheus_alerts  
   tasks:
     - name: Create Prometheus user and group
       user:
@@ -227,6 +225,10 @@
         - /usr/local/bin/prometheus
         - /usr/local/bin/promtool
 
+    - name: Deploy Prometheus Alert Rules
+      include_role:
+        name: prometheus_alerts
+        
     - name: Create Prometheus service
       copy:
         dest: /etc/systemd/system/prometheus.service

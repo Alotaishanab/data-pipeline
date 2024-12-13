@@ -35,9 +35,5 @@
         - "/etc/prometheus/rules/disk_usage_alerts.yml"
   notify: Restart Prometheus
 
-- name: Reload Prometheus to apply new alert rules
-  systemd:
-    name: prometheus
-    state: reloaded
-  when: ansible_os_family == "RedHat"
+
 
