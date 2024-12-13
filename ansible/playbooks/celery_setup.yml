@@ -8,17 +8,18 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
-    celery_bin: "/usr/local/bin/celery"  # Celery binary path
+    celery_bin: "/opt/merizo_search/merizosearch_env/bin/celery"  # Updated to virtualenv's celery
     worker_queues:
       worker1: "worker1_queue"
       worker2: "worker2_queue"
       worker3: "worker3_queue"
   tasks:
-    - name: Install Celery and Redis Python packages globally
+    - name: Install Celery and Redis Python packages in virtualenv
       pip:
         name:
           - celery
           - redis
+        virtualenv: /opt/merizo_search/merizosearch_env
         state: present
 
     - name: Create data pipeline directory
@@ -124,11 +125,12 @@
       worker2: "worker2_queue"
       worker3: "worker3_queue"
   tasks:
-    - name: Install Celery and Redis Python packages on host
+    - name: Install Celery and Redis Python packages on host in virtualenv
       pip:
         name:
           - celery
           - redis
+        virtualenv: /opt/merizo_search/merizosearch_env
         state: present
 
     - name: Create data pipeline directory on host
