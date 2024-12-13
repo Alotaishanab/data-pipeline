@@ -50,6 +50,11 @@ def run_merizo_search(input_file, output_dir, id, database_path):
     """
     Runs the Merizo Search domain predictor to produce domains
     """
+
+    # Debug Statements
+    print(f"Checking if VIRTUALENV_PYTHON exists: {os.path.exists(VIRTUALENV_PYTHON)}")
+    print(f"VIRTUALENV_PYTHON is executable: {os.access(VIRTUALENV_PYTHON, os.X_OK)}")
+    
     # Ensure output_dir exists
     os.makedirs(output_dir, exist_ok=True)
     print(f"Using output directory: {output_dir}")
