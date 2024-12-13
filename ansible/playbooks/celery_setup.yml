@@ -91,6 +91,7 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
+          Environment="PATH=/opt/merizo_search/merizosearch_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
           Restart=always
 
