@@ -1,7 +1,7 @@
 # /home/almalinux/ansible/playbooks/setup_celery_workers.yml
 
 - name: Setup Celery Workers
-  hosts: workers,host
+  hosts: workers
   become: yes
   vars:
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
@@ -12,7 +12,6 @@
     # Make sure you know which worker is which, for example:
     # if "host" is also a worker, assign a queue. If not, remove it.
     worker_queues:
-      host: "host_queue"
       worker1: "worker1_queue"
       worker2: "worker2_queue"
       worker3: "worker3_queue"

@@ -16,7 +16,7 @@ Example: python3 pipeline_script.py /mnt/datasets/human_input/ /mnt/results/huma
 """
 
 # Path to the virtual environment's Python executable
-VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python'
+VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 
 def run_parser(search_file, output_dir):
     """
