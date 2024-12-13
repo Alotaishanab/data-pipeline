@@ -56,7 +56,7 @@
               """
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
               cmd = [
-                  "python3",
+                  "/opt/merizo_search/merizosearch_env/bin/python3",  # Use virtualenv's Python
                   pipeline_script,
                   input_dir,
                   output_dir,
@@ -75,6 +75,7 @@
                       'stderr': e.stderr,
                       'returncode': e.returncode
                   }
+
 
     - name: Deploy Updated Dispatch Tasks Script
       copy:

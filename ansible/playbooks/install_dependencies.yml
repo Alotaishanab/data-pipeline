@@ -66,9 +66,27 @@
         state: absent
 
     - name: Create Python Virtual Environment for Merizo Search
-      command: python3 -m venv "{{ virtualenv_path }}"
+      command: /usr/bin/python3 -m venv "{{ virtualenv_path }}"
       args:
         creates: "{{ virtualenv_path }}"
+
+    # **Add Symlink Correction Tasks**
+    - name: Remove incorrect python3 symlink
+      file:
+        path: "{{ virtualenv_path }}/bin/python3"
+        state: absent
+
+    - name: Create correct python3 symlink pointing to /usr/bin/python3
+      file:
+        src: /usr/bin/python3
+        dest: "{{ virtualenv_path }}/bin/python3"
+        state: link
+
+    - name: Ensure python symlink points to python3
+      file:
+        src: python3
+        dest: "{{ virtualenv_path }}/bin/python"
+        state: link
 
     - name: Install Merizo Search Dependencies without torch in Virtualenv
       pip:
@@ -131,6 +149,7 @@
         group: "{{ user_name }}"
         mode: '0775'
         recurse: yes
+
 
 
 - name: Install Terraform
