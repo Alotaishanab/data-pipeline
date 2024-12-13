@@ -219,7 +219,7 @@ def main():
     output_dir = sys.argv[2]
     organism = sys.argv[3].lower()
     
-    if organism not in ["human", "ecoli"]:
+    if organism not in ["human", "ecoli", "test"]:
         print("Error: ORGANISM must be either 'human' or 'ecoli'")
         sys.exit(1)
     
