@@ -1,3 +1,6 @@
+# setup_celery.yml
+
+---
 - name: Setup Celery Workers
   hosts: workers
   become: yes
@@ -71,7 +74,72 @@
                       'returncode': e.returncode
                   }
 
-    - name: Deploy Updated Dispatch Tasks Script
+    - name: Deploy Celery Service File
+      copy:
+        dest: /etc/systemd/system/celery.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Celery Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          User={{ celery_user }}
+          Group={{ celery_group }}
+          WorkingDirectory=/opt/data_pipeline/
+          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        force: yes
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart and enable Celery service
+      systemd:
+        name: celery
+        state: restarted
+        enabled: yes
+
+    - name: Ensure Celery worker script is executable
+      file:
+        path: /opt/data_pipeline/celery_worker.py
+        mode: '0755'
+
+- name: Setup Celery on Management Node
+  hosts: host
+  become: yes
+  vars:
+    redis_host: "{{ hostvars['storage']['ansible_host'] }}"
+    celery_user: "almalinux"
+    celery_group: "almalinux"
+    worker_queues:
+      worker1: "worker1_queue"
+      worker2: "worker2_queue"
+      worker3: "worker3_queue"
+  tasks:
+    - name: Install Celery and Redis Python packages on host
+      pip:
+        name:
+          - celery
+          - redis
+        state: present
+
+    - name: Create data pipeline directory on host
+      file:
+        path: /opt/data_pipeline/
+        state: directory
+        owner: "{{ celery_user }}"
+        group: "{{ celery_group }}"
+        mode: '0755'
+
+    - name: Deploy Dispatch Tasks Script on host
       copy:
         dest: /opt/data_pipeline/dispatch_tasks.py
         owner: "{{ celery_user }}"
@@ -127,41 +195,3 @@
                                      args=[input_file, output_dir, organism],
                                      queue=queue_name)
               print(f"Task {result.id} dispatched to {some_worker} with organism '{organism}'")
-
-    - name: Deploy Celery Service File
-      copy:
-        dest: /etc/systemd/system/celery.service
-        owner: root
-        group: root
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Celery Service
-          After=network.target
-
-          [Service]
-          Type=simple
-          User={{ celery_user }}
-          Group={{ celery_group }}
-          WorkingDirectory=/opt/data_pipeline/
-          ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
-          Restart=always
-
-          [Install]
-          WantedBy=multi-user.target
-        force: yes
-
-    - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
-
-    - name: Restart and enable Celery service
-      systemd:
-        name: celery
-        state: restarted
-        enabled: yes
-
-    - name: Ensure Celery worker script is executable
-      file:
-        path: /opt/data_pipeline/celery_worker.py
-        mode: '0755'
