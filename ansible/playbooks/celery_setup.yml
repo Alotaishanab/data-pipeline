@@ -1,5 +1,3 @@
-# /home/almalinux/ansible/playbooks/setup_celery_workers.yml
-
 - name: Setup Celery Workers
   hosts: workers
   become: yes
@@ -8,9 +6,6 @@
     celery_user: "almalinux"
     celery_group: "almalinux"
     celery_bin: "/usr/local/bin/celery"  # Celery binary path
-    # Define worker->queue mapping. Adjust names as needed.
-    # Make sure you know which worker is which, for example:
-    # if "host" is also a worker, assign a queue. If not, remove it.
     worker_queues:
       worker1: "worker1_queue"
       worker2: "worker2_queue"
@@ -56,7 +51,7 @@
               """
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
               cmd = [
-                  "/opt/merizo_search/merizosearch_env/bin/python3",  # Use virtualenv's Python
+                  "/opt/merizo_search/merizosearch_env/bin/python3",
                   pipeline_script,
                   input_dir,
                   output_dir,
@@ -75,7 +70,6 @@
                       'stderr': e.stderr,
                       'returncode': e.returncode
                   }
-
 
     - name: Deploy Updated Dispatch Tasks Script
       copy:
@@ -150,10 +144,6 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          # IMPORTANT: Specify the queue name for this particular worker.
-          # For example, if this is worker1, add: --queues=worker1_queue
-          # On each worker VM, you must template this service file differently,
-          # or use inventory vars to set the queue name dynamically.
           ExecStart={{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
           Restart=always
 
