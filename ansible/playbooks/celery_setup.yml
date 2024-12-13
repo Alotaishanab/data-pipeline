@@ -8,23 +8,13 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
+    virtualenv_path: "/opt/merizo_search/merizosearch_env"
+    celery_bin: "{{ virtualenv_path }}/bin/celery"
     worker_queues:
       worker1: "worker1_queue"
       worker2: "worker2_queue"
       worker3: "worker3_queue"
-    virtualenv_path: "/opt/merizo_search/merizosearch_env"
-    celery_bin: "{{ virtualenv_path }}/bin/celery"
   tasks:
-    - name: Install virtualenv if not present
-      yum:
-        name: python3-virtualenv
-        state: present
-
-    - name: Upgrade pip in virtualenv
-      command: "{{ virtualenv_path }}/bin/python3 -m pip install --upgrade pip"
-      args:
-        creates: "{{ virtualenv_path }}/bin/pip"
-
     - name: Install Celery and Redis Python packages in virtualenv
       pip:
         name:
@@ -32,13 +22,6 @@
           - redis
         virtualenv: "{{ virtualenv_path }}"
         state: present
-
-    - name: Install additional dependencies in virtualenv
-      pip:
-        requirements: /opt/data_pipeline/requirements.txt
-        virtualenv: "{{ virtualenv_path }}"
-        state: present
-      when: ansible_facts['distribution_major_version'] is version('8', '>=')
 
     - name: Create data pipeline directory
       file:
@@ -93,7 +76,7 @@
                       'returncode': e.returncode
                   }
 
-    - name: Create Celery Startup Script
+    - name: Create Celery Startup Shell Script
       copy:
         dest: /opt/data_pipeline/start_celery.sh
         owner: "{{ celery_user }}"
@@ -104,7 +87,7 @@
           source {{ virtualenv_path }}/bin/activate
           exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
 
-    - name: Deploy Celery Service File
+    - name: Deploy Updated Celery Service File
       copy:
         dest: /etc/systemd/system/celery.service
         owner: root
@@ -136,6 +119,17 @@
         name: celery
         state: restarted
         enabled: yes
+
+    - name: Ensure Celery worker script is executable
+      file:
+        path: /opt/data_pipeline/celery_worker.py
+        mode: '0755'
+
+    - name: Upgrade networkx in virtualenv
+      pip:
+        name: networkx
+        virtualenv: "{{ virtualenv_path }}"
+        state: latest
 
 - name: Setup Celery on Management Node
   hosts: host
