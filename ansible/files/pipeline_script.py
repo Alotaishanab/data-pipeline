@@ -2,7 +2,6 @@
 
 import sys
 from subprocess import Popen, PIPE
-import glob
 import os
 import shutil
 import csv
@@ -11,8 +10,8 @@ from collections import defaultdict
 import statistics
 
 """
-Usage: python3 pipeline_script.py [INPUT_DIR] [OUTPUT_DIR] [ORGANISM]
-Example: python3 pipeline_script.py /mnt/datasets/human_input/ /mnt/results/human/ human
+Usage: python3 pipeline_script.py [PDB_FILE] [OUTPUT_DIR] [ORGANISM]
+Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
 """
 
 # Path to the virtual environment's Python executable
@@ -46,7 +45,7 @@ def run_parser(search_file, output_dir):
         print(f"Error during Parsing: {e}")
         raise
 
-def run_merizo_search(input_file, output_dir, id, database_path):
+def run_merizo_search(pdb_file, output_dir, id, database_path):
     """
     Runs the Merizo Search domain predictor to produce domains
     """
@@ -71,10 +70,10 @@ def run_merizo_search(input_file, output_dir, id, database_path):
         VIRTUALENV_PYTHON,
         merizo_script,
         'easy-search',
-        input_file,        # Pass individual file
-        database_path,     # Use symlink path
-        output_dir,        # Output directory: e.g., /mnt/results/human/
-        tmp_dir,           # Temporary directory: e.g., /mnt/results/human/tmp/
+        pdb_file,        # Pass individual file
+        database_path,   # Use symlink path
+        output_dir,      # Output directory: e.g., /mnt/results/test/
+        tmp_dir,         # Temporary directory: e.g., /mnt/results/test/tmp/
         '--iterate',
         '--output_headers',
         '-d',
@@ -120,27 +119,20 @@ def run_merizo_search(input_file, output_dir, id, database_path):
         print(f"Error during Merizo Search: {e}")
         raise
 
-def read_dir(input_dir):
-    """
-    Reads all PDB files in the input directory
-    """
-    print("Getting file list")
-    file_ids = glob.glob(os.path.join(input_dir, "*.pdb"))
-    analysis_files = []
-    for file_path in file_ids:
-        id = os.path.splitext(os.path.basename(file_path))[0]
-        analysis_files.append([file_path, id, sys.argv[2]])
-    return analysis_files
-
-def pipeline(filepath, id, outpath):
+def pipeline(pdb_file, output_dir, organism):
     # STEP 1: Run Merizo Search
-    search_file = run_merizo_search(filepath, outpath, id, database_path='/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb')
+    search_file = run_merizo_search(
+        pdb_file,
+        output_dir,
+        id=os.path.splitext(os.path.basename(pdb_file))[0],
+        database_path='/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
+    )
     
     # STEP 2: Run Parser on the generated search file
-    run_parser(search_file, outpath)
+    run_parser(search_file, output_dir)
     
     # STEP 3: Clean up temporary files
-    tmp_dir = os.path.join(outpath, "tmp")
+    tmp_dir = os.path.join(output_dir, "tmp")
     if os.path.exists(tmp_dir):
         try:
             shutil.rmtree(tmp_dir)
@@ -213,31 +205,28 @@ def aggregate_results(output_dir, organism):
             writer.writerow(["Organism", "Mean_plDDT", "StdDev_plDDT"])
         writer.writerow([organism.capitalize(), mean_plDDT, std_dev_plDDT])
     print(f"Updated {plddt_means_file}")
-    
+
 def main():
     if len(sys.argv) != 4:
-        print("Usage: python3 pipeline_script.py <INPUT_DIR> <OUTPUT_DIR> <ORGANISM>")
-        print("Example: python3 pipeline_script.py /mnt/datasets/human_input/ /mnt/results/human/ human")
+        print("Usage: python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM>")
+        print("Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test")
         sys.exit(1)
     
-    input_dir = sys.argv[1]
+    pdb_file = sys.argv[1]
     output_dir = sys.argv[2]
     organism = sys.argv[3].lower()
     
     if organism not in ["human", "ecoli", "test"]:
-        print("Error: ORGANISM must be either 'human' or 'ecoli'")
+        print("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
         sys.exit(1)
     
-    pdbfiles = read_dir(input_dir)
-    if not pdbfiles:
-        print("No PDB files found in the input directory.")
+    if not os.path.isfile(pdb_file):
+        print(f"No PDB file found: {pdb_file}")
         sys.exit(1)
     
-    for file_info in pdbfiles:
-        filepath, id, outpath = file_info
-        pipeline(filepath, id, outpath)
+    pipeline(pdb_file, output_dir, organism)
     
-    # After processing all files, aggregate results
+    # After processing the file, aggregate results
     aggregate_results(output_dir, organism)
 
 if __name__ == "__main__":

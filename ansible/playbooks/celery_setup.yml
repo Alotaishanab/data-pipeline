@@ -54,15 +54,16 @@
           app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
 
           @app.task
-          def run_pipeline(input_dir, output_dir, organism):
+          def run_pipeline(pdb_file, output_dir, organism):
               """
-              Celery task to run the data pipeline on a specified input directory.
+              Celery task to run the data pipeline on a specified PDB file.
               """
+              print(f"Received PDB File: {pdb_file}")
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
               cmd = [
                   "/opt/merizo_search/merizosearch_env/bin/python3",
                   pipeline_script,
-                  input_dir,
+                  pdb_file,
                   output_dir,
                   organism
               ]
@@ -132,7 +133,6 @@
       file:
         path: /opt/data_pipeline/celery_worker.py
         mode: '0755'
-
 
 - name: Setup Celery on Management Node
   hosts: host
