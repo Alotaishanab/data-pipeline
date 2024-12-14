@@ -143,8 +143,7 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
-    virtualenv_path: "/opt/merizo_search/merizosearch_env"
-    celery_bin: "{{ virtualenv_path }}/bin/celery"
+    # Note: virtualenv_path is not defined here as we are using the global Python environment
   tasks:
     - name: Install Celery and Redis Python packages globally
       pip:
@@ -239,7 +238,7 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          ExecStart=/opt/merizo_search/merizosearch_env/bin/python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets/human_proteome/ /mnt/results/human/ human
+          ExecStart=/usr/bin/python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets/human_proteome/ /mnt/results/human/ human
           Restart=on-failure
 
           [Install]
@@ -261,7 +260,7 @@
           User={{ celery_user }}
           Group={{ celery_group }}
           WorkingDirectory=/opt/data_pipeline/
-          ExecStart=/opt/merizo_search/merizosearch_env/bin/python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets/ecoli_proteome/ /mnt/results/ecoli/ ecoli
+          ExecStart=/usr/bin/python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets/ecoli_proteome/ /mnt/results/ecoli/ ecoli
           Restart=on-failure
 
           [Install]
