@@ -7,12 +7,12 @@
   vars:
     batch_size: 100
     datasets:
-      - organism: "human"
-        data_input_dir: "/mnt/datasets/human_proteome/"
-        results_dir: "/mnt/results/human/"
-      - organism: "ecoli"
-        data_input_dir: "/mnt/datasets/ecoli_proteome/"
-        results_dir: "/mnt/results/ecoli/"
+      - organism: "test"
+        data_input_dir: "/mnt/datasets/test/"
+        results_dir: "/mnt/results/test/"
+      #- organism: "ecoli"
+      #  data_input_dir: "/mnt/datasets/ecoli_proteome/"
+      #  results_dir: "/mnt/results/ecoli/"
   tasks:
     - name: Find all .pdb files for each dataset
       find:
