@@ -1,3 +1,4 @@
+---
 - name: Setup Celery Workers
   hosts: workers
   become: yes
@@ -130,6 +131,12 @@
         path: /opt/data_pipeline/celery_worker.py
         mode: '0755'
 
+    - name: Upgrade networkx in virtualenv
+      pip:
+        name: networkx
+        virtualenv: "{{ virtualenv_path }}"
+        state: latest
+
 - name: Setup Celery on Management Node
   hosts: host
   become: yes
@@ -157,7 +164,7 @@
         group: "{{ celery_group }}"
         mode: '0755'
 
-    - name: Deploy Dispatch Tasks Script on host
+    - name: Deploy Updated Dispatch Tasks Script on host
       copy:
         dest: /opt/data_pipeline/dispatch_tasks.py
         owner: "{{ celery_user }}"
@@ -167,15 +174,25 @@
           import sys
           import redis
           from celery import Celery
+          import glob
+          import os
+          import logging
+
+          # Configure logging
+          logging.basicConfig(
+              filename='/opt/data_pipeline/dispatch_tasks.log',
+              level=logging.DEBUG,
+              format='%(asctime)s - %(levelname)s - %(message)s'
+          )
 
           redis_host = "{{ redis_host }}"
           redis_port = 6379
           redis_db = 0
 
-          # Worker queue mapping, derived from Ansible var
+          # Define worker queues
           WORKER_QUEUES = {
           {% for w, q in worker_queues.items() %}
-            "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
+              "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
           {% endfor %}
           }
 
@@ -186,14 +203,16 @@
               disabled = r.smembers('disabled_workers')
               disabled = {d.decode('utf-8') for d in disabled}
               enabled = {w: q for w, q in WORKER_QUEUES.items() if w not in disabled}
+              logging.debug(f"Disabled workers: {disabled}")
+              logging.debug(f"Enabled workers: {enabled}")
               return enabled
 
-          if __name__ == "__main__":
+          def main():
               if len(sys.argv) != 4:
-                  print("Usage: python3 dispatch_tasks.py [INPUT FILE] [OUTPUT DIRECTORY] [ORGANISM]")
+                  print("Usage: python3 dispatch_tasks.py [INPUT_DIR] [OUTPUT_DIR] [ORGANISM]")
                   sys.exit(1)
 
-              input_file = sys.argv[1]
+              input_dir = sys.argv[1]
               output_dir = sys.argv[2]
               organism = sys.argv[3].lower()
 
@@ -206,11 +225,28 @@
                   print("No enabled workers available. Check CPU load or alerts.")
                   sys.exit(1)
 
-              for worker, queue_name in enabled_workers.items():
-                  result = app.send_task('celery_worker.run_pipeline',
-                                         args=[input_file, output_dir, organism],
-                                         queue=queue_name)
-                  print(f"Task {result.id} dispatched to {worker} on queue '{queue_name}'")
+              pdb_files = glob.glob(os.path.join(input_dir, "*.pdb"))
+              if not pdb_files:
+                  print(f"No .pdb files found to process in {input_dir}.")
+                  sys.exit(0)
+
+              worker_list = list(enabled_workers.items())
+              worker_count = len(worker_list)
+              task_index = 0
+
+              for pdb_file in pdb_files:
+                  worker, queue = worker_list[task_index % worker_count]
+                  result = app.send_task(
+                      'celery_worker.run_pipeline',
+                      args=[pdb_file, output_dir, organism],
+                      queue=queue
+                  )
+                  logging.info(f"Task {result.id} dispatched for {pdb_file} to '{queue}' queue.")
+                  print(f"Task {result.id} dispatched for {pdb_file} to '{queue}' queue.")
+                  task_index += 1
+
+          if __name__ == "__main__":
+              main()
 
     - name: Reload systemd daemon
       systemd:

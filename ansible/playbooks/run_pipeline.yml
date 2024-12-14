@@ -32,7 +32,6 @@
       loop_control:
         label: "{{ item.item.organism }}"
 
-    # Limit each dataset to the first 100 PDB files (adjust batch_size if needed)
     - name: Limit each dataset to batch_size .pdb files
       set_fact:
         datasets_pdb_limited: "{{ datasets_pdb_limited | default([]) + [ {
@@ -46,8 +45,17 @@
         label: "{{ item.organism }}"
 
     - name: Enqueue pipeline tasks for each dataset
+      debug:
+        msg: "Dispatching tasks for organism: {{ item.organism }}"
+      loop: "{{ datasets_pdb_limited }}"
+      loop_control:
+        label: "{{ item.organism }}"
+
+    - name: Dispatch tasks via Celery
       shell: |
-        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.data_input_dir }}" "{{ item.results_dir }}" "{{ item.organism }}"
+        for file in {{ item.files | join(' ') }}; do
+          python3 /opt/data_pipeline/dispatch_tasks.py "$file" "{{ item.results_dir }}" "{{ item.organism }}"
+        done
       loop: "{{ datasets_pdb_limited }}"
       loop_control:
         label: "{{ item.organism }}"
