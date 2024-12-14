@@ -7,6 +7,10 @@
     celery_group: "almalinux"
     virtualenv_path: "/opt/merizo_search/merizosearch_env"
     celery_bin: "{{ virtualenv_path }}/bin/celery"
+    worker_queues:
+      worker1: "worker1_queue"
+      worker2: "worker2_queue"
+      worker3: "worker3_queue"
   tasks:
     - name: Install Celery and Redis Python packages in virtualenv
       pip:
@@ -50,10 +54,6 @@
           def run_pipeline(input_dir, output_dir, organism):
               """
               Celery task to run the data pipeline on a specified input directory.
-              
-              :param input_dir: Path to the input .pdb file
-              :param output_dir: Directory where output files will be saved
-              :param organism: Organism type ('human' or 'ecoli')
               """
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
               cmd = [
@@ -90,7 +90,7 @@
         content: |
           #!/bin/bash
           source {{ virtualenv_path }}/bin/activate
-          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues=default
+          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
 
     - name: Deploy Celery Worker systemd Service File
       copy:
@@ -137,8 +137,10 @@
     redis_host: "{{ hostvars['storage']['ansible_host'] }}"
     celery_user: "almalinux"
     celery_group: "almalinux"
-    virtualenv_path: "/opt/merizo_search/merizosearch_env"
-    celery_bin: "{{ virtualenv_path }}/bin/celery"
+    worker_queues:
+      worker1: "worker1_queue"
+      worker2: "worker2_queue"
+      worker3: "worker3_queue"
   tasks:
     - name: Install Celery and Redis Python packages globally
       pip:
@@ -165,121 +167,51 @@
           import sys
           import redis
           from celery import Celery
-          import glob
-          import os
 
           redis_host = "{{ redis_host }}"
           redis_port = 6379
           redis_db = 0
 
-          app = Celery('celery_worker', broker=f'redis://{redis_host}:{redis_port}/0')
+          # Worker queue mapping, derived from Ansible var
+          WORKER_QUEUES = {
+          {% for w, q in worker_queues.items() %}
+            "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
+          {% endfor %}
+          }
+
+          app = Celery('celery_worker', broker='redis://{}:{}/0'.format(redis_host, redis_port))
 
           def get_enabled_workers():
               r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
               disabled = r.smembers('disabled_workers')
               disabled = {d.decode('utf-8') for d in disabled}
-              return disabled
+              enabled = {w: q for w, q in WORKER_QUEUES.items() if w not in disabled}
+              return enabled
 
-          def main():
+          if __name__ == "__main__":
               if len(sys.argv) != 4:
-                  print("Usage: python3 dispatch_tasks.py [INPUT_DIR] [OUTPUT_DIR] [ORGANISM]")
+                  print("Usage: python3 dispatch_tasks.py [INPUT FILE] [OUTPUT DIRECTORY] [ORGANISM]")
                   sys.exit(1)
 
-              input_dir = sys.argv[1]
+              input_file = sys.argv[1]
               output_dir = sys.argv[2]
               organism = sys.argv[3].lower()
 
               if organism not in ["human", "ecoli", "test"]:
-                  print("Error: ORGANISM must be either 'human' or 'ecoli'")
+                  print("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
                   sys.exit(1)
 
-              disabled_workers = get_enabled_workers()
-              total_workers = 3  # Adjust if you have more workers
-
-              if len(disabled_workers) >= total_workers:
-                  print("All workers are disabled. No tasks will be dispatched.")
+              enabled_workers = get_enabled_workers()
+              if not enabled_workers:
+                  print("No enabled workers available. Check CPU load or alerts.")
                   sys.exit(1)
 
-              # Enqueue tasks to 'default' queue
-              pdb_files = glob.glob(os.path.join(input_dir, "*.pdb"))
-              if not pdb_files:
-                  print(f"No .pdb files found to process in {input_dir}.")
-                  sys.exit(0)
-
-              for pdb_file in pdb_files:
-                  result = app.send_task(
-                      'celery_worker.run_pipeline',
-                      args=[pdb_file, output_dir, organism],
-                      queue='default'
-                  )
-                  print(f"Task {result.id} dispatched for {pdb_file} to 'default' queue.")
-
-          if __name__ == "__main__":
-              main()
-        force: yes
-
-
-    - name: Create Dispatch Tasks systemd service for human
-      copy:
-        dest: /etc/systemd/system/dispatch_tasks_human.service
-        owner: root
-        group: root
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Dispatch Tasks Service for Human
-          After=network.target
-
-          [Service]
-          Type=oneshot
-          User={{ celery_user }}
-          Group={{ celery_group }}
-          WorkingDirectory=/opt/data_pipeline/
-          ExecStart=/usr/bin/python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets/human_proteome/ /mnt/results/human/ human
-          RemainAfterExit=yes
-
-          [Install]
-          WantedBy=multi-user.target
-
-    - name: Create Dispatch Tasks systemd service for ecoli
-      copy:
-        dest: /etc/systemd/system/dispatch_tasks_ecoli.service
-        owner: root
-        group: root
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Dispatch Tasks Service for Ecoli
-          After=network.target
-
-          [Service]
-          Type=oneshot
-          User={{ celery_user }}
-          Group={{ celery_group }}
-          WorkingDirectory=/opt/data_pipeline/
-          ExecStart=/usr/bin/python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets/ecoli_proteome/ /mnt/results/ecoli/ ecoli
-          RemainAfterExit=yes
-
-          [Install]
-          WantedBy=multi-user.target
+              for worker, queue_name in enabled_workers.items():
+                  result = app.send_task('celery_worker.run_pipeline',
+                                         args=[input_file, output_dir, organism],
+                                         queue=queue_name)
+                  print(f"Task {result.id} dispatched to {worker} on queue '{queue_name}'")
 
     - name: Reload systemd daemon
       systemd:
         daemon_reload: yes
-
-    - name: Start and enable Dispatch Tasks service for human
-      systemd:
-        name: dispatch_tasks_human
-        state: started
-        enabled: yes
-
-    - name: Start and enable Dispatch Tasks service for ecoli
-      systemd:
-        name: dispatch_tasks_ecoli
-        state: started
-        enabled: yes
-
-    - name: Ensure Dispatch Tasks script is executable
-      file:
-        path: /opt/data_pipeline/dispatch_tasks.py
-        mode: '0755'
