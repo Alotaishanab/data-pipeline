@@ -1,4 +1,3 @@
-# Distribute and Run Data Analysis Pipeline via Celery
 - name: Distribute and Run Data Analysis Pipeline via Celery
   hosts: host
   become: yes
@@ -43,6 +42,8 @@
           'files': (item.files | list)[0:batch_size]
         } ] }}"
       loop: "{{ datasets_pdb }}"
+      loop_control:
+        label: "{{ item.organism }}"
 
     - name: Enqueue pipeline tasks for each dataset
       shell: |
