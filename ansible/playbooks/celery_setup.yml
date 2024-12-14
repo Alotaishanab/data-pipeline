@@ -1,3 +1,5 @@
+# /home/almalinux/ansible/playbooks/celery_setup.yml
+
 ---
 - name: Setup Celery Workers
   hosts: workers
@@ -131,11 +133,6 @@
         path: /opt/data_pipeline/celery_worker.py
         mode: '0755'
 
-    - name: Upgrade networkx in virtualenv
-      pip:
-        name: networkx
-        virtualenv: "{{ virtualenv_path }}"
-        state: latest
 
 - name: Setup Celery on Management Node
   hosts: host

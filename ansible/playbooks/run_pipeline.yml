@@ -1,3 +1,6 @@
+# /home/almalinux/ansible/playbooks/run_pipeline.yml
+
+---
 - name: Distribute and Run Data Analysis Pipeline via Celery
   hosts: host
   become: yes
@@ -53,9 +56,7 @@
 
     - name: Dispatch tasks via Celery
       shell: |
-        for file in {{ item.files | join(' ') }}; do
-          python3 /opt/data_pipeline/dispatch_tasks.py "$file" "{{ item.results_dir }}" "{{ item.organism }}"
-        done
+        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.data_input_dir }}" "{{ item.results_dir }}" "{{ item.organism }}"
       loop: "{{ datasets_pdb_limited }}"
       loop_control:
         label: "{{ item.organism }}"
