@@ -35,13 +35,14 @@
         owner: almalinux
         group: almalinux
 
-    - name: Copy update_disabled_workers.py
-      copy:
-        src: ../../scripts/update_disabled_workers.py
+    - name: Template update_disabled_workers.py
+      template:
+        src: update_disabled_workers.py.j2
         dest: /opt/data_pipeline/update_disabled_workers.py
         mode: '0755'
         owner: almalinux
         group: almalinux
+      notify: restart_webhook_server
 
     - name: Create systemd service for webhook_server
       copy:
