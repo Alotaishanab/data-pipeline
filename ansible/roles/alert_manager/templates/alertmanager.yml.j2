@@ -7,8 +7,11 @@ route:
     - match:
         alertname: 'HighDiskUsage'
       receiver: 'webhook_receiver'
+    - match:
+        alertname: 'HighCPULoad'
+      receiver: 'webhook_receiver'
 
 receivers:
   - name: 'webhook_receiver'
     webhook_configs:
-      - url: 'http://10.134.12.115:8080/alertmanager-webhook' 
+      - url: 'http://10.134.12.115:8080/alertmanager-webhook'

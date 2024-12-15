@@ -35,6 +35,14 @@
         owner: almalinux
         group: almalinux
 
+    - name: Copy update_disabled_workers.py
+      copy:
+        src: ../../scripts/update_disabled_workers.py
+        dest: /opt/data_pipeline/update_disabled_workers.py
+        mode: '0755'
+        owner: almalinux
+        group: almalinux
+
     - name: Create systemd service for webhook_server
       copy:
         dest: /etc/systemd/system/webhook_server.service
