@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 # Absolute path to your Ansible inventory.json
-INVENTORY_PATH = "/home/almalinux/ansible/inventories/inventory.json"
+INVENTORY_PATH = "/home/almalinux/data-pipeline/ansible/inventories/inventory.json"
 
 def load_inventory_mapping():
     try:
