@@ -161,6 +161,15 @@
         group: "{{ celery_group }}"
         mode: '0755'
 
+    - name: Ensure dispatch_tasks.log is writable
+      file:
+        path: /opt/data_pipeline/dispatch_tasks.log
+        state: touch
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
+
+
     - name: Deploy Updated Dispatch Tasks Script on host
       copy:
         dest: /opt/data_pipeline/dispatch_tasks.py
