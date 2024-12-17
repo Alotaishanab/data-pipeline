@@ -37,7 +37,7 @@
 
     - name: Template update_disabled_workers.py
       template:
-        src: ../../roles/alert_manager/templates/update_disabled_workers.py.j2
+        src: ../roles/alert_manager/templates/update_disabled_workers.py.j2
         dest: /opt/data_pipeline/update_disabled_workers.py
         mode: '0755'
         owner: almalinux
