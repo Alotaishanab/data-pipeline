@@ -53,6 +53,22 @@
     executable: /bin/bash
   ignore_errors: yes
 
+# Find any files larger than 750MB in /home/almalinux
+- name: Find files larger than 750MB in /home/almalinux
+  shell: find /home/almalinux -type f -size +750M
+  register: large_files
+  args:
+    executable: /bin/bash
+  ignore_errors: yes
+
+- name: Remove files larger than 750MB found
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ large_files.stdout_lines | default([]) }}"
+  when: large_files.stdout_lines is defined and large_files.stdout_lines|length > 0
+  ignore_errors: yes
+
 # Check disk usage after cleanup
 - name: Check disk usage after cleanup
   command: df -h
@@ -62,10 +78,3 @@
 - name: Display disk usage
   debug:
     var: disk_usage.stdout_lines
-
-- name: Remove bigfile if present
-  file:
-    path: /home/almalinux/bigfile
-    state: absent
-  ignore_errors: yes
-
