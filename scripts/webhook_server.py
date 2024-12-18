@@ -41,7 +41,7 @@ INSTANCE_TO_WORKER = load_inventory_mapping()
 logging.info(f"Instance to Worker Mapping: {INSTANCE_TO_WORKER}")
 
 # Absolute paths to your scripts
-CLEANUP_PLAYBOOK_PATH = "/home/almalinux/ansible/playbooks/cleanup_disk_space.yml"
+CLEANUP_PLAYBOOK_PATH = "/home/almalinux/data-pipeline/ansible/playbooks/cleanup_disk_space.yml"
 UPDATE_WORKERS_SCRIPT = "/opt/data_pipeline/update_disabled_workers.py"
 
 @app.route('/alertmanager-webhook', methods=['POST'])
