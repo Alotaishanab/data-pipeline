@@ -67,35 +67,47 @@ def alertmanager_webhook():
         if alertname == 'HighDiskUsage' and status == 'firing':
             logging.info(f"HighDiskUsage alert firing for worker: {worker_name}")
             # Run the cleanup disk space playbook
-            subprocess.run([
+            process = subprocess.run([
                 "ansible-playbook",
-                "-i",
-                "/home/almalinux/ansible/inventories/inventory.json",
+                "-i", INVENTORY_PATH,
                 CLEANUP_PLAYBOOK_PATH
-            ], check=False)
-            logging.info("Executed cleanup_disk_space.yml playbook.")
+            ], capture_output=True, text=True, check=False)
+
+            logging.info(f"Executed cleanup_disk_space.yml playbook.")
+            logging.info(f"Cleanup stdout: {process.stdout}")
+            logging.info(f"Cleanup stderr: {process.stderr}")
+            logging.info(f"Cleanup returncode: {process.returncode}")
 
         if alertname == 'HighCPULoad':
             if status == 'firing':
                 logging.info(f"HighCPULoad alert firing for worker: {worker_name} - Disabling worker")
                 # Disable worker
-                subprocess.run([
+                process = subprocess.run([
                     "python3",
                     UPDATE_WORKERS_SCRIPT,
                     worker_name,
                     "disable"
-                ], check=False)
+                ], capture_output=True, text=True, check=False)
+                
                 logging.info(f"Executed update_disabled_workers.py to disable {worker_name}.")
+                logging.info(f"Disable stdout: {process.stdout}")
+                logging.info(f"Disable stderr: {process.stderr}")
+                logging.info(f"Disable returncode: {process.returncode}")
+
             elif status == 'resolved':
                 logging.info(f"HighCPULoad alert resolved for worker: {worker_name} - Enabling worker")
                 # Re-enable worker
-                subprocess.run([
+                process = subprocess.run([
                     "python3",
                     UPDATE_WORKERS_SCRIPT,
                     worker_name,
                     "enable"
-                ], check=False)
+                ], capture_output=True, text=True, check=False)
+
                 logging.info(f"Executed update_disabled_workers.py to enable {worker_name}.")
+                logging.info(f"Enable stdout: {process.stdout}")
+                logging.info(f"Enable stderr: {process.stderr}")
+                logging.info(f"Enable returncode: {process.returncode}")
 
     return '', 200
 
