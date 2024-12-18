@@ -62,3 +62,10 @@
 - name: Display disk usage
   debug:
     var: disk_usage.stdout_lines
+
+- name: Remove bigfile if present
+  file:
+    path: /home/almalinux/bigfile
+    state: absent
+  ignore_errors: yes
+
