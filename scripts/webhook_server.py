@@ -70,6 +70,7 @@ def alertmanager_webhook():
             process = subprocess.run([
                 "ansible-playbook",
                 "-i", INVENTORY_PATH,
+                "--limit", worker_name, 
                 CLEANUP_PLAYBOOK_PATH
             ], capture_output=True, text=True, check=False)
 
