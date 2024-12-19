@@ -8,6 +8,7 @@ import csv
 import json
 from collections import defaultdict
 import statistics
+import glob
 
 """
 Usage: python3 pipeline_script.py [PDB_FILE] [OUTPUT_DIR] [ORGANISM]
