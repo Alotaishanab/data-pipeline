@@ -44,6 +44,45 @@ logging.info(f"Instance to Worker Mapping: {INSTANCE_TO_WORKER}")
 CLEANUP_PLAYBOOK_PATH = "/home/almalinux/data-pipeline/ansible/playbooks/cleanup_disk_space.yml"
 UPDATE_WORKERS_SCRIPT = "/opt/data_pipeline/update_disabled_workers.py"
 
+def manage_celery_service(worker_name, action):
+    """
+    Manage the Celery service on the specified worker using Ansible ad-hoc commands.
+
+    :param worker_name: Name of the worker to manage.
+    :param action: 'start' or 'stop' the Celery service.
+    """
+    if action not in ['start', 'stop']:
+        logging.error(f"Invalid action '{action}' for managing Celery service.")
+        return
+    
+    logging.info(f"Attempting to {action} Celery service on worker: {worker_name}")
+    
+    # Construct the Ansible ad-hoc command
+    ansible_command = [
+        "ansible",
+        worker_name,
+        "-i", INVENTORY_PATH,
+        "-m", "systemd",
+        "-a", f"name=celery state={'started' if action == 'start' else 'stopped'}"
+    ]
+    
+    try:
+        process = subprocess.run(
+            ansible_command,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if process.returncode == 0:
+            logging.info(f"Successfully {action}ed Celery service on {worker_name}.")
+            logging.debug(f"Ansible stdout: {process.stdout}")
+        else:
+            logging.error(f"Failed to {action} Celery service on {worker_name}. Return code: {process.returncode}")
+            logging.error(f"Ansible stderr: {process.stderr}")
+    except Exception as e:
+        logging.error(f"Exception occurred while trying to {action} Celery service on {worker_name}: {e}")
+
 @app.route('/alertmanager-webhook', methods=['POST'])
 def alertmanager_webhook():
     data = request.json
@@ -69,20 +108,22 @@ def alertmanager_webhook():
             # Run the cleanup disk space playbook
             process = subprocess.run([
                 "ansible-playbook",
+                "-vvvv",  # Increased verbosity for detailed logs
                 "-i", INVENTORY_PATH,
                 "--limit", worker_name, 
+                "--become",
                 CLEANUP_PLAYBOOK_PATH
             ], capture_output=True, text=True, check=False)
 
             logging.info(f"Executed cleanup_disk_space.yml playbook.")
-            logging.info(f"Cleanup stdout: {process.stdout}")
-            logging.info(f"Cleanup stderr: {process.stderr}")
+            logging.debug(f"Cleanup stdout: {process.stdout}")
+            logging.debug(f"Cleanup stderr: {process.stderr}")
             logging.info(f"Cleanup returncode: {process.returncode}")
 
         if alertname == 'HighCPULoad':
             if status == 'firing':
                 logging.info(f"HighCPULoad alert firing for worker: {worker_name} - Disabling worker")
-                # Disable worker
+                # Disable worker by updating Redis
                 process = subprocess.run([
                     "python3",
                     UPDATE_WORKERS_SCRIPT,
@@ -91,13 +132,16 @@ def alertmanager_webhook():
                 ], capture_output=True, text=True, check=False)
                 
                 logging.info(f"Executed update_disabled_workers.py to disable {worker_name}.")
-                logging.info(f"Disable stdout: {process.stdout}")
-                logging.info(f"Disable stderr: {process.stderr}")
+                logging.debug(f"Disable stdout: {process.stdout}")
+                logging.debug(f"Disable stderr: {process.stderr}")
                 logging.info(f"Disable returncode: {process.returncode}")
+
+                # Stop Celery service on the worker
+                manage_celery_service(worker_name, 'stop')
 
             elif status == 'resolved':
                 logging.info(f"HighCPULoad alert resolved for worker: {worker_name} - Enabling worker")
-                # Re-enable worker
+                # Re-enable worker by updating Redis
                 process = subprocess.run([
                     "python3",
                     UPDATE_WORKERS_SCRIPT,
@@ -106,9 +150,12 @@ def alertmanager_webhook():
                 ], capture_output=True, text=True, check=False)
 
                 logging.info(f"Executed update_disabled_workers.py to enable {worker_name}.")
-                logging.info(f"Enable stdout: {process.stdout}")
-                logging.info(f"Enable stderr: {process.stderr}")
+                logging.debug(f"Enable stdout: {process.stdout}")
+                logging.debug(f"Enable stderr: {process.stderr}")
                 logging.info(f"Enable returncode: {process.returncode}")
+
+                # Start Celery service on the worker
+                manage_celery_service(worker_name, 'start')
 
     return '', 200
 
