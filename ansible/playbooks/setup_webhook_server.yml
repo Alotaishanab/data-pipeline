@@ -1,20 +1,17 @@
-- name: Setup Webhook and Secure HTTP Server for Results
+- name: Setup Webhook and HTTP Server for Results
   hosts: host
   become: yes
   vars:
     flask_app_path: /opt/data_pipeline/webhook_server.py
     flask_app_port: 8080
     results_path: /mnt/results
-    apache_conf_path: /etc/httpd/conf.d/results.conf
-    htpasswd_path: /etc/httpd/.htpasswd
-    apache_user: apache
-    apache_group: apache
-    server_ip: "{{ ansible_default_ipv4.address }}"  # Automatically fetches the server's IP
-    ssl_cert_path: /etc/httpd/ssl/server.crt
-    ssl_key_path: /etc/httpd/ssl/server.key
-    ssl_dir: /etc/httpd/ssl
 
   tasks:
+    - name: Install Flask
+      pip:
+        name: flask
+        state: present
+
     - name: Ensure pipeline directory exists
       file:
         path: /opt/data_pipeline
@@ -39,6 +36,7 @@
         owner: almalinux
         group: almalinux
       notify: restart_webhook_server
+
 
     - name: Create systemd service for webhook_server
       copy:
@@ -66,29 +64,23 @@
         state: started
         enabled: yes
 
-    - name: Allow ports 80, 443, and 8080 in firewall for web services
+    - name: Allow port 8080 in firewall for webhook server
       firewalld:
-        port: "{{ item }}/tcp"
+        port: 8080/tcp
         permanent: yes
         state: enabled
-      loop:
-        - 80
-        - 443
-        - 8080
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld to apply new rules
+    - name: Reload firewalld (webhook port)
       service:
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    # Install and configure Apache HTTP Server
-    - name: Install Apache httpd and mod_ssl
+    # Install and configure a simple HTTP server to serve results
+    - name: Install Apache httpd
       yum:
-        name:
-          - httpd
-          - mod_ssl
+        name: httpd
         state: present
 
     - name: Start and enable httpd
@@ -97,118 +89,27 @@
         state: started
         enabled: yes
 
-    - name: Ensure /mnt/results has correct permissions
-      file:
-        path: "{{ results_path }}"
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        recurse: yes
-
-    - name: Install SELinux management tools
-      yum:
-        name: policycoreutils-python-utils
-        state: present
-
-    - name: Create SSL directory
-      file:
-        path: "{{ ssl_dir }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
-    - name: Generate self-signed SSL certificate
-      command: >
-        openssl req -x509 -nodes -days 365
-        -newkey rsa:2048
-        -keyout {{ ssl_key_path }}
-        -out {{ ssl_cert_path }}
-        -subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN={{ server_ip }}"
-      args:
-        creates: "{{ ssl_cert_path }}"
-      notify: restart_httpd
-
-    - name: Set SELinux context for /mnt/results
-      command: >
-        semanage fcontext -a -t httpd_sys_content_t "{{ results_path }}(/.*)?"
-      args:
-        warn: no
-      ignore_errors: yes
-
-    - name: Apply SELinux context to /mnt/results
-      command: restorecon -Rv "{{ results_path }}"
-      args:
-        warn: no
-
-    - name: Create .htpasswd file with a user
-      block:
-        - name: Install httpd-tools for htpasswd
-          yum:
-            name: httpd-tools
-            state: present
-
-        - name: Create .htpasswd with user 'researcher'
-          command: >
-            htpasswd -cb {{ htpasswd_path }} researcher "SecureP@ssw0rd"
-          args:
-            creates: "{{ htpasswd_path }}"
-      no_log: true
-      notify: restart_httpd
-
-    - name: Configure Apache to serve /mnt/results with authentication and HTTPS
-      copy:
-        dest: "{{ apache_conf_path }}"
-        content: |
-          <VirtualHost *:80>
-              ServerAdmin admin@{{ server_ip }}
-              ServerName {{ server_ip }}
-
-              # Redirect HTTP to HTTPS
-              Redirect "/" "https://{{ server_ip }}/"
-          </VirtualHost>
-
-          <VirtualHost *:443>
-              ServerAdmin admin@{{ server_ip }}
-              ServerName {{ server_ip }}
-
-              SSLEngine on
-              SSLCertificateFile {{ ssl_cert_path }}
-              SSLCertificateKeyFile {{ ssl_key_path }}
-
-              <Directory "{{ results_path }}">
-                  Options Indexes FollowSymLinks
-                  AllowOverride None
-                  Require all granted
-
-                  AuthType Basic
-                  AuthName "Restricted Access"
-                  AuthUserFile {{ htpasswd_path }}
-                  Require valid-user
-              </Directory>
-
-              Alias /results "{{ results_path }}"
-
-              ErrorLog /var/log/httpd/results_error.log
-              CustomLog /var/log/httpd/results_access.log combined
-          </VirtualHost>
-      notify:
-        - restart_httpd
-
     - name: Link results directory to web root
       file:
         src: "{{ results_path }}"
         dest: /var/www/html/results
         state: link
 
+    - name: Allow HTTP service in firewall
+      firewalld:
+        service: http
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld (http service)
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
   handlers:
     - name: restart_webhook_server
       systemd:
         name: webhook_server
-        state: restarted
-
-    - name: restart_httpd
-      systemd:
-        name: httpd
         state: restarted
