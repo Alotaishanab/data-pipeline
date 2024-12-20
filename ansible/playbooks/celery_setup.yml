@@ -177,6 +177,7 @@
         group: "{{ celery_group }}"
         mode: '0755'
         content: |
+          #!/usr/bin/env python3
           import sys
           import redis
           from celery import Celery
@@ -191,11 +192,11 @@
               format='%(asctime)s - %(levelname)s - %(message)s'
           )
 
+          # These variables are set by Ansible template or defined in your environment
           redis_host = "{{ redis_host }}"
           redis_port = 6379
           redis_db = 0
 
-          # Define worker queues
           WORKER_QUEUES = {
           {% for w, q in worker_queues.items() %}
               "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
@@ -241,6 +242,16 @@
               task_index = 0
 
               for pdb_file in pdb_files:
+                  # Check if this file has already been processed by looking for a .parsed file
+                  base_name = os.path.splitext(os.path.basename(pdb_file))[0]
+                  parsed_file = os.path.join(output_dir, f"{base_name}.parsed")
+
+                  if os.path.exists(parsed_file):
+                      # Already processed, skip this file
+                      logging.info(f"Skipping {pdb_file} as {parsed_file} already exists.")
+                      print(f"Skipping {pdb_file}, already processed.")
+                      continue
+
                   worker, queue = worker_list[task_index % worker_count]
                   result = app.send_task(
                       'celery_worker.run_pipeline',
@@ -254,6 +265,6 @@
           if __name__ == "__main__":
               main()
 
-    - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes

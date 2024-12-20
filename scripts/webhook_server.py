@@ -47,9 +47,6 @@ UPDATE_WORKERS_SCRIPT = "/opt/data_pipeline/update_disabled_workers.py"
 def manage_celery_service(worker_name, action):
     """
     Manage the Celery service on the specified worker using Ansible ad-hoc commands.
-
-    :param worker_name: Name of the worker to manage.
-    :param action: 'start' or 'stop' the Celery service.
     """
     if action not in ['start', 'stop']:
         logging.error(f"Invalid action '{action}' for managing Celery service.")
@@ -57,7 +54,6 @@ def manage_celery_service(worker_name, action):
     
     logging.info(f"Attempting to {action} Celery service on worker: {worker_name}")
     
-    # Construct the Ansible ad-hoc command
     ansible_command = [
         "ansible",
         worker_name,
@@ -82,6 +78,39 @@ def manage_celery_service(worker_name, action):
             logging.error(f"Ansible stderr: {process.stderr}")
     except Exception as e:
         logging.error(f"Exception occurred while trying to {action} Celery service on {worker_name}: {e}")
+
+def is_celery_running(worker_name):
+    """
+    Checks if Celery service is active (running) on the given worker.
+    """
+    ansible_command = [
+        "ansible",
+        worker_name,
+        "-i", INVENTORY_PATH,
+        "-m", "command",
+        "-a", "systemctl is-active celery"
+    ]
+    process = subprocess.run(ansible_command, capture_output=True, text=True, check=False)
+    if process.returncode == 0 and process.stdout.strip() == "active":
+        return True
+    return False
+
+def is_celery_stopped(worker_name):
+    """
+    Checks if Celery service is stopped (not active) on the given worker.
+    """
+    ansible_command = [
+        "ansible",
+        worker_name,
+        "-i", INVENTORY_PATH,
+        "-m", "command",
+        "-a", "systemctl is-active celery"
+    ]
+    process = subprocess.run(ansible_command, capture_output=True, text=True, check=False)
+    # If return code != 0 or output != "active", consider it stopped
+    if process.returncode != 0 or process.stdout.strip() != "active":
+        return True
+    return False
 
 @app.route('/alertmanager-webhook', methods=['POST'])
 def alertmanager_webhook():
@@ -108,7 +137,7 @@ def alertmanager_webhook():
             # Run the cleanup disk space playbook
             process = subprocess.run([
                 "ansible-playbook",
-                "-vvvv",  # Increased verbosity for detailed logs
+                "-vvvv",
                 "-i", INVENTORY_PATH,
                 "--limit", worker_name, 
                 "--become",
@@ -123,7 +152,7 @@ def alertmanager_webhook():
         if alertname == 'HighCPULoad':
             if status == 'firing':
                 logging.info(f"HighCPULoad alert firing for worker: {worker_name} - Disabling worker")
-                # Disable worker by updating Redis
+                # Disable worker in Redis
                 process = subprocess.run([
                     "python3",
                     UPDATE_WORKERS_SCRIPT,
@@ -139,9 +168,14 @@ def alertmanager_webhook():
                 # Stop Celery service on the worker
                 manage_celery_service(worker_name, 'stop')
 
+                # Verify Celery is actually stopped
+                if not is_celery_stopped(worker_name):
+                    logging.error(f"Celery not stopped on {worker_name} after disable. Reverting Redis state.")
+                    subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "enable"], check=False)
+
             elif status == 'resolved':
                 logging.info(f"HighCPULoad alert resolved for worker: {worker_name} - Enabling worker")
-                # Re-enable worker by updating Redis
+                # Enable worker in Redis
                 process = subprocess.run([
                     "python3",
                     UPDATE_WORKERS_SCRIPT,
@@ -156,6 +190,11 @@ def alertmanager_webhook():
 
                 # Start Celery service on the worker
                 manage_celery_service(worker_name, 'start')
+
+                # Verify Celery is actually running
+                if not is_celery_running(worker_name):
+                    logging.error(f"Celery not running on {worker_name} after enable. Reverting Redis state.")
+                    subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "disable"], check=False)
 
     return '', 200
 

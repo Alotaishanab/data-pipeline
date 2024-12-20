@@ -25,6 +25,21 @@ def get_redis_host():
         logging.error(f"Error reading inventory file: {e}")
         sys.exit(1)
 
+
+def worker_exists(worker_name):
+    # Load the inventory
+    try:
+        with open(INVENTORY_PATH, 'r') as f:
+            inventory = json.load(f)
+    except Exception as e:
+        logging.error(f"Error reading inventory file: {e}")
+        sys.exit(1)
+    
+    # Extract workers from inventory
+    workers = inventory.get('workers', {}).get('hosts', {})
+    return worker_name in workers
+
+
 def main():
     if len(sys.argv) != 3:
         logging.error("Incorrect usage. Expected: python update_disabled_workers.py <worker_name> <disable|enable>")
@@ -33,7 +48,13 @@ def main():
     
     worker_name = sys.argv[1]
     action = sys.argv[2]
-    
+
+    # Validate worker name
+    if not worker_exists(worker_name):
+        logging.error(f"Worker {worker_name} not found in inventory.")
+        print(f"Error: Worker {worker_name} not found in inventory.")
+        sys.exit(1)
+
     redis_host = get_redis_host()
     redis_port = 6379
     redis_db = 0
@@ -42,12 +63,12 @@ def main():
         r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
         if action == 'disable':
             r.sadd('disabled_workers', worker_name)
-            logging.info(f"Worker {worker_name} disabled.")
-            print(f"Worker {worker_name} disabled.")
+            logging.info(f"Worker {worker_name} disabled in Redis.")
+            print(f"Worker {worker_name} disabled in Redis.")
         elif action == 'enable':
             r.srem('disabled_workers', worker_name)
-            logging.info(f"Worker {worker_name} enabled.")
-            print(f"Worker {worker_name} enabled.")
+            logging.info(f"Worker {worker_name} enabled in Redis.")
+            print(f"Worker {worker_name} enabled in Redis.")
         else:
             logging.error("Invalid action. Must be 'disable' or 'enable'.")
             print("Action must be 'disable' or 'enable'.")
@@ -56,6 +77,7 @@ def main():
         logging.error(f"Redis connection error: {e}")
         print(f"Redis connection error: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
