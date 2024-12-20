@@ -265,6 +265,6 @@
           if __name__ == "__main__":
               main()
 
-- name: Reload systemd daemon
-  systemd:
-    daemon_reload: yes
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
