@@ -1,70 +1,49 @@
 ######################################
-# main.tf - Combining Old & Ansible Key
+# main.tf - Automated Ansible Key
 ######################################
 
 locals {
-  # Transform 'ucabbaa@ucl.ac.uk' into 'ucabbaa-ucl-ac-uk'
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
+}
+
+# Generate the Ansible key pair automatically
+resource "tls_private_key" "ansible" {
+  algorithm = "ED25519"
 }
 
 resource "random_id" "secret" {
   byte_length = 4
 }
 
-###############################################
-# Single Cloud-Init for All VMs (Host, Worker, Storage)
-# - Contains your key & marker's key
-# - Contains a runcmd in the Host VM
-#   that generates an internal Ansible key
-###############################################
-
 resource "harvester_cloudinit_secret" "cloud_config" {
   name      = "${local.sanitized_username}-cloudinit-${random_id.secret.hex}"
   namespace = var.provider_namespace
 
-  # The same user_data for ALL VMs, just like your old approach,
-  # plus extra runcmd lines that ONLY matter on the Host VM.
-  # (They run on Workers too, but won't break anything.)
   user_data = <<-EOF
   #cloud-config
-
-  # 1. Your & Marker’s Keys for All VMs
   ssh_authorized_keys:
     - ${var.ssh_key}
     - ${var.ssh_key_marker}
+    - ${tls_private_key.ansible.public_key_openssh}
 
-  # 2. Commands for first boot on any VM
   runcmd:
-    # 2.1. Basic setup (same as old approach)
     - yum install -y epel-release
     - yum install -y ansible git
-
-    # 2.2. Clone the Git repository (same as old approach)
     - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
 
-    # 2.3. Additional step (mainly relevant on Host):
-    #     Generate an Ansible key inside the Host, so it can do internal ansible tasks.
-    #     This won't break Workers/Storage if run there, but you can ignore it on them.
-    - ssh-keygen -t ed25519 -q -N "" -f /home/almalinux/.ssh/ansible_ed25519
-    - cat /home/almalinux/.ssh/ansible_ed25519.pub >> /home/almalinux/.ssh/authorized_keys
-    - chown almalinux:almalinux /home/almalinux/.ssh/ansible_ed25519*
-
-    # Optionally, you can place an ansible.cfg or do more host-only steps here.
+    # Write Ansible private key & add public key to authorized_keys on Host VM
+    - mkdir -p /home/almalinux/.ssh
+    - echo "${tls_private_key.ansible.private_key_pem}" > /home/almalinux/.ssh/ansible_ed25519
+    - chmod 600 /home/almalinux/.ssh/ansible_ed25519
+    - echo "${tls_private_key.ansible.public_key_openssh}" >> /home/almalinux/.ssh/authorized_keys
+    - chown -R almalinux:almalinux /home/almalinux/.ssh
   EOF
 }
-
-#########################################
-# Data Source for the Harvester Image
-#########################################
 
 data "harvester_image" "img" {
   name      = var.image_name
   namespace = var.image_namespace
 }
-
-#########################################
-# 1. Management VM (Host)
-#########################################
 
 resource "harvester_virtualmachine" "mgmt" {
   name                 = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
@@ -103,10 +82,6 @@ resource "harvester_virtualmachine" "mgmt" {
   }
 }
 
-#########################################
-# 2. Worker VMs
-#########################################
-
 resource "harvester_virtualmachine" "worker" {
   count                = var.worker_count
   name                 = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
@@ -141,15 +116,9 @@ resource "harvester_virtualmachine" "worker" {
   }
 
   cloudinit {
-    # Same user_data as mgmt, so your & marker keys are injected
-    # The runcmd includes 'ssh-keygen', but it's safe & harmless here.
     user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
   }
 }
-
-#########################################
-# 3. Storage VM
-#########################################
 
 resource "harvester_virtualmachine" "storage" {
   name                 = "${local.sanitized_username}-storage-${random_id.secret.hex}"
