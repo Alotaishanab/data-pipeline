@@ -46,6 +46,3 @@ output "ssh_config" {
         ProxyJump condenser-proxy
   EOT
 }
-
-
-
