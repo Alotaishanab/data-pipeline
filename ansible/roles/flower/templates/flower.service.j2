@@ -1,17 +1,15 @@
-# roles/flower/templates/flower.service.j2
-
 [Unit]
 Description=Flower Service
 After=network.target
 
 [Service]
 Type=simple
-User={{ flower_user }}
-Group={{ flower_group }}
+User=almalinux
+Group=almalinux
 WorkingDirectory=/opt/data_pipeline/
-Environment="PATH={{ flower_virtualenv_path }}/bin"
-ExecStart=/opt/data_pipeline/flower_env/bin/celery -A celery_worker flower --port=5555Restart=always
---basic_auth={{ flower_auth }}{% endif %}
+Environment="PATH=/opt/data_pipeline/flower_env/bin"
+ExecStart=/opt/data_pipeline/flower_env/bin/celery -A celery_worker flower --port=5555{% if flower_auth %}
+ --basic_auth={{ flower_auth }}{% endif %}
 Restart=always
 
 [Install]
