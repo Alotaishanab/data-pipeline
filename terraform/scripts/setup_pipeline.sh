@@ -54,6 +54,7 @@ install_packages() {
     fi
 }
 
+
 run_terraform() {
     echo "Initializing Terraform..."
     terraform init

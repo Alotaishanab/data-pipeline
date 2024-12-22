@@ -1,14 +1,19 @@
-######################################
-# main.tf - Automated Ansible Key
-######################################
+###############################################################################
+# main.tf
+###############################################################################
 
+##########################################
+# 0. Locals & Random ID
+##########################################
+
+# Example: transform 'ucabbaa@ucl.ac.uk' into 'ucabbaa-ucl-ac-uk'
 locals {
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
 }
 
 # Generate the Ansible key pair automatically
 resource "tls_private_key" "ansible" {
-  algorithm = "ED25519"
+  algorithm = "ED25519" 
 }
 
 resource "random_id" "secret" {
@@ -46,19 +51,19 @@ data "harvester_image" "img" {
 }
 
 resource "harvester_virtualmachine" "mgmt" {
-  name                 = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
-  namespace            = var.provider_namespace
+  name                = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
+  namespace           = var.provider_namespace
   restart_after_update = true
 
-  description     = "Management Node"
-  cpu             = var.mgmt_cpu
-  memory          = var.mgmt_memory
-  efi             = true
-  secure_boot     = false
-  run_strategy    = "RerunOnFailure"
-  hostname        = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
+  description   = "Management Node"
+  cpu           = var.mgmt_cpu
+  memory        = var.mgmt_memory
+  efi           = true
+  secure_boot   = false
+  run_strategy  = "RerunOnFailure"
+  hostname      = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
   reserved_memory = "100Mi"
-  machine_type    = "q35"
+  machine_type   = "q35"
 
   network_interface {
     name           = "nic-1"
@@ -68,35 +73,36 @@ resource "harvester_virtualmachine" "mgmt" {
   }
 
   disk {
-    name         = "rootdisk"
-    type         = "disk"
-    size         = var.mgmt_disk_size
-    bus          = "virtio"
-    boot_order   = 1
-    image        = data.harvester_image.img.id
-    auto_delete  = true
+    name        = "rootdisk"
+    type        = "disk"
+    size        = var.mgmt_disk_size
+    bus         = "virtio"
+    boot_order  = 1
+    image       = data.harvester_image.img.id
+    auto_delete = true
   }
 
   cloudinit {
-    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
+    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name 
   }
 }
+
 
 resource "harvester_virtualmachine" "worker" {
   count                = var.worker_count
-  name                 = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
-  namespace            = var.provider_namespace
+  name                = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  namespace           = var.provider_namespace
   restart_after_update = true
 
-  description     = "Worker Node"
-  cpu             = var.worker_cpu
-  memory          = var.worker_memory
-  efi             = true
-  secure_boot     = false
-  run_strategy    = "RerunOnFailure"
-  hostname        = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  description   = "Worker Node"
+  cpu           = var.worker_cpu
+  memory        = var.worker_memory
+  efi           = true
+  secure_boot   = false
+  run_strategy  = "RerunOnFailure"
+  hostname      = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
   reserved_memory = "100Mi"
-  machine_type    = "q35"
+  machine_type   = "q35"
 
   network_interface {
     name           = "nic-1"
@@ -106,13 +112,13 @@ resource "harvester_virtualmachine" "worker" {
   }
 
   disk {
-    name         = "rootdisk"
-    type         = "disk"
-    size         = var.worker_disk_size
-    bus          = "virtio"
-    boot_order   = 1
-    image        = data.harvester_image.img.id
-    auto_delete  = true
+    name        = "rootdisk"
+    type        = "disk"
+    size        = var.worker_disk_size
+    bus         = "virtio"
+    boot_order  = 1
+    image       = data.harvester_image.img.id
+    auto_delete = true
   }
 
   cloudinit {
@@ -120,20 +126,21 @@ resource "harvester_virtualmachine" "worker" {
   }
 }
 
+
 resource "harvester_virtualmachine" "storage" {
-  name                 = "${local.sanitized_username}-storage-${random_id.secret.hex}"
-  namespace            = var.provider_namespace
+  name                = "${local.sanitized_username}-storage-${random_id.secret.hex}"
+  namespace           = var.provider_namespace
   restart_after_update = true
 
-  description     = "Storage Node"
-  cpu             = var.storage_cpu
-  memory          = var.storage_memory
-  efi             = true
-  secure_boot     = false
-  run_strategy    = "RerunOnFailure"
-  hostname        = "${local.sanitized_username}-storage-${random_id.secret.hex}"
+  description   = "Storage Node"
+  cpu           = var.storage_cpu
+  memory        = var.storage_memory
+  efi           = true
+  secure_boot   = false
+  run_strategy  = "RerunOnFailure"
+  hostname      = "${local.sanitized_username}-storage-${random_id.secret.hex}"
   reserved_memory = "100Mi"
-  machine_type    = "q35"
+  machine_type   = "q35"
 
   network_interface {
     name           = "nic-1"
@@ -143,24 +150,24 @@ resource "harvester_virtualmachine" "storage" {
   }
 
   disk {
-    name         = "rootdisk"
-    type         = "disk"
-    size         = var.storage_root_disk_size
-    bus          = "virtio"
-    boot_order   = 1
-    image        = data.harvester_image.img.id
-    auto_delete  = true
+    name        = "rootdisk"
+    type        = "disk"
+    size        = var.storage_root_disk_size
+    bus         = "virtio"
+    boot_order  = 1
+    image       = data.harvester_image.img.id
+    auto_delete = true
   }
 
   disk {
-    name         = "datadisk"
-    type         = "disk"
-    size         = var.storage_extra_disk_size
-    bus          = "virtio"
-    auto_delete  = true
+    name        = "datadisk"
+    type        = "disk"
+    size        = var.storage_extra_disk_size
+    bus         = "virtio"
+    auto_delete = true
   }
 
   cloudinit {
-    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
+    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name 
   }
 }
