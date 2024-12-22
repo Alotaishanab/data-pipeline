@@ -21,7 +21,7 @@
     - name: Install and Configure Flower
       include_role:
         name: flower
-      when: inventory_hostname in groups['hosts']
+      when: inventory_hostname in groups['all']
 
     #### Ensure firewalld is running and enabled
     - name: Ensure firewalld is running and enabled
