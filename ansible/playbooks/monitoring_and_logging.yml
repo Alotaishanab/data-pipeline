@@ -18,17 +18,18 @@
           - python3-firewall
         state: present
 
-    - name: Install and Configure Flower
-      include_role:
-        name: flower
-      when: inventory_hostname in groups['all']
-
     #### Ensure firewalld is running and enabled
     - name: Ensure firewalld is running and enabled
       systemd:
         name: firewalld
         state: started
         enabled: yes
+
+    - name: Setup Flower on Management Node
+      hosts: mgmtnode
+      become: yes
+      roles:
+        - flower
 
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter

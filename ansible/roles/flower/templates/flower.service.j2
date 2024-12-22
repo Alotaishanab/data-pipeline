@@ -1,13 +1,17 @@
+# roles/flower/templates/flower.service.j2
+
 [Unit]
 Description=Flower Service
 After=network.target
 
 [Service]
 Type=simple
-User=almalinux 
-Group=almalinux
+User={{ flower_user }}
+Group={{ flower_group }}
 WorkingDirectory=/opt/data_pipeline/
-ExecStart=/opt/merizo_search/merizosearch_env/bin/celery -A celery_worker flower --port=5555  
+Environment="PATH={{ flower_virtualenv_path }}/bin"
+ExecStart={{ flower_virtualenv_path }}/bin/celery -A celery_worker flower --port={{ flower_port }}{% if flower_auth %}
+--basic_auth={{ flower_auth }}{% endif %}
 Restart=always
 
 [Install]

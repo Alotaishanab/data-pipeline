@@ -1,7 +1,13 @@
 # roles/flower/tasks/main.yml
 
-- name: Install Flower
+- name: Create virtual environment for Flower
+  command: python3 -m venv {{ flower_virtualenv_path }}
+  args:
+    creates: "{{ flower_virtualenv_path }}/bin/activate"
+
+- name: Install Flower in virtual environment
   pip:
+    virtualenv: "{{ flower_virtualenv_path }}"
     name: flower
     state: present
 
@@ -28,3 +34,7 @@
     port: 5555/tcp
     permanent: yes
     state: enabled
+
+- name: Reload firewalld to apply changes
+  firewalld:
+    state: reloaded

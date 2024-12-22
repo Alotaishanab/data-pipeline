@@ -1,0 +1,18 @@
+---
+# Path to the Python virtual environment for Flower
+flower_virtualenv_path: /opt/data_pipeline/flower_env
+
+# User and group under which Flower will run
+flower_user: almalinux
+flower_group: almalinux
+
+# Redis broker details
+redis_host: "host"  # Replace with actual Redis host
+redis_port: 6379
+redis_db: 0
+
+# Flower service configuration
+flower_port: 5555
+
+# (Optional) Basic authentication credentials
+flower_auth: ""  
