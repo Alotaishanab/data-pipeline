@@ -117,7 +117,7 @@
 
           [Install]
           WantedBy=multi-user.target
-      force: yes
+        force: yes  # Ensure this is indented correctly under the 'copy' module
 
     - name: Reload systemd daemon
       systemd:
