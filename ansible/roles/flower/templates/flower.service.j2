@@ -1,0 +1,14 @@
+[Unit]
+Description=Flower Service
+After=network.target
+
+[Service]
+Type=simple
+User=almalinux 
+Group=almalinux
+WorkingDirectory=/opt/data_pipeline/
+ExecStart=/opt/merizo_search/merizosearch_env/bin/celery -A celery_worker flower --port=5555  
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

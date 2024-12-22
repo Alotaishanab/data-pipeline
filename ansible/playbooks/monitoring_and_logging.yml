@@ -18,6 +18,11 @@
           - python3-firewall
         state: present
 
+    - name: Install and Configure Flower
+      include_role:
+        name: flower
+      when: inventory_hostname in groups['host']
+
     #### Ensure firewalld is running and enabled
     - name: Ensure firewalld is running and enabled
       systemd:
