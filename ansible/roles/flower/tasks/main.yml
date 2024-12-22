@@ -22,3 +22,9 @@
     name: flower
     state: started
     enabled: yes
+
+- name: Open port 5555 in firewalld for Flower
+  firewalld:
+    port: 5555/tcp
+    permanent: yes
+    state: enabled
