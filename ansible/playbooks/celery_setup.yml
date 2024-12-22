@@ -169,7 +169,6 @@
         group: almalinux
         mode: '0644'
 
-
     - name: Deploy Updated Dispatch Tasks Script on host
       copy:
         dest: /opt/data_pipeline/dispatch_tasks.py
@@ -265,6 +264,74 @@
           if __name__ == "__main__":
               main()
 
-    - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
+    # Additional Play to Deploy celery_worker.py to Management Node
+    - name: Deploy celery_worker.py to Management Node
+      hosts: host
+      become: yes
+      tasks:
+        - name: Ensure data pipeline directory exists
+          file:
+            path: /opt/data_pipeline/
+            state: directory
+            owner: almalinux
+            group: almalinux
+            mode: '0755'
+
+        - name: Deploy celery_worker.py to Management Node
+          copy:
+            dest: /opt/data_pipeline/celery_worker.py
+            owner: "{{ celery_user }}"
+            group: "{{ celery_group }}"
+            mode: '0755'
+            content: |
+              import logging
+              from celery import Celery
+              import subprocess
+              import os
+
+              # Configure logging
+              logging.basicConfig(
+                  filename='/opt/data_pipeline/celery_worker.log',
+                  level=logging.INFO,
+                  format='%(asctime)s - %(levelname)s - %(message)s'
+              )
+
+              # Define the Redis broker URL
+              app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
+
+              @app.task
+              def run_pipeline(pdb_file, output_dir, organism):
+                  """
+                  Celery task to run the data pipeline on a specified PDB file.
+                  """
+                  print(f"Received PDB File: {pdb_file}")
+                  pipeline_script = "/opt/data_pipeline/pipeline_script.py"
+                  cmd = [
+                      "/opt/merizo_search/merizosearch_env/bin/python3",
+                      pipeline_script,
+                      pdb_file,
+                      output_dir,
+                      organism
+                  ]
+                  logging.info(f"Running pipeline script: {' '.join(cmd)}")
+                  try:
+                      process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                      logging.info(f"Pipeline STDOUT: {process.stdout}")
+                      logging.info(f"Pipeline STDERR: {process.stderr}")
+                      return {
+                          'stdout': process.stdout,
+                          'stderr': process.stderr,
+                          'returncode': process.returncode
+                      }
+                  except subprocess.CalledProcessError as e:
+                      logging.error(f"Pipeline encountered an error: {e.stderr}")
+                      return {
+                          'stdout': e.stdout,
+                          'stderr': e.stderr,
+                          'returncode': e.returncode
+                      }
+
+        - name: Ensure celery_worker.py is executable on Management Node
+          file:
+            path: /opt/data_pipeline/celery_worker.py
+            mode: '0755'
