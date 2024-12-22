@@ -19,12 +19,12 @@ resource "random_id" "secret" {
 # 1. Generate Ephemeral Key for Ansible
 ##########################################
 
-# This creates a brand-new ED25519 keypair each time.
+# This creates a brand-new RSA keypair each time.
 # - tls_private_key.ansible.private_key_openssh -> private key
 # - tls_private_key.ansible.public_key_openssh  -> public key
 ##########################################
 resource "tls_private_key" "ansible" {
-  algorithm = "ED25519"
+  algorithm = "RSA"
 }
 
 ##########################################
@@ -45,6 +45,7 @@ resource "harvester_cloudinit_secret" "cloudinit_host" {
     ssh_authorized_keys:
       - ${var.ssh_key}
       - ${var.ssh_key_marker}
+      - ${tls_private_key.ansible.private_key_openssh}
 
     # 2. First-boot commands
     runcmd:
@@ -55,9 +56,9 @@ resource "harvester_cloudinit_secret" "cloudinit_host" {
 
       # 2.2 Write the ephemeral Ansible PRIVATE key from Terraform to disk
       - |
-        echo "${tls_private_key.ansible.private_key_openssh}" > /home/almalinux/.ssh/ansible_ed25519
-        chmod 600 /home/almalinux/.ssh/ansible_ed25519
-        chown almalinux:almalinux /home/almalinux/.ssh/ansible_ed25519
+        echo "${tls_private_key.ansible.private_key_openssh}" > /home/almalinux/.ssh/ansible_rsa
+        chmod 600 /home/almalinux/.ssh/ansible_rsa
+        chown almalinux:almalinux /home/almalinux/.ssh/ansible_rsa
 
       # 2.3 Also append the ephemeral public key to Host's authorized_keys
       - |
@@ -234,3 +235,6 @@ resource "harvester_virtualmachine" "storage" {
     user_data_secret_name = harvester_cloudinit_secret.cloudinit_workerstorage.name
   }
 }
+
+
+
