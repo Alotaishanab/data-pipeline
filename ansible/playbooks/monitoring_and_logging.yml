@@ -1,6 +1,4 @@
 ---
-# playbook.yml
-
 - name: Setup Monitoring and Logging on All Hosts
   hosts: all
   become: yes
@@ -27,79 +25,84 @@
         state: started
         enabled: yes
 
-- name: Setup Flower on Management Node
-  hosts: mgmtnode
-  become: yes
-  roles:
-    - flower
+    
 
-- name: Install Prometheus Node Exporter on All Hosts
-  hosts: all
-  become: yes
-  tasks:
-    - name: Download Node Exporter binary
-      get_url:
-        url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
-        dest: "/tmp/node_exporter.tar.gz"
-        mode: '0644'
-        force: yes  # Force re-download to ensure we have the correct file
+    #### Install Prometheus Node Exporter
+    - name: Install Prometheus Node Exporter
+      block:
+        - name: Download Node Exporter binary
+          get_url:
+            url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
+            dest: "/tmp/node_exporter.tar.gz"
+            mode: '0644'
+            force: yes  # Force re-download to ensure we have the correct file
 
-    - name: Extract Node Exporter
-      unarchive:
-        src: "/tmp/node_exporter.tar.gz"
-        dest: "/usr/local/bin/"
-        remote_src: yes
-        extra_opts: [--strip-components=1]
+        - name: Extract Node Exporter
+          unarchive:
+            src: "/tmp/node_exporter.tar.gz"
+            dest: "/usr/local/bin/"
+            remote_src: yes
+            extra_opts: [--strip-components=1]
 
-    - name: Ensure Node Exporter binary is executable
-      file:
-        path: /usr/local/bin/node_exporter
-        owner: root
-        group: root
-        mode: '0755'
+        - name: Ensure Node Exporter binary is executable
+          file:
+            path: /usr/local/bin/node_exporter
+            owner: root
+            group: root
+            mode: '0755'
 
-    - name: Create Node Exporter service
-      copy:
-        dest: /etc/systemd/system/node_exporter.service
-        content: |
-          [Unit]
-          Description=Node Exporter
-          After=network.target
+        - name: Create Node Exporter service
+          copy:
+            dest: /etc/systemd/system/node_exporter.service
+            content: |
+              [Unit]
+              Description=Node Exporter
+              After=network.target
 
-          [Service]
-          User=root
-          ExecStart=/usr/local/bin/node_exporter
-          Restart=always
+              [Service]
+              User=root
+              ExecStart=/usr/local/bin/node_exporter
+              Restart=always
 
-          [Install]
-          WantedBy=multi-user.target
-        owner: root
-        group: root
-        mode: '0644'
+              [Install]
+              WantedBy=multi-user.target
+            owner: root
+            group: root
+            mode: '0644'
 
-    - name: Reload systemd daemon for Node Exporter
-      systemd:
-        daemon_reload: yes
+        - name: Reload systemd daemon for Node Exporter
+          systemd:
+            daemon_reload: yes
 
-    - name: Start and enable Node Exporter service
-      systemd:
-        name: node_exporter
-        state: started
-        enabled: yes
+        - name: Start and enable Node Exporter service
+          systemd:
+            name: node_exporter
+            state: started
+            enabled: yes
 
+    #### Configure Firewall to Allow Node Exporter Port (9100)
     - name: Open port 9100 in firewalld
       firewalld:
         port: 9100/tcp
         permanent: yes
         state: enabled
+      when: ansible_service_mgr == 'systemd'
 
     - name: Reload firewalld to apply changes
-      systemd:
+      service:
         name: firewalld
         state: reloaded
+      when: ansible_service_mgr == 'systemd'
 
-- name: Install and Configure Prometheus on Control Node
+
+- name: Setup Flower on Management Node
   hosts: mgmtnode
+  become: yes
+  roles:
+    - flower
+    
+- name: Install and Configure Prometheus on Control Node
+  hosts: localhost
   become: yes
   tasks:
     - name: Create Prometheus user and group
@@ -148,6 +151,7 @@
         group: prometheus
         mode: '0755'
 
+    # Create Prometheus directories before copying consoles and console_libraries
     - name: Create Prometheus directories
       file:
         path: "{{ item }}"
@@ -194,12 +198,32 @@
         recurse: yes
 
     - name: Generate Prometheus configuration file
-      template:
-        src: prometheus.yml.j2
+      copy:
         dest: /etc/prometheus/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+
+          alerting:
+            alertmanagers:
+              - static_configs:
+                  - targets: ['localhost:9093']
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'node_exporter'
+              static_configs:
+                - targets:
+                    {% for host in groups['all'] %}
+                      - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+                    {% endfor %}
         owner: prometheus
         group: prometheus
         mode: '0644'
+
 
     - name: Set ownership of Prometheus binaries
       file:
@@ -213,7 +237,7 @@
     - name: Deploy Prometheus Alert Rules
       include_role:
         name: prometheus_alerts
-
+        
     - name: Create Prometheus service
       copy:
         dest: /etc/systemd/system/prometheus.service
@@ -248,18 +272,26 @@
         state: started
         enabled: yes
 
+    # Configure Firewall to Allow Prometheus Port (9090)
     - name: Open port 9090 in firewalld
       firewalld:
         port: 9090/tcp
         permanent: yes
         state: enabled
+      when: ansible_service_mgr == 'systemd'
 
     - name: Reload firewalld to apply changes
-      firewalld:
+      service:
+        name: firewalld
         state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+
+
+
 
 - name: Install and Configure Grafana on Control Node
-  hosts: mgmtnode
+  hosts: localhost
   become: yes
   tasks:
     - name: Add Grafana repository
@@ -335,7 +367,7 @@
       lineinfile:
         path: /etc/rsyslog.conf
         regexp: '^\*\.\*'
-        line: "*.* @@{{ hostvars['mgmtnode']['ansible_host'] }}:514"
+        line: "*.* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514"
         state: present
 
     - name: Restart rsyslog
