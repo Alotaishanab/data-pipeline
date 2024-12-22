@@ -9,27 +9,27 @@
     "mgmtnode": {
         "hosts": {
             "host": {
-                "ansible_host": "10.134.12.201"
+                "ansible_host": "10.134.12.173"
             }
         }
     },
     "storagegroup": {
         "hosts": {
             "storage": {
-                "ansible_host": "10.134.12.115"
+                "ansible_host": "10.134.12.180"
             }
         }
     },
     "workers": {
         "hosts": {
             "worker1": {
-                "ansible_host": "10.134.12.87"
+                "ansible_host": "10.134.12.117"
             },
             "worker2": {
-                "ansible_host": "10.134.12.38"
+                "ansible_host": "10.134.12.174"
             },
             "worker3": {
-                "ansible_host": "10.134.12.225"
+                "ansible_host": "10.134.12.116"
             }
         }
     }
