@@ -94,7 +94,8 @@
         state: enabled
 
     - name: Reload firewalld to apply changes
-      firewalld:
+      systemd:
+        name: firewalld
         state: reloaded
 
 - name: Install and Configure Prometheus on Control Node
