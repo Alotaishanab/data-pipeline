@@ -10,7 +10,7 @@ User={{ flower_user }}
 Group={{ flower_group }}
 WorkingDirectory=/opt/data_pipeline/
 Environment="PATH={{ flower_virtualenv_path }}/bin"
-ExecStart={{ flower_virtualenv_path }}/bin/celery -A celery_worker flower --port={{ flower_port }}{% if flower_auth %}
+ExecStart=/opt/data_pipeline/flower_env/bin/celery -A celery_worker flower --port=5555Restart=always
 --basic_auth={{ flower_auth }}{% endif %}
 Restart=always
 
