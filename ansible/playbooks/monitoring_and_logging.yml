@@ -94,12 +94,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-
-- name: Setup Flower on Management Node
-  hosts: mgmtnode
-  become: yes
-  roles:
-    - flower
     
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
