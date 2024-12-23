@@ -1,11 +1,8 @@
-# /home/almalinux/ansible/playbooks/run_pipeline.yml
-
 ---
 - name: Distribute and Run Data Analysis Pipeline via Celery
   hosts: host
   become: yes
   vars:
-    batch_size: 100
     datasets:
       - organism: "human"
         data_input_dir: "/mnt/datasets/human_proteome/"
@@ -35,29 +32,17 @@
       loop_control:
         label: "{{ item.item.organism }}"
 
-    - name: Limit each dataset to batch_size .pdb files
-      set_fact:
-        datasets_pdb_limited: "{{ datasets_pdb_limited | default([]) + [ {
-          'organism': item.organism,
-          'results_dir': item.results_dir,
-          'data_input_dir': item.data_input_dir,
-          'files': (item.files | list)[0:batch_size]
-        } ] }}"
-      loop: "{{ datasets_pdb }}"
-      loop_control:
-        label: "{{ item.organism }}"
-
     - name: Enqueue pipeline tasks for each dataset
       debug:
         msg: "Dispatching tasks for organism: {{ item.organism }}"
-      loop: "{{ datasets_pdb_limited }}"
+      loop: "{{ datasets_pdb }}"
       loop_control:
         label: "{{ item.organism }}"
 
     - name: Dispatch tasks via Celery
       shell: |
         python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.data_input_dir }}" "{{ item.results_dir }}" "{{ item.organism }}"
-      loop: "{{ datasets_pdb_limited }}"
+      loop: "{{ datasets_pdb }}"
       loop_control:
         label: "{{ item.organism }}"
       when: item.files | length > 0
