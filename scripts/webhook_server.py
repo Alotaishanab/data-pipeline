@@ -27,7 +27,7 @@ def load_inventory_mapping():
                 mapping[ip] = worker
         return mapping
     except Exception as e:
-        logging.error(f"Error: {e}")
+        logging.error(f"Error reading inventory: {e}")
         return {}
 
 INSTANCE_TO_WORKER = load_inventory_mapping()
@@ -44,28 +44,49 @@ def alertmanager_webhook():
         if not worker_name:
             continue
 
+        # HighDiskUsage cleanup (unchanged)
         if alertname == 'HighDiskUsage' and status == 'firing':
-            subprocess.run([
-                "ansible-playbook",
-                CLEANUP_PLAYBOOK_PATH
-            ], check=False)
+            subprocess.run(["ansible-playbook", CLEANUP_PLAYBOOK_PATH], check=False)
 
+        # HighCPULoad logic
         if alertname == 'HighCPULoad':
-            worker_queue = f"{worker_name}_queue"
             if status == 'firing':
+                # Disable worker in Redis
                 subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "disable"], check=False)
-                subprocess.run([
-                    "celery", "-A", "celery_worker", "control",
-                    "cancel_consumer", worker_queue,
-                    "-d", f"celery@{worker_name}"
-                ], check=False)
+
+                # Stop Celery service with Ansible
+                stop_cmd = [
+                    "ansible", worker_name,
+                    "-m", "service",
+                    "-a", "name=celery state=stopped",
+                    "-b"  # become: yes
+                ]
+                stop_result = subprocess.run(stop_cmd, capture_output=True, text=True)
+                if stop_result.returncode != 0:
+                    logging.error(f"Failed to stop Celery on {worker_name}. Return code: {stop_result.returncode}")
+                    logging.error(f"Ansible stderr: {stop_result.stderr}")
+                else:
+                    logging.info(f"Celery stopped on {worker_name} successfully.")
+
             elif status == 'resolved':
+                # Re-enable worker in Redis
                 subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "enable"], check=False)
-                subprocess.run([
-                    "celery", "-A", "celery_worker", "control",
-                    "add_consumer", worker_queue,
-                    "-d", f"celery@{worker_name}"
-                ], check=False)
+
+                # Start Celery service with Ansible
+                start_cmd = [
+                    "ansible", worker_name,
+                    "-m", "service",
+                    "-a", "name=celery state=started",
+                    "-b"
+                ]
+                start_result = subprocess.run(start_cmd, capture_output=True, text=True)
+                if start_result.returncode != 0:
+                    logging.error(f"Failed to start Celery on {worker_name}. Return code: {start_result.returncode}")
+                    logging.error(f"Ansible stderr: {start_result.stderr}")
+                    # Optionally revert if start fails
+                else:
+                    logging.info(f"Celery started on {worker_name} successfully.")
+
     return '', 200
 
 if __name__ == '__main__':
