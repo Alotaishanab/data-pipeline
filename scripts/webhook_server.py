@@ -54,39 +54,10 @@ def alertmanager_webhook():
                 # Disable worker in Redis
                 subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "disable"], check=False)
 
-                # Stop Celery service with Ansible
-                stop_cmd = [
-                    "ansible", worker_name,
-                    "-m", "service",
-                    "-a", "name=celery state=stopped",
-                    "-b"  # become: yes
-                ]
-                stop_result = subprocess.run(stop_cmd, capture_output=True, text=True)
-                if stop_result.returncode != 0:
-                    logging.error(f"Failed to stop Celery on {worker_name}. Return code: {stop_result.returncode}")
-                    logging.error(f"Ansible stderr: {stop_result.stderr}")
-                else:
-                    logging.info(f"Celery stopped on {worker_name} successfully.")
-
             elif status == 'resolved':
                 # Re-enable worker in Redis
                 subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "enable"], check=False)
-
-                # Start Celery service with Ansible
-                start_cmd = [
-                    "ansible", worker_name,
-                    "-m", "service",
-                    "-a", "name=celery state=started",
-                    "-b"
-                ]
-                start_result = subprocess.run(start_cmd, capture_output=True, text=True)
-                if start_result.returncode != 0:
-                    logging.error(f"Failed to start Celery on {worker_name}. Return code: {start_result.returncode}")
-                    logging.error(f"Ansible stderr: {start_result.stderr}")
-                    # Optionally revert if start fails
-                else:
-                    logging.info(f"Celery started on {worker_name} successfully.")
-
+                
     return '', 200
 
 if __name__ == '__main__':
