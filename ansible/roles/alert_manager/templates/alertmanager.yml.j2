@@ -2,16 +2,16 @@ global:
   resolve_timeout: 5m
 
 route:
-  receiver: 'webhook_receiver'
+  receiver: "webhook_receiver"
   routes:
     - match:
-        alertname: 'HighDiskUsage'
-      receiver: 'webhook_receiver'
+        alertname: "HighDiskUsage"
+      receiver: "webhook_receiver"
     - match:
-        alertname: 'HighCPULoad'
-      receiver: 'webhook_receiver'
+        alertname: "HighCPULoad"
+      receiver: "webhook_receiver"
 
 receivers:
-  - name: 'webhook_receiver'
+  - name: "webhook_receiver"
     webhook_configs:
-      - url: 'http://10.134.12.115:8080/alertmanager-webhook'
+      - url: "http://{{ hostvars['management-node'].ansible_host }}:8080/alertmanager-webhook"
