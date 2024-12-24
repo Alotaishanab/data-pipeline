@@ -23,7 +23,8 @@ def load_inventory_mapping():
         mapping = {}
         for worker, details in workers.items():
             ip = details.get('ansible_host')
-            if ip: mapping[ip] = worker
+            if ip:
+                mapping[ip] = worker
         return mapping
     except Exception as e:
         logging.error(f"Error: {e}")
@@ -38,19 +39,18 @@ def alertmanager_webhook():
     for alert in alerts:
         alertname = alert.get('labels', {}).get('alertname')
         status = alert.get('status')
-        instance = alert.get('labels', {}).get('instance','').split(':')[0]
+        instance = alert.get('labels', {}).get('instance', '').split(':')[0]
         worker_name = INSTANCE_TO_WORKER.get(instance)
-        if not worker_name: continue
+        if not worker_name:
+            continue
 
         if alertname == 'HighDiskUsage' and status == 'firing':
             subprocess.run([
-                "ansible-playbook", "-i",
-                "/home/almalinux/ansible/inventories/inventory.json",
+                "ansible-playbook",
                 CLEANUP_PLAYBOOK_PATH
             ], check=False)
 
         if alertname == 'HighCPULoad':
-            # Derive queue from worker name if naming is consistent
             worker_queue = f"{worker_name}_queue"
             if status == 'firing':
                 subprocess.run(["python3", UPDATE_WORKERS_SCRIPT, worker_name, "disable"], check=False)
