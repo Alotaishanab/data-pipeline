@@ -134,7 +134,7 @@
 
 
 
----
+
 - name: Setup Celery on Management Node and Configure Dispatch Services for Human and Ecoli
   hosts: host
   become: yes
