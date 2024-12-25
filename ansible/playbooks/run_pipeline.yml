@@ -39,10 +39,11 @@
       loop_control:
         label: "{{ item.organism }}"
 
-    - name: Dispatch tasks via Celery
-      shell: |
-        python3 /opt/data_pipeline/dispatch_tasks.py "{{ item.data_input_dir }}" "{{ item.results_dir }}" "{{ item.organism }}"
+    - name: Restart Dispatch Tasks service to process new files
+      systemd:
+        name: "dispatch_tasks_{{ item.organism }}.service"
+        state: restarted
+      when: item.files | length > 0
       loop: "{{ datasets_pdb }}"
       loop_control:
         label: "{{ item.organism }}"
-      when: item.files | length > 0
