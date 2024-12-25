@@ -92,7 +92,9 @@
         content: |
           #!/bin/bash
           source {{ virtualenv_path }}/bin/activate
-          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }} -n {{ inventory_hostname }}
+          # Extract the worker name (e.g., worker1) from the inventory_hostname (e.g., worker1-d125deb2)
+          WORKER_NAME=$(echo "{{ inventory_hostname }}" | cut -d'-' -f1)
+          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[WORKER_NAME] }} -n {{ WORKER_NAME }}
 
     - name: Deploy Celery Worker systemd Service File
       copy:
@@ -131,9 +133,6 @@
       file:
         path: /opt/data_pipeline/celery_worker.py
         mode: '0755'
-
-
-
 
 - name: Setup Celery on Management Node and Configure Dispatch Services for Human and Ecoli
   hosts: host
