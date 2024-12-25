@@ -1,3 +1,4 @@
+---
 - name: Setup Celery Workers
   hosts: workers
   become: yes
@@ -222,6 +223,10 @@
                   print("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
                   sys.exit(1)
 
+              # Initialize Redis connection
+              r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+              dispatched_set_key = f"dispatched_tasks:{organism}"
+
               while True:
                   enabled_workers = get_enabled_workers()
                   if not enabled_workers:
@@ -232,6 +237,7 @@
                   pdb_files_to_process = [
                       f for f in pdb_files
                       if not os.path.exists(os.path.join(output_dir, f"{os.path.splitext(os.path.basename(f))[0]}.parsed"))
+                      and not r.sismember(dispatched_set_key, f)
                   ][:100]  # Batch size of 100
 
                   if not pdb_files_to_process:
@@ -251,6 +257,7 @@
                       )
                       logging.info(f"Task {result.id} dispatched for {pdb_file} to '{queue}' queue.")
                       print(f"Task {result.id} dispatched for {pdb_file} to '{queue}' queue.")
+                      r.sadd(dispatched_set_key, pdb_file)
                       task_index += 1
 
           if __name__ == "__main__":
