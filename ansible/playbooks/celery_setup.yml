@@ -1,4 +1,3 @@
----
 - name: Setup Celery Workers
   hosts: workers
   become: yes
@@ -264,11 +263,3 @@
 
           if __name__ == "__main__":
               main()
-
-    - name: Add Cron Job to Dispatch Tasks Every 5 Minutes
-      cron:
-        name: "Dispatch Celery tasks every 5 minutes"
-        minute: "*/5"
-        hour: "*"
-        job: "python3 /opt/data_pipeline/dispatch_tasks.py /mnt/datasets /mnt/results human >> /opt/data_pipeline/dispatch_tasks_cron.log 2>&1"
-        user: "{{ celery_user }}"
