@@ -39,11 +39,5 @@
       loop_control:
         label: "{{ item.organism }}"
 
-    - name: Restart Dispatch Tasks service to process new files
-      systemd:
-        name: "dispatch_tasks_{{ item.organism }}.service"
-        state: restarted
-      when: item.files | length > 0
-      loop: "{{ datasets_pdb }}"
-      loop_control:
-        label: "{{ item.organism }}"
+    # Removed the direct shell execution to rely on systemd services
+    # The systemd services will continuously monitor and dispatch tasks
