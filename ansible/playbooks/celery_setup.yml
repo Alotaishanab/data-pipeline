@@ -1,3 +1,4 @@
+---
 - name: Setup Celery Workers
   hosts: workers
   become: yes
@@ -91,7 +92,7 @@
         content: |
           #!/bin/bash
           source {{ virtualenv_path }}/bin/activate
-          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }}
+          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[inventory_hostname] }} -n {{ inventory_hostname }}
 
     - name: Deploy Celery Worker systemd Service File
       copy:
@@ -132,6 +133,8 @@
         mode: '0755'
 
 
+
+---
 - name: Setup Celery on Management Node and Configure Dispatch Services for Human and Ecoli
   hosts: host
   become: yes
@@ -201,7 +204,7 @@
           redis_port = 6379
           redis_db = 0
 
-          # Define worker queues
+          # Define worker queues with actual worker names
           WORKER_QUEUES = {
           {% for w, q in worker_queues.items() %}
               "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
