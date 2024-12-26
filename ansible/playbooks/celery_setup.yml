@@ -325,3 +325,63 @@
         name: "dispatch_tasks_{{ item.organism }}.service"
         state: started
         enabled: yes
+        
+    - name: Deploy Redis cleanup Python script
+      copy:
+        dest: /usr/local/bin/redis_cleanup.py
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          import redis
+
+          REDIS_HOST = "{{ redis_host }}"
+          REDIS_PORT = 6379
+          REDIS_DB   = 0
+
+          r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
+          r.delete('dispatched_tasks:human')
+          r.delete('dispatched_tasks:ecoli')
+
+    - name: Deploy redis_task_cleanup.service
+      copy:
+        dest: /etc/systemd/system/redis_task_cleanup.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Remove dispatched_tasks:human and dispatched_tasks:ecoli from Redis
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 /usr/local/bin/redis_cleanup.py
+
+    - name: Deploy redis_task_cleanup.timer
+      copy:
+        dest: /etc/systemd/system/redis_task_cleanup.timer
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Timer for redis_task_cleanup.service
+
+          [Timer]
+          OnCalendar=hourly
+          Persistent=true
+          Unit=redis_task_cleanup.service
+
+          [Install]
+          WantedBy=timers.target
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start redis_task_cleanup.timer
+      systemd:
+        name: redis_task_cleanup.timer
+        state: started
+        enabled: yes
