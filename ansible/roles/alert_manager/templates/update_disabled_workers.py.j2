@@ -25,7 +25,6 @@ def get_redis_host():
         logging.error(f"Error reading inventory file: {e}")
         sys.exit(1)
 
-
 def worker_exists(worker_name):
     # Load the inventory
     try:
@@ -39,7 +38,6 @@ def worker_exists(worker_name):
     workers = inventory.get('workers', {}).get('hosts', {})
     return worker_name in workers
 
-
 def main():
     if len(sys.argv) != 3:
         logging.error("Incorrect usage. Expected: python update_disabled_workers.py <worker_name> <disable|enable>")
@@ -47,7 +45,7 @@ def main():
         sys.exit(1)
     
     worker_name = sys.argv[1]
-    action = sys.argv[2]
+    action = sys.argv[2].lower()
 
     # Validate worker name
     if not worker_exists(worker_name):
@@ -61,23 +59,37 @@ def main():
     
     try:
         r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+        all_workers = ["worker1", "worker2", "worker3"]  # Update if you have more workers
+
         if action == 'disable':
+            # Check current disabled workers
+            disabled_workers = r.smembers('disabled_workers')
+            disabled_workers = {w.decode('utf-8') for w in disabled_workers}
+            
+            # Prevent disabling if all other workers are already disabled
+            if len(disabled_workers) >= len(all_workers) - 1:
+                logging.warning(f"Cannot disable {worker_name}. At least one worker must remain enabled.")
+                print(f"Warning: Cannot disable {worker_name}. At least one worker must remain enabled.")
+                sys.exit(1)
+            
             r.sadd('disabled_workers', worker_name)
             logging.info(f"Worker {worker_name} disabled in Redis.")
             print(f"Worker {worker_name} disabled in Redis.")
+        
         elif action == 'enable':
             r.srem('disabled_workers', worker_name)
             logging.info(f"Worker {worker_name} enabled in Redis.")
             print(f"Worker {worker_name} enabled in Redis.")
+        
         else:
             logging.error("Invalid action. Must be 'disable' or 'enable'.")
-            print("Action must be 'disable' or 'enable'.")
+            print("Error: Action must be 'disable' or 'enable'.")
             sys.exit(1)
+    
     except Exception as e:
         logging.error(f"Redis connection error: {e}")
-        print(f"Redis connection error: {e}")
+        print(f"Error: Redis connection failed: {e}")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
