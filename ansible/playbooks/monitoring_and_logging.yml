@@ -421,6 +421,20 @@
         line: 'admin_password = admin'
       notify: Restart Grafana
 
+
+    - name: Install Nginx on Control Node
+      yum:
+        name: nginx
+        state: present
+      when: inventory_hostname == 'localhost'
+
+    - name: Start and enable Nginx on Control Node
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+      when: inventory_hostname == 'localhost'
+
     #### Install and Configure Nginx as Reverse Proxy
     - name: Install Certbot Nginx plugin
       yum:
