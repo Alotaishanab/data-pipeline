@@ -119,7 +119,6 @@
 
           [Install]
           WantedBy=multi-user.target
-      force: yes
 
     - name: Reload systemd daemon
       systemd:
@@ -325,7 +324,7 @@
         name: "dispatch_tasks_{{ item.organism }}.service"
         state: started
         enabled: yes
-        
+
     - name: Deploy Redis cleanup Python script
       copy:
         dest: /usr/local/bin/redis_cleanup.py
