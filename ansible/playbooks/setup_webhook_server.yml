@@ -99,8 +99,6 @@
 
     - name: Ensure /mnt/results is world-readable
       shell: "chmod -R 755 /mnt/results"
-      args:
-        warn: false
       become: yes
 
     - name: Gather mount facts
