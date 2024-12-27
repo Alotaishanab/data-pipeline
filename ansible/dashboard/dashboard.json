@@ -100,7 +100,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "000000001"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,

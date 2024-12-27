@@ -356,13 +356,14 @@
         group: grafana
         mode: '0755'
 
-    - name: Copy Dashboard JSON
-      copy:
-        src: "{{ playbook_dir }}/../dashboard/dashboard.json"
+    - name: Copy Dashboard JSON with template
+      template:
+        src: "{{ playbook_dir }}/../dashboard/dashboard.json.j2"
         dest: /etc/grafana/provisioning/dashboards/dashboard.json
         owner: grafana
         group: grafana
         mode: '0644'
+
 
     - name: Create Dashboard Provisioning YAML
       copy:
