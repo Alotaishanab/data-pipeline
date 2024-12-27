@@ -97,16 +97,12 @@
         dest: /var/www/html/results
         state: link
 
-    # 1) Ensure file permissions for /mnt/results
     - name: Ensure /mnt/results is world-readable
-      file:
-        path: /mnt/results
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        recurse: yes
+      shell: "chmod -R 755 /mnt/results"
+      args:
+        warn: false
+      become: yes
 
-    # 1a) Gather mount facts so we can detect NFS
     - name: Gather mount facts
       ansible.builtin.setup:
         gather_subset:
@@ -116,19 +112,21 @@
       set_fact:
         results_is_nfs: >-
           {{ ansible_mounts
-             | selectattr('mount', 'equalto', '/mnt/results')
-             | map(attribute='fstype')
-             | list
-             | first
-             == 'nfs' }}
+            | selectattr('mount', 'equalto', '/mnt/results')
+            | map(attribute='fstype')
+            | list
+            | first
+            == 'nfs' }}
 
-    # 2) Fix SELinux context so Apache can serve from /mnt/results (skip if NFS)
-    - name: Set SELinux context on /mnt/results if SELinux is enforcing and not NFS
+    # Then skip chcon on NFS or ignore errors
+    - name: Set SELinux context if SELinux is enforcing and not NFS
       command: chcon -R -t httpd_sys_content_t /mnt/results
       when:
         - ansible_selinux is defined
         - ansible_selinux.status == 'enabled'
         - results_is_nfs == false
+      ignore_errors: yes
+
 
     # 3) Enable directory listing & FancyIndexing in a custom conf
     - name: Enable directory listing for /results
