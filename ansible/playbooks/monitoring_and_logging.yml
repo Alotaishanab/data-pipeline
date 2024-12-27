@@ -356,26 +356,24 @@
         group: grafana
         mode: '0755'
 
-    - name: Replace datasource placeholder in dashboard.json
+    - name: Replace datasource placeholder in cw.json
       replace:
-        path: "{{ playbook_dir }}/../dashboard/dashboard.json"
+        path: "{{ playbook_dir }}/../dashboard/cw.json"
         regexp: '\$\{datasource\}'
         replace: 'prometheus'
 
     - name: Copy Dashboard JSON
       copy:
-        src: "{{ playbook_dir }}/../dashboard/dashboard.json"
-        dest: /etc/grafana/provisioning/dashboards/dashboard.json
+        src: "{{ playbook_dir }}/../dashboard/cw.json"
+        dest: /etc/grafana/provisioning/dashboards/cw.json
         owner: grafana
         group: grafana
         mode: '0644'
       notify: Restart Grafana
 
-
-
     - name: Create Dashboard Provisioning YAML
       copy:
-        dest: /etc/grafana/provisioning/dashboards/dashboard.yml
+        dest: /etc/grafana/provisioning/dashboards/dashboards.yml
         content: |
           apiVersion: 1
 
@@ -425,6 +423,7 @@
       systemd:
         name: grafana-server
         state: restarted
+
 
 
 - name: Configure Logging on All Hosts

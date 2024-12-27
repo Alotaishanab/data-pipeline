@@ -1,7 +1,7 @@
 {
   "__inputs": [
     {
-      "name": "dashboard",
+      "name": "DS_PROMETHEUS",
       "label": "Prometheus",
       "description": "",
       "type": "datasource",
@@ -100,7 +100,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "000000001"
       },
       "gridPos": {
         "h": 1,
