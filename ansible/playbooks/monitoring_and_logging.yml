@@ -388,14 +388,14 @@
         path: /etc/grafana/grafana.ini
         regexp: '^admin_user'
         line: 'admin_user = admin'
-        notify: Restart Grafana
+      notify: Restart Grafana
 
     - name: Set Grafana admin password
       lineinfile:
         path: /etc/grafana/grafana.ini
         regexp: '^admin_password'
         line: 'admin_password = admin'
-        notify: Restart Grafana
+      notify: Restart Grafana
 
   handlers:
     - name: Restart Grafana
