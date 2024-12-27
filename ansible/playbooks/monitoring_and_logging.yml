@@ -454,23 +454,6 @@
         state: present
       when: inventory_hostname == 'localhost'
 
-    - name: Obtain SSL certificate for Grafana
-      command: >
-        certbot --nginx --non-interactive --agree-tos
-        -m "{{ certbot_email }}"
-        -d "{{ grafana_domain }}"
-      args:
-        creates: "/etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem"
-      when: inventory_hostname == 'localhost'
-
-    - name: Obtain SSL certificate for Prometheus
-      command: >
-        certbot --nginx --non-interactive --agree-tos
-        -m "{{ certbot_email }}"
-        -d "{{ prometheus_domain }}"
-      args:
-        creates: "/etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem"
-      when: inventory_hostname == 'localhost'
 
     - name: Configure Nginx for Grafana
       copy:
