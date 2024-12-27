@@ -37,7 +37,6 @@
         group: almalinux
       notify: restart_webhook_server
 
-
     - name: Create systemd service for webhook_server
       copy:
         dest: /etc/systemd/system/webhook_server.service
@@ -69,6 +68,7 @@
         port: 8080/tcp
         permanent: yes
         state: enabled
+        immediate: yes
       when: ansible_service_mgr == 'systemd'
 
     - name: Reload firewalld (webhook port)
@@ -77,7 +77,7 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    # Install and configure a simple HTTP server to serve results
+    # Install and configure Apache HTTP server
     - name: Install Apache httpd
       yum:
         name: httpd
@@ -95,21 +95,58 @@
         dest: /var/www/html/results
         state: link
 
-    - name: Allow HTTP service in firewall
+    - name: Enable directory listing for /results
+      copy:
+        dest: /etc/httpd/conf.d/results.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          <Directory "/var/www/html/results">
+            Options +Indexes
+            AllowOverride None
+            Require all granted
+          </Directory>
+      notify: restart_httpd
+
+    # EXPLICITLY open port 80 if you want to see it in 'list-ports'
+    - name: Allow port 80/tcp in the firewall
       firewalld:
-        service: http
+        port: 80/tcp
         permanent: yes
         state: enabled
+        immediate: yes
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld (http service)
+    - name: Reload firewalld (http port)
       service:
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
+    - name: Deploy custom index.html
+      copy:
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          <html>
+          <head><title>Proteomics Results</title></head>
+          <body>
+            <h1>Welcome to the Proteomics Results</h1>
+            <p>Browse the <a href="/results/">results directory</a> to download your files.</p>
+          </body>
+          </html>
+      notify: restart_httpd
+
   handlers:
     - name: restart_webhook_server
       systemd:
         name: webhook_server
+        state: restarted
+
+    - name: restart_httpd
+      systemd:
+        name: httpd
         state: restarted
