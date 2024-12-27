@@ -103,7 +103,7 @@
         mode: '0644'
         content: |
           <Directory "/var/www/html/results">
-            Options +Indexes
+            Options +Indexes +FollowSymLinks
             AllowOverride None
             Require all granted
           </Directory>
