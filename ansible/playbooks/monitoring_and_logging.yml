@@ -107,7 +107,7 @@
     prometheus_user: "ucabbaa-prometheus"
 
   tasks:
-    - name: Create Prometheus user
+    - name: Create Prometheus user and group
       user:
         name: "{{ prometheus_user }}"
         system: yes
@@ -248,8 +248,8 @@
           After=network.target
 
           [Service]
-          User=prometheus
-          Group=prometheus
+          User={{ prometheus_user }}
+          Group={{ prometheus_user }}
           Type=simple
           ExecStart=/usr/local/bin/prometheus \
             --config.file=/etc/prometheus/prometheus.yml \
@@ -260,9 +260,9 @@
 
           [Install]
           WantedBy=multi-user.target
-      owner: "{{ prometheus_user }}"
-      group: "{{ prometheus_user }}"
-      mode: '0644'
+        owner: "{{ prometheus_user }}"
+        group: "{{ prometheus_user }}"
+        mode: '0644'
 
     - name: Reload systemd daemon for Prometheus
       systemd:
