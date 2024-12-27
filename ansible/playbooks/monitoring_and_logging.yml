@@ -348,9 +348,7 @@
       debug:
         msg: "Default Grafana service file exists: {{ default_grafana_service.stat.exists }}"
 
-    ###### Added Tasks Start Here ######
-
-    - name: Create Grafana provisioning directories
+    - name: Create Grafana provisioning directories for dashboards
       file:
         path: /etc/grafana/provisioning/dashboards
         state: directory
@@ -368,7 +366,7 @@
 
     - name: Create Dashboard Provisioning YAML
       copy:
-        dest: /etc/grafana/provisioning/dashboards/dashboards.yml
+        dest: /etc/grafana/provisioning/dashboards/dashboard.yml
         content: |
           apiVersion: 1
 
@@ -379,6 +377,22 @@
               type: file
               options:
                 path: /etc/grafana/provisioning/dashboards
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Create Grafana provisioning directories for datasources
+      file:
+        path: /etc/grafana/provisioning/datasources
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Copy Prometheus Data Source Provisioning
+      copy:
+        src: "{{ playbook_dir }}/../datasource/prometheus.yml"
+        dest: /etc/grafana/provisioning/datasources/prometheus.yml
         owner: grafana
         group: grafana
         mode: '0644'
