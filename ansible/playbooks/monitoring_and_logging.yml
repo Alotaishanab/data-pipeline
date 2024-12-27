@@ -2,6 +2,11 @@
 - name: Setup Monitoring and Logging on All Hosts
   hosts: all
   become: yes
+  vars:
+    grafana_domain: "grafana.ds4eng.condenser.arc.ucl.ac.uk"
+    prometheus_domain: "prometheus.ds4eng.condenser.arc.ucl.ac.uk"
+    certbot_email: "ucabbaa@ucl.ac.uk"  # Replace with your email
+
   tasks:
     #### Enable EPEL repository
     - name: Install EPEL repository
@@ -24,8 +29,6 @@
         name: firewalld
         state: started
         enabled: yes
-
-    
 
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
@@ -86,18 +89,20 @@
         port: 9100/tcp
         permanent: yes
         state: enabled
-      when: ansible_service_mgr == 'systemd'
 
     - name: Reload firewalld to apply changes
       service:
         name: firewalld
         state: reloaded
-      when: ansible_service_mgr == 'systemd'
 
-    
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
   become: yes
+  vars:
+    grafana_domain: "grafana.ds4eng.condenser.arc.ucl.ac.uk"
+    prometheus_domain: "prometheus.ds4eng.condenser.arc.ucl.ac.uk"
+    certbot_email: "ucabbaa@ucl.ac.uk"  
+
   tasks:
     - name: Create Prometheus user and group
       user:
@@ -218,7 +223,6 @@
         group: prometheus
         mode: '0644'
 
-
     - name: Set ownership of Prometheus binaries
       file:
         path: "{{ item }}"
@@ -231,7 +235,7 @@
     - name: Deploy Prometheus Alert Rules
       include_role:
         name: prometheus_alerts
-        
+
     - name: Create Prometheus service
       copy:
         dest: /etc/systemd/system/prometheus.service
@@ -272,21 +276,20 @@
         port: 9090/tcp
         permanent: yes
         state: enabled
-      when: ansible_service_mgr == 'systemd'
 
     - name: Reload firewalld to apply changes
       service:
         name: firewalld
         state: reloaded
-      when: ansible_service_mgr == 'systemd'
-
-
-
-
 
 - name: Install and Configure Grafana on Control Node
   hosts: localhost
   become: yes
+  vars:
+    grafana_domain: "grafana.ds4eng.condenser.arc.ucl.ac.uk"
+    prometheus_domain: "prometheus.ds4eng.condenser.arc.ucl.ac.uk"
+    certbot_email: "ucabbaa@ucl.ac.uk"  # Replace with your email
+
   tasks:
     - name: Add Grafana repository
       yum_repository:
@@ -418,31 +421,115 @@
         line: 'admin_password = admin'
       notify: Restart Grafana
 
+    #### Install and Configure Nginx as Reverse Proxy
+    - name: Install Certbot Nginx plugin
+      yum:
+        name: certbot-nginx
+        state: present
+
+    - name: Obtain SSL certificate for Grafana
+      command: >
+        certbot --nginx --non-interactive --agree-tos
+        -m "{{ certbot_email }}"
+        -d "{{ grafana_domain }}"
+      args:
+        creates: "/etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem"
+
+    - name: Obtain SSL certificate for Prometheus
+      command: >
+        certbot --nginx --non-interactive --agree-tos
+        -m "{{ certbot_email }}"
+        -d "{{ prometheus_domain }}"
+      args:
+        creates: "/etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem"
+
+    - name: Configure Nginx for Grafana
+      copy:
+        dest: "/etc/nginx/conf.d/grafana.conf"
+        content: |
+          server {
+              listen 80;
+              server_name {{ grafana_domain }};
+              return 301 https://$host$request_uri;
+          }
+
+          server {
+              listen 443 ssl;
+              server_name {{ grafana_domain }};
+
+              ssl_certificate /etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ grafana_domain }}/privkey.pem;
+
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+      notify: Reload Nginx
+
+    - name: Configure Nginx for Prometheus
+      copy:
+        dest: "/etc/nginx/conf.d/prometheus.conf"
+        content: |
+          server {
+              listen 80;
+              server_name {{ prometheus_domain }};
+              return 301 https://$host$request_uri;
+          }
+
+          server {
+              listen 443 ssl;
+              server_name {{ prometheus_domain }};
+
+              ssl_certificate /etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ prometheus_domain }}/privkey.pem;
+
+              location / {
+                  proxy_pass http://localhost:9090;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+      notify: Reload Nginx
+
+    #### Configure Firewall
+    - name: Allow HTTP and HTTPS through firewalld
+      firewalld:
+        service: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - http
+        - https
+      notify: Reload firewalld
+
+    - name: Close direct access to Prometheus and Grafana ports
+      firewalld:
+        port: "{{ item }}/tcp"
+        state: disabled
+        permanent: yes
+      loop:
+        - 9090
+        - 3000
+      notify: Reload firewalld
+
   handlers:
     - name: Restart Grafana
       systemd:
         name: grafana-server
         state: restarted
 
-
-
-- name: Configure Logging on All Hosts
-  hosts: all
-  become: yes
-  tasks:
-    - name: Install rsyslog
-      yum:
-        name: rsyslog
-        state: present
-
-    - name: Configure rsyslog to send logs to control node
-      lineinfile:
-        path: /etc/rsyslog.conf
-        regexp: '^\*\.\*'
-        line: "*.* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514"
-        state: present
-
-    - name: Restart rsyslog
+    - name: Reload Nginx
       systemd:
-        name: rsyslog
-        state: restarted
+        name: nginx
+        state: reloaded
+
+    - name: Reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
