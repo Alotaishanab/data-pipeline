@@ -360,7 +360,7 @@
 
     - name: Copy Dashboard JSON
       copy:
-        src: ../../dashboard/dashboard.json
+        src: "{{ playbook_dir }}/../dashboard/dashboard.json"
         dest: /etc/grafana/provisioning/dashboards/dashboard.json
         owner: grafana
         group: grafana
