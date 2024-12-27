@@ -1,7 +1,7 @@
 {
   "__inputs": [
     {
-      "name": "DS_PROMETHEUS",
+      "name": "UniqueNodeExporterDashboard",
       "label": "Prometheus",
       "description": "",
       "type": "datasource",
@@ -100,7 +100,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "000000001"
+        "uid": "prometheus"
       },
       "gridPos": {
         "h": 1,
