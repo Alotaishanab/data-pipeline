@@ -96,7 +96,7 @@
         state: reloaded
 
 
----
+
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
   become: yes
