@@ -104,7 +104,7 @@
     - name: Gather mount facts
       ansible.builtin.setup:
         gather_subset:
-          - mount
+          - mounts
 
     - name: Determine if /mnt/results is an NFS share
       set_fact:
