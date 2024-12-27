@@ -356,13 +356,21 @@
         group: grafana
         mode: '0755'
 
-    - name: Copy Dashboard JSON with template
-      template:
-        src: "{{ playbook_dir }}/../dashboard/dashboard.json.j2"
+    - name: Replace datasource placeholder in dashboard.json
+      replace:
+        path: "{{ playbook_dir }}/../dashboard/dashboard.json"
+        regexp: '\$\{datasource\}'
+        replace: 'prometheus'
+
+    - name: Copy Dashboard JSON
+      copy:
+        src: "{{ playbook_dir }}/../dashboard/dashboard.json"
         dest: /etc/grafana/provisioning/dashboards/dashboard.json
         owner: grafana
         group: grafana
         mode: '0644'
+      notify: Restart Grafana
+
 
 
     - name: Create Dashboard Provisioning YAML
