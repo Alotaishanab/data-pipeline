@@ -288,7 +288,7 @@
   vars:
     grafana_domain: "grafana.ds4eng.condenser.arc.ucl.ac.uk"
     prometheus_domain: "prometheus.ds4eng.condenser.arc.ucl.ac.uk"
-    certbot_email: "ucabbaa@ucl.ac.uk"  # Replace with your email
+    certbot_email: "ucabbaa@ucl.ac.uk"  
 
   tasks:
     - name: Add Grafana repository
@@ -424,7 +424,7 @@
     #### Install and Configure Nginx as Reverse Proxy
     - name: Install Certbot Nginx plugin
       yum:
-        name: certbot-nginx
+        name: python3-certbot-nginx
         state: present
 
     - name: Obtain SSL certificate for Grafana
