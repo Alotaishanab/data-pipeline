@@ -282,268 +282,317 @@
         name: firewalld
         state: reloaded
 
-- name: Install and Configure Grafana on Control Node
-  hosts: localhost
-  become: yes
-  vars:
-    grafana_domain: "grafana.ds4eng.condenser.arc.ucl.ac.uk"
-    prometheus_domain: "prometheus.ds4eng.condenser.arc.ucl.ac.uk"
-    certbot_email: "ucabbaa@ucl.ac.uk"  
+    - name: Install and Configure Grafana on Control Node
+      hosts: localhost
+      become: yes
+      vars:
+        grafana_domain: "grafana.ds4eng.condenser.arc.ucl.ac.uk"
+        prometheus_domain: "prometheus.ds4eng.condenser.arc.ucl.ac.uk"
+        certbot_email: "ucabbaa@ucl.ac.uk"  # Replace with your email
+        prometheus_user: "ucabbaa-prometheus"
+        grafana_user: "ucabbaa-grafana"
 
-  tasks:
-    - name: Add Grafana repository
-      yum_repository:
-        name: grafana
-        description: Grafana Repository
-        baseurl: https://packages.grafana.com/oss/rpm
-        gpgcheck: yes
-        repo_gpgcheck: yes
-        gpgkey: https://packages.grafana.com/gpg.key
-        enabled: yes
+      tasks:
+        #### Create Users for Prometheus and Grafana
+        - name: Create Prometheus user
+          user:
+            name: "{{ prometheus_user }}"
+            system: yes
+            shell: /sbin/nologin
+            create_home: no
 
-    - name: Install Grafana
-      yum:
-        name: grafana
-        state: present
+        - name: Create Grafana user
+          user:
+            name: "{{ grafana_user }}"
+            system: yes
+            shell: /sbin/nologin
+            create_home: no
 
-    - name: Install initscripts package (for systemd-sysv-install)
-      yum:
-        name: initscripts
-        state: present
+        #### Add Grafana repository
+        - name: Add Grafana repository
+          yum_repository:
+            name: grafana
+            description: Grafana Repository
+            baseurl: https://packages.grafana.com/oss/rpm
+            gpgcheck: yes
+            repo_gpgcheck: yes
+            gpgkey: https://packages.grafana.com/gpg.key
+            enabled: yes
 
-    - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
+        #### Install Grafana
+        - name: Install Grafana
+          yum:
+            name: grafana
+            state: present
 
-    - name: Ensure Grafana directories have correct ownership
-      file:
-        path: "{{ item }}"
-        state: directory
-        owner: grafana
-        group: grafana
-        recurse: yes
-      loop:
-        - /var/lib/grafana
-        - /var/log/grafana
-        - /etc/grafana
+        #### Install initscripts package (for systemd-sysv-install)
+        - name: Install initscripts package (for systemd-sysv-install)
+          yum:
+            name: initscripts
+            state: present
 
-    - name: Start and enable Grafana service
-      systemd:
-        name: grafana-server
-        state: started
-        enabled: yes
+        #### Reload systemd daemon
+        - name: Reload systemd daemon
+          systemd:
+            daemon_reload: yes
 
-    - name: Fetch Grafana service logs
-      shell: journalctl -u grafana-server -b --no-pager
-      register: grafana_logs
-      ignore_errors: yes
+        #### Ensure Grafana directories have correct ownership
+        - name: Ensure Grafana directories have correct ownership
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "{{ grafana_user }}"
+            group: "{{ grafana_user }}"
+            recurse: yes
+          loop:
+            - /var/lib/grafana
+            - /var/log/grafana
+            - /etc/grafana
 
-    - name: Display Grafana service logs
-      debug:
-        var: grafana_logs.stdout
+        #### Start and enable Grafana service
+        - name: Start and enable Grafana service
+          systemd:
+            name: grafana-server
+            state: started
+            enabled: yes
 
-    - name: Verify default Grafana service file exists
-      stat:
-        path: /usr/lib/systemd/system/grafana-server.service
-      register: default_grafana_service
+        #### Fetch Grafana service logs
+        - name: Fetch Grafana service logs
+          shell: journalctl -u grafana-server -b --no-pager
+          register: grafana_logs
+          ignore_errors: yes
 
-    - name: Debug default Grafana service file status
-      debug:
-        msg: "Default Grafana service file exists: {{ default_grafana_service.stat.exists }}"
+        #### Display Grafana service logs
+        - name: Display Grafana service logs
+          debug:
+            var: grafana_logs.stdout
 
-    - name: Create Grafana provisioning directories for dashboards
-      file:
-        path: /etc/grafana/provisioning/dashboards
-        state: directory
-        owner: grafana
-        group: grafana
-        mode: '0755'
+        #### Verify default Grafana service file exists
+        - name: Verify default Grafana service file exists
+          stat:
+            path: /usr/lib/systemd/system/grafana-server.service
+          register: default_grafana_service
 
-    - name: Replace datasource placeholder in cw.json
-      replace:
-        path: "{{ playbook_dir }}/../dashboard/cw.json"
-        regexp: '\$\{datasource\}'
-        replace: 'prometheus'
+        #### Debug default Grafana service file status
+        - name: Debug default Grafana service file status
+          debug:
+            msg: "Default Grafana service file exists: {{ default_grafana_service.stat.exists }}"
 
-    - name: Copy Dashboard JSON
-      copy:
-        src: "{{ playbook_dir }}/../dashboard/cw.json"
-        dest: /etc/grafana/provisioning/dashboards/cw.json
-        owner: grafana
-        group: grafana
-        mode: '0644'
-      notify: Restart Grafana
+        #### Create Grafana provisioning directories for dashboards
+        - name: Create Grafana provisioning directories for dashboards
+          file:
+            path: /etc/grafana/provisioning/dashboards
+            state: directory
+            owner: "{{ grafana_user }}"
+            group: "{{ grafana_user }}"
+            mode: '0755'
 
-    - name: Create Dashboard Provisioning YAML
-      copy:
-        dest: /etc/grafana/provisioning/dashboards/dashboards.yml
-        content: |
-          apiVersion: 1
+        #### Replace datasource placeholder in cw.json
+        - name: Replace datasource placeholder in cw.json
+          replace:
+            path: "{{ playbook_dir }}/../dashboard/cw.json"
+            regexp: '\$\{datasource\}'
+            replace: 'prometheus'
 
-          providers:
-            - name: 'default'
-              orgId: 1
-              folder: ''
-              type: file
-              options:
-                path: /etc/grafana/provisioning/dashboards
-        owner: grafana
-        group: grafana
-        mode: '0644'
+        #### Copy Dashboard JSON
+        - name: Copy Dashboard JSON
+          copy:
+            src: "{{ playbook_dir }}/../dashboard/cw.json"
+            dest: /etc/grafana/provisioning/dashboards/cw.json
+            owner: "{{ grafana_user }}"
+            group: "{{ grafana_user }}"
+            mode: '0644'
+          notify: Restart Grafana
 
-    - name: Create Grafana provisioning directories for datasources
-      file:
-        path: /etc/grafana/provisioning/datasources
-        state: directory
-        owner: grafana
-        group: grafana
-        mode: '0755'
+        #### Create Dashboard Provisioning YAML
+        - name: Create Dashboard Provisioning YAML
+          copy:
+            dest: /etc/grafana/provisioning/dashboards/dashboards.yml
+            content: |
+              apiVersion: 1
 
-    - name: Copy Prometheus Data Source Provisioning
-      copy:
-        src: "{{ playbook_dir }}/../datasource/prometheus.yml"
-        dest: /etc/grafana/provisioning/datasources/prometheus.yml
-        owner: grafana
-        group: grafana
-        mode: '0644'
+              providers:
+                - name: 'default'
+                  orgId: 1
+                  folder: ''
+                  type: file
+                  options:
+                    path: /etc/grafana/provisioning/dashboards
+            owner: "{{ grafana_user }}"
+            group: "{{ grafana_user }}"
+            mode: '0644'
 
-    - name: Set Grafana admin user
-      lineinfile:
-        path: /etc/grafana/grafana.ini
-        regexp: '^admin_user'
-        line: 'admin_user = admin'
-      notify: Restart Grafana
+        #### Create Grafana provisioning directories for datasources
+        - name: Create Grafana provisioning directories for datasources
+          file:
+            path: /etc/grafana/provisioning/datasources
+            state: directory
+            owner: "{{ grafana_user }}"
+            group: "{{ grafana_user }}"
+            mode: '0755'
 
-    - name: Set Grafana admin password
-      lineinfile:
-        path: /etc/grafana/grafana.ini
-        regexp: '^admin_password'
-        line: 'admin_password = admin'
-      notify: Restart Grafana
+        #### Copy Prometheus Data Source Provisioning
+        - name: Copy Prometheus Data Source Provisioning
+          copy:
+            src: "{{ playbook_dir }}/../datasource/prometheus.yml"
+            dest: /etc/grafana/provisioning/datasources/prometheus.yml
+            owner: "{{ grafana_user }}"
+            group: "{{ grafana_user }}"
+            mode: '0644'
 
+        #### Set Grafana admin user
+        - name: Set Grafana admin user
+          lineinfile:
+            path: /etc/grafana/grafana.ini
+            regexp: '^admin_user'
+            line: 'admin_user = admin'
+          notify: Restart Grafana
 
-    - name: Install Nginx on Control Node
-      yum:
-        name: nginx
-        state: present
-      when: inventory_hostname == 'localhost'
+        #### Set Grafana admin password
+        - name: Set Grafana admin password
+          lineinfile:
+            path: /etc/grafana/grafana.ini
+            regexp: '^admin_password'
+            line: 'admin_password = admin'
+          notify: Restart Grafana
 
-    - name: Start and enable Nginx on Control Node
-      systemd:
-        name: nginx
-        state: started
-        enabled: yes
-      when: inventory_hostname == 'localhost'
+        #### Install and Configure Nginx as Reverse Proxy
 
-    #### Install and Configure Nginx as Reverse Proxy
-    - name: Install Certbot Nginx plugin
-      yum:
-        name: python3-certbot-nginx
-        state: present
+        # 1. Install Nginx
+        - name: Install Nginx on Control Node
+          yum:
+            name: nginx
+            state: present
+          when: inventory_hostname == 'localhost'
 
-    - name: Obtain SSL certificate for Grafana
-      command: >
-        certbot --nginx --non-interactive --agree-tos
-        -m "{{ certbot_email }}"
-        -d "{{ grafana_domain }}"
-      args:
-        creates: "/etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem"
+        # 3. Start and enable Nginx
+        - name: Start and enable Nginx on Control Node
+          systemd:
+            name: nginx
+            state: started
+            enabled: yes
+          when: inventory_hostname == 'localhost'
 
-    - name: Obtain SSL certificate for Prometheus
-      command: >
-        certbot --nginx --non-interactive --agree-tos
-        -m "{{ certbot_email }}"
-        -d "{{ prometheus_domain }}"
-      args:
-        creates: "/etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem"
+        # 4. Install Certbot Nginx plugin
+        - name: Install Certbot Nginx plugin
+          yum:
+            name: python3-certbot-nginx
+            state: present
+          when: inventory_hostname == 'localhost'
 
-    - name: Configure Nginx for Grafana
-      copy:
-        dest: "/etc/nginx/conf.d/grafana.conf"
-        content: |
-          server {
-              listen 80;
-              server_name {{ grafana_domain }};
-              return 301 https://$host$request_uri;
-          }
+        # 5. Obtain SSL certificate for Grafana
+        - name: Obtain SSL certificate for Grafana
+          command: >
+            certbot --nginx --non-interactive --agree-tos
+            -m "{{ certbot_email }}"
+            -d "{{ grafana_domain }}"
+          args:
+            creates: "/etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem"
+          when: inventory_hostname == 'localhost'
 
-          server {
-              listen 443 ssl;
-              server_name {{ grafana_domain }};
+        # 6. Obtain SSL certificate for Prometheus
+        - name: Obtain SSL certificate for Prometheus
+          command: >
+            certbot --nginx --non-interactive --agree-tos
+            -m "{{ certbot_email }}"
+            -d "{{ prometheus_domain }}"
+          args:
+            creates: "/etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem"
+          when: inventory_hostname == 'localhost'
 
-              ssl_certificate /etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ grafana_domain }}/privkey.pem;
-
-              location / {
-                  proxy_pass http://localhost:3000;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
+        # 7. Configure Nginx for Grafana
+        - name: Configure Nginx for Grafana
+          copy:
+            dest: "/etc/nginx/conf.d/grafana.conf"
+            content: |
+              server {
+                  listen 80;
+                  server_name {{ grafana_domain }};
+                  return 301 https://$host$request_uri;
               }
-          }
-      notify: Reload Nginx
 
-    - name: Configure Nginx for Prometheus
-      copy:
-        dest: "/etc/nginx/conf.d/prometheus.conf"
-        content: |
-          server {
-              listen 80;
-              server_name {{ prometheus_domain }};
-              return 301 https://$host$request_uri;
-          }
+              server {
+                  listen 443 ssl;
+                  server_name {{ grafana_domain }};
 
-          server {
-              listen 443 ssl;
-              server_name {{ prometheus_domain }};
+                  ssl_certificate /etc/letsencrypt/live/{{ grafana_domain }}/fullchain.pem;
+                  ssl_certificate_key /etc/letsencrypt/live/{{ grafana_domain }}/privkey.pem;
 
-              ssl_certificate /etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ prometheus_domain }}/privkey.pem;
-
-              location / {
-                  proxy_pass http://localhost:9090;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
+                  location / {
+                      proxy_pass http://localhost:3000;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
+                  }
               }
-          }
-      notify: Reload Nginx
+          notify: Reload Nginx
+          when: inventory_hostname == 'localhost'
 
-    #### Configure Firewall
-    - name: Allow HTTP and HTTPS through firewalld
-      firewalld:
-        service: "{{ item }}"
-        permanent: yes
-        state: enabled
-      loop:
-        - http
-        - https
-      notify: Reload firewalld
+        # 8. Configure Nginx for Prometheus
+        - name: Configure Nginx for Prometheus
+          copy:
+            dest: "/etc/nginx/conf.d/prometheus.conf"
+            content: |
+              server {
+                  listen 80;
+                  server_name {{ prometheus_domain }};
+                  return 301 https://$host$request_uri;
+              }
 
-    - name: Close direct access to Prometheus and Grafana ports
-      firewalld:
-        port: "{{ item }}/tcp"
-        state: disabled
-        permanent: yes
-      loop:
-        - 9090
-        - 3000
-      notify: Reload firewalld
+              server {
+                  listen 443 ssl;
+                  server_name {{ prometheus_domain }};
 
-  handlers:
-    - name: Restart Grafana
-      systemd:
-        name: grafana-server
-        state: restarted
+                  ssl_certificate /etc/letsencrypt/live/{{ prometheus_domain }}/fullchain.pem;
+                  ssl_certificate_key /etc/letsencrypt/live/{{ prometheus_domain }}/privkey.pem;
 
-    - name: Reload Nginx
-      systemd:
-        name: nginx
-        state: reloaded
+                  location / {
+                      proxy_pass http://localhost:9090;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
+                  }
+              }
+          notify: Reload Nginx
+          when: inventory_hostname == 'localhost'
 
-    - name: Reload firewalld
-      systemd:
-        name: firewalld
-        state: reloaded
+        #### Configure Firewall
+        - name: Allow HTTP and HTTPS through firewalld
+          firewalld:
+            service: "{{ item }}"
+            permanent: yes
+            state: enabled
+          loop:
+            - http
+            - https
+          notify: Reload firewalld
+          when: inventory_hostname == 'localhost'
+
+        - name: Close direct access to Prometheus and Grafana ports
+          firewalld:
+            port: "{{ item }}/tcp"
+            state: disabled
+            permanent: yes
+          loop:
+            - 9090
+            - 3000
+          notify: Reload firewalld
+          when: inventory_hostname == 'localhost'
+
+      handlers:
+        - name: Restart Grafana
+          systemd:
+            name: grafana-server
+            state: restarted
+
+        - name: Reload Nginx
+          systemd:
+            name: nginx
+            state: reloaded
+
+        - name: Reload firewalld
+          systemd:
+            name: firewalld
+            state: reloaded
