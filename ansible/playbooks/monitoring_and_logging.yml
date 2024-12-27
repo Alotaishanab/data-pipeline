@@ -348,6 +348,62 @@
       debug:
         msg: "Default Grafana service file exists: {{ default_grafana_service.stat.exists }}"
 
+    ###### Added Tasks Start Here ######
+
+    - name: Create Grafana provisioning directories
+      file:
+        path: /etc/grafana/provisioning/dashboards
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Copy Dashboard JSON
+      copy:
+        src: ../../dashboard/dashboard.json
+        dest: /etc/grafana/provisioning/dashboards/dashboard.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Create Dashboard Provisioning YAML
+      copy:
+        dest: /etc/grafana/provisioning/dashboards/dashboards.yml
+        content: |
+          apiVersion: 1
+
+          providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              options:
+                path: /etc/grafana/provisioning/dashboards
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Set Grafana admin user
+      lineinfile:
+        path: /etc/grafana/grafana.ini
+        regexp: '^admin_user'
+        line: 'admin_user = admin'
+        notify: Restart Grafana
+
+    - name: Set Grafana admin password
+      lineinfile:
+        path: /etc/grafana/grafana.ini
+        regexp: '^admin_password'
+        line: 'admin_password = admin'
+        notify: Restart Grafana
+
+  handlers:
+    - name: Restart Grafana
+      systemd:
+        name: grafana-server
+        state: restarted
+
+
 - name: Configure Logging on All Hosts
   hosts: all
   become: yes
