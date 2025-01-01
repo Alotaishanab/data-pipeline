@@ -78,7 +78,7 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
         "condenser_ingress_nodeexporter_port": outputs.get("condenser_ingress_nodeexporter_port", {}).get("value", ""),
         "condenser_ingress_isAllowed": outputs.get("condenser_ingress_isAllowed", {}).get("value", ""),
         "condenser_ingress_isEnabled": outputs.get("condenser_ingress_isEnabled", {}).get("value", ""),
-        "admin_email": outputs.get("admin_email", {}).get("value", "")  # New line to include admin_email
+        "admin_email": outputs.get("admin_email", {}).get("value", "")
     }
     
     # Extract worker VM tags (as lists)
@@ -97,52 +97,54 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
         "condenser_ingress_isEnabled": outputs.get("storage_ingress_isEnabled", {}).get("value", "")
     }
     
-    # mgmtnode group with vars
+    # mgmtnode group with hosts list
     mgmtnode_group = {
-        "hosts": {
-            mgmt_name: {
-                "ansible_host": mgmt_node,
-                **mgmt_tags
-            }
-        }
+        "hosts": [mgmt_name]
     }
     
-    # storagegroup group with storage tags
+    # storagegroup group with hosts list
     storage_group_dict = {
-        "hosts": {
-            storage_name: {
-                "ansible_host": storage_nodes[0],
-                **storage_tags
-            }
+        "hosts": [storage_name]
+    }
+    
+    # workers group with hosts list
+    workers_group = {
+        "hosts": worker_names
+    }
+    
+    # hostvars
+    hostvars = {
+        mgmt_name: {
+            "ansible_host": mgmt_node,
+            **mgmt_tags
+        },
+        storage_name: {
+            "ansible_host": storage_nodes[0],
+            **storage_tags
         }
     }
     
-    # workers group with worker tags
-    workers_group = {
-        "hosts": {}
-    }
     for i, w_ip in enumerate(worker_nodes):
-        worker_entry = {
+        host_name = worker_names[i]
+        hostvars[host_name] = {
             "ansible_host": w_ip,
             "condenser_ingress_node_hostname": worker_tags["condenser_ingress_node_hostname"][i] + f".{base_domain}" if i < len(worker_tags["condenser_ingress_node_hostname"]) else "",
             "condenser_ingress_node_port": worker_tags["condenser_ingress_node_port"][i] if i < len(worker_tags["condenser_ingress_node_port"]) else "",
             "condenser_ingress_isAllowed": worker_tags["condenser_ingress_isAllowed"][i] if i < len(worker_tags["condenser_ingress_isAllowed"]) else "",
             "condenser_ingress_isEnabled": worker_tags["condenser_ingress_isEnabled"][i] if i < len(worker_tags["condenser_ingress_isEnabled"]) else ""
         }
-        workers_group["hosts"][worker_names[i]] = worker_entry
     
-    # all group with children as a dictionary
+    # all group with children as a list
     inventory = {
         "all": {
-            "children": {
-                "mgmtnode": {},
-                "workers": {},
-                storage_group: {}
-            }
+            "children": ["mgmtnode", "workers", "storagegroup"]
         },
         "mgmtnode": mgmtnode_group,
-        storage_group: storage_group_dict,
-        "workers": workers_group
+        "storagegroup": storage_group_dict,
+        "workers": workers_group,
+        "_meta": {
+            "hostvars": hostvars
+        }
     }
     
     jd = json.dumps(inventory, indent=4)
