@@ -164,9 +164,9 @@
                 - job_name: 'node_exporter'
                   static_configs:
                     - targets: ['localhost:{{ condenser_ingress_nodeexporter_port }}']
-          owner: prometheus
-          group: prometheus
-          mode: '0644'
+            owner: prometheus
+            group: prometheus
+            mode: '0644'
 
         - name: Set ownership of Prometheus binaries
           file:
