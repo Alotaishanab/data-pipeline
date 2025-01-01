@@ -1,21 +1,22 @@
 - name: Common Configuration for All Machines
   hosts: all
   become: yes
+  vars:
   tasks:
-    - name: Update and upgrade apt packages
+    - name: Update and upgrade packages on Debian-based systems
       apt:
         update_cache: yes
         upgrade: dist
       when: ansible_os_family == "Debian"
 
-    - name: Update and upgrade yum packages
+    - name: Update and upgrade packages on RedHat-based systems
       yum:
         name: "*"
         state: latest
       when: ansible_os_family == "RedHat"
 
-    - name: Install essential packages
-      package:
+    - name: Install essential packages on Debian-based systems
+      apt:
         name:
           - git
           - vim
@@ -24,4 +25,53 @@
           - python3
           - python3-pip
         state: present
-        
+      when: ansible_os_family == "Debian"
+
+    - name: Install essential packages on RedHat-based systems
+      yum:
+        name:
+          - git
+          - vim
+          - curl
+          - wget
+          - python3
+          - python3-pip
+          - python3-devel    # Provides development headers required for building virtual environments
+          - pigz
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Upgrade pip to the latest version on all machines
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
+
+    - name: Ensure firewalld is installed on RedHat-based systems
+      yum:
+        name: firewalld
+        state: present
+      when:
+        - ansible_os_family == "RedHat"
+        - "'firewalld' not in ansible_facts.packages"
+
+    - name: Ensure firewalld is running and enabled on RedHat-based systems
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Nginx on all machines (if not already installed)
+      package:
+        name: nginx
+        state: present
+      when: "'nginx' not in ansible_facts.packages"
+
+    - name: Install Certbot on RedHat-based systems
+      yum:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when: ansible_os_family == "RedHat"

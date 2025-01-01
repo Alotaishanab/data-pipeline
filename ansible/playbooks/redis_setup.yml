@@ -1,5 +1,3 @@
-# /home/almalinux/ansible/playbooks/setup_redis.yml
-
 - name: Setup Redis Server for Celery
   hosts: storage
   become: yes

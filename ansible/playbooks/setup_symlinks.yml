@@ -1,4 +1,3 @@
----
 - name: Setup Symbolic Links on Worker and Host Machines
   hosts: workers, host
   become: yes

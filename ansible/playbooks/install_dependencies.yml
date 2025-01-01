@@ -1,4 +1,3 @@
----
 - name: Install Dependencies on Worker Nodes
   hosts: workers
   become: yes

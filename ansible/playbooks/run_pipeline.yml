@@ -1,4 +1,3 @@
----
 - name: Distribute and Run Data Analysis Pipeline via Celery
   hosts: host
   become: yes

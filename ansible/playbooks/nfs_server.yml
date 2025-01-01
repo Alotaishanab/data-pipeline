@@ -1,4 +1,3 @@
-# /home/almalinux/ansible/playbooks/configure_nfs_server.yml
 - name: Configure NFS Server
   hosts: storage
   become: yes

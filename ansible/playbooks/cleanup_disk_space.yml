@@ -1,4 +1,3 @@
-# /home/almalinux/data-pipeline/ansible/playbooks/cleanup_disk_space.yml
 - name: Cleanup Disk Space on All VMs
   hosts: all
   become: yes
