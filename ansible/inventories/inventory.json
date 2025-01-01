@@ -1,10 +1,10 @@
 {
     "all": {
-        "children": {
-            "mgmtnode": {},
-            "workers": {},
-            "storagegroup": {}
-        }
+        "children": [
+            "mgmtnode",
+            "workers",
+            "storagegroup"
+        ]
     },
     "mgmtnode": {
         "hosts": [

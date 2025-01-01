@@ -134,14 +134,10 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
             "condenser_ingress_isEnabled": worker_tags["condenser_ingress_isEnabled"][i] if i < len(worker_tags["condenser_ingress_isEnabled"]) else ""
         }
     
-    # all group with children as a dictionary
+    # all group with children as a list
     inventory = {
         "all": {
-            "children": {
-                "mgmtnode": {},
-                "workers": {},
-                "storagegroup": {}
-            }
+            "children": ["mgmtnode", "workers", "storagegroup"]
         },
         "mgmtnode": mgmtnode_group,
         "storagegroup": storage_group_dict,
