@@ -7,29 +7,37 @@
   become: yes
   gather_facts: yes
   vars:
-    admin_email: "ucabbaa@ucl.ac.uk"  # Admin email for Let's Encrypt
+    admin_email: "{{ lookup('env', 'ADMIN_EMAIL') }}"
     base_domain: "harvesterhci.io"
   tasks:
-    #### Extract Instance Tags
-    - name: Extract Prometheus hostname and port from tags
-      set_fact:
-        prometheus_hostname: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_prometheus_hostname'] }}.{{ base_domain }}"
-        prometheus_port: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_prometheus_port'] }}"
+    #### Ensure Instance Tags File Exists
+    - name: Verify instance tags JSON file exists
+      stat:
+        path: /etc/instance_tags.json
+      register: tags_file
 
-    - name: Extract Grafana hostname and port from tags
-      set_fact:
-        grafana_hostname: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_grafana_hostname'] }}.{{ base_domain }}"
-        grafana_port: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_grafana_port'] }}"
+    - name: Fail if instance tags JSON file is missing
+      fail:
+        msg: "/etc/instance_tags.json file with instance tags is required."
+      when: not tags_file.stat.exists
 
-    - name: Extract Node Exporter hostname and port from tags
-      set_fact:
-        nodeexporter_hostname: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_nodeexporter_hostname'] }}.{{ base_domain }}"
-        nodeexporter_port: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_nodeexporter_port'] }}"
+    #### Read Instance Tags from JSON File
+    - name: Read instance tags from JSON file
+      slurp:
+        src: /etc/instance_tags.json
+      register: instance_tags_json
 
-    - name: Extract ingress permissions from tags
+    - name: Set instance tags as facts
       set_fact:
-        is_allowed: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_isAllowed'] }}"
-        is_enabled: "{{ hostvars[inventory_hostname]['tag_harvesterhci_io_condenser_ingress_isEnabled'] }}"
+        prometheus_hostname: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_prometheus_hostname }}.{{ base_domain }}"
+        prometheus_port: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_prometheus_port }}"
+        grafana_hostname: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_grafana_hostname }}.{{ base_domain }}"
+        grafana_port: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_grafana_port }}"
+        nodeexporter_hostname: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_nodeexporter_hostname }}.{{ base_domain }}"
+        nodeexporter_port: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_nodeexporter_port }}"
+        is_allowed: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_isAllowed }}"
+        is_enabled: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_isEnabled }}"
+        control_node_ip: "{{ ansible_default_ipv4.address }}"
 
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
@@ -185,9 +193,9 @@
                 - job_name: 'node_exporter'
                   static_configs:
                     - targets: ['localhost:{{ nodeexporter_port }}']
-            owner: prometheus
-            group: prometheus
-            mode: '0644'
+          owner: prometheus
+          group: prometheus
+          mode: '0644'
 
         - name: Set ownership of Prometheus binaries
           file:
@@ -222,9 +230,9 @@
 
               [Install]
               WantedBy=multi-user.target
-            owner: prometheus
-            group: prometheus
-            mode: '0644'
+          owner: prometheus
+          group: prometheus
+          mode: '0644'
 
         - name: Reload systemd daemon for Prometheus
           systemd:
@@ -290,9 +298,9 @@
                   type: file
                   options:
                     path: /etc/grafana/provisioning/dashboards
-            owner: grafana
-            group: grafana
-            mode: '0644'
+          owner: grafana
+          group: grafana
+          mode: '0644'
 
         - name: Create Grafana provisioning directories for datasources
           file:
@@ -446,8 +454,8 @@
           }
       notify: Reload Nginx
 
-    #### Configure Logging on Host VM
-    - name: Configure Logging on Host VM
+    #### Configure Logging on Management Node
+    - name: Configure Logging on Management Node
       block:
         - name: Install rsyslog
           yum:
