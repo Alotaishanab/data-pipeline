@@ -10,35 +10,6 @@
     admin_email: "{{ lookup('env', 'ADMIN_EMAIL') }}"
     base_domain: "harvesterhci.io"
   tasks:
-    #### Ensure Instance Tags File Exists
-    - name: Verify instance tags JSON file exists
-      stat:
-        path: /etc/instance_tags.json
-      register: tags_file
-
-    - name: Fail if instance tags JSON file is missing
-      fail:
-        msg: "/etc/instance_tags.json file with instance tags is required."
-      when: not tags_file.stat.exists
-
-    #### Read Instance Tags from JSON File
-    - name: Read instance tags from JSON file
-      slurp:
-        src: /etc/instance_tags.json
-      register: instance_tags_json
-
-    - name: Set instance tags as facts
-      set_fact:
-        prometheus_hostname: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_prometheus_hostname }}.{{ base_domain }}"
-        prometheus_port: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_prometheus_port }}"
-        grafana_hostname: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_grafana_hostname }}.{{ base_domain }}"
-        grafana_port: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_grafana_port }}"
-        nodeexporter_hostname: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_nodeexporter_hostname }}.{{ base_domain }}"
-        nodeexporter_port: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_nodeexporter_port }}"
-        is_allowed: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_isAllowed }}"
-        is_enabled: "{{ (instance_tags_json.content | b64decode | from_json).tag_harvesterhci_io_condenser_ingress_isEnabled }}"
-        control_node_ip: "{{ ansible_default_ipv4.address }}"
-
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
@@ -188,11 +159,11 @@
               scrape_configs:
                 - job_name: 'prometheus'
                   static_configs:
-                    - targets: ['localhost:{{ prometheus_port }}']
+                    - targets: ['localhost:{{ condenser_ingress_prometheus_port }}']
 
                 - job_name: 'node_exporter'
                   static_configs:
-                    - targets: ['localhost:{{ nodeexporter_port }}']
+                    - targets: ['localhost:{{ condenser_ingress_nodeexporter_port }}']
           owner: prometheus
           group: prometheus
           mode: '0644'
@@ -341,13 +312,13 @@
           - https
         permanent: yes
         state: enabled
-      when: is_allowed | bool and is_enabled | bool
+      when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
 
     - name: Reload firewalld to apply changes
       service:
         name: firewalld
         state: reloaded
-      when: is_allowed | bool and is_enabled | bool
+      when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
 
     #### Setup SSL with Let's Encrypt
     - name: Obtain SSL Certificate with Certbot
@@ -363,9 +334,9 @@
             --non-interactive
             --agree-tos
             --email {{ admin_email }}
-            -d {{ prometheus_hostname }}
+            -d {{ condenser_ingress_prometheus_hostname }}
           args:
-            creates: /etc/letsencrypt/live/{{ prometheus_hostname }}/fullchain.pem
+            creates: /etc/letsencrypt/live/{{ condenser_ingress_prometheus_hostname }}/fullchain.pem
 
         - name: Obtain SSL certificate for Grafana
           command: >
@@ -373,9 +344,9 @@
             --non-interactive
             --agree-tos
             --email {{ admin_email }}
-            -d {{ grafana_hostname }}
+            -d {{ condenser_ingress_grafana_hostname }}
           args:
-            creates: /etc/letsencrypt/live/{{ grafana_hostname }}/fullchain.pem
+            creates: /etc/letsencrypt/live/{{ condenser_ingress_grafana_hostname }}/fullchain.pem
 
         - name: Obtain SSL certificate for Node Exporter
           command: >
@@ -383,9 +354,9 @@
             --non-interactive
             --agree-tos
             --email {{ admin_email }}
-            -d {{ nodeexporter_hostname }}
+            -d {{ condenser_ingress_nodeexporter_hostname }}
           args:
-            creates: /etc/letsencrypt/live/{{ nodeexporter_hostname }}/fullchain.pem
+            creates: /etc/letsencrypt/live/{{ condenser_ingress_nodeexporter_hostname }}/fullchain.pem
 
     #### Configure Nginx as Reverse Proxy with SSL
     - name: Configure Nginx for Prometheus, Grafana, and Node Exporter
@@ -395,16 +366,16 @@
         content: |
           server {
               listen 443 ssl;
-              server_name {{ prometheus_hostname }};
+              server_name {{ condenser_ingress_prometheus_hostname }};
 
-              ssl_certificate /etc/letsencrypt/live/{{ prometheus_hostname }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ prometheus_hostname }}/privkey.pem;
+              ssl_certificate /etc/letsencrypt/live/{{ condenser_ingress_prometheus_hostname }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ condenser_ingress_prometheus_hostname }}/privkey.pem;
 
               ssl_protocols TLSv1.2 TLSv1.3;
               ssl_ciphers HIGH:!aNULL:!MD5;
 
               location /prometheus/ {
-                  proxy_pass http://localhost:{{ prometheus_port }}/;
+                  proxy_pass http://localhost:{{ condenser_ingress_prometheus_port }}/;
                   proxy_set_header Host $host;
                   proxy_set_header X-Real-IP $remote_addr;
               }
@@ -412,16 +383,16 @@
 
           server {
               listen 443 ssl;
-              server_name {{ grafana_hostname }};
+              server_name {{ condenser_ingress_grafana_hostname }};
 
-              ssl_certificate /etc/letsencrypt/live/{{ grafana_hostname }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ grafana_hostname }}/privkey.pem;
+              ssl_certificate /etc/letsencrypt/live/{{ condenser_ingress_grafana_hostname }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ condenser_ingress_grafana_hostname }}/privkey.pem;
 
               ssl_protocols TLSv1.2 TLSv1.3;
               ssl_ciphers HIGH:!aNULL:!MD5;
 
               location /grafana/ {
-                  proxy_pass http://localhost:{{ grafana_port }}/;
+                  proxy_pass http://localhost:{{ condenser_ingress_grafana_port }}/;
                   proxy_set_header Host $host;
                   proxy_set_header X-Real-IP $remote_addr;
               }
@@ -429,16 +400,16 @@
 
           server {
               listen 443 ssl;
-              server_name {{ nodeexporter_hostname }};
+              server_name {{ condenser_ingress_nodeexporter_hostname }};
 
-              ssl_certificate /etc/letsencrypt/live/{{ nodeexporter_hostname }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ nodeexporter_hostname }}/privkey.pem;
+              ssl_certificate /etc/letsencrypt/live/{{ condenser_ingress_nodeexporter_hostname }}/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/{{ condenser_ingress_nodeexporter_hostname }}/privkey.pem;
 
               ssl_protocols TLSv1.2 TLSv1.3;
               ssl_ciphers HIGH:!aNULL:!MD5;
 
               location /node_exporter/ {
-                  proxy_pass http://localhost:{{ nodeexporter_port }}/;
+                  proxy_pass http://localhost:{{ condenser_ingress_nodeexporter_port }}/;
                   proxy_set_header Host $host;
                   proxy_set_header X-Real-IP $remote_addr;
               }
@@ -446,7 +417,7 @@
 
           server {
               listen 80;
-              server_name {{ prometheus_hostname }}, {{ grafana_hostname }}, {{ nodeexporter_hostname }};
+              server_name {{ condenser_ingress_prometheus_hostname }}, {{ condenser_ingress_grafana_hostname }}, {{ condenser_ingress_nodeexporter_hostname }};
 
               location / {
                   return 301 https://$host$request_uri;
@@ -466,7 +437,7 @@
           lineinfile:
             path: /etc/rsyslog.conf
             regexp: '^\*\.\*'
-            line: "*.* @@{{ control_node_ip }}:514"
+            line: "*.* @@{{ ansible_host }}:514"  # Assuming control node is the mgmt node itself
             state: present
 
         - name: Restart rsyslog
