@@ -201,9 +201,9 @@
 
               [Install]
               WantedBy=multi-user.target
-          owner: prometheus
-          group: prometheus
-          mode: '0644'
+            owner: prometheus
+            group: prometheus
+            mode: '0644'
 
         - name: Reload systemd daemon for Prometheus
           systemd:
@@ -269,9 +269,9 @@
                   type: file
                   options:
                     path: /etc/grafana/provisioning/dashboards
-          owner: grafana
-          group: grafana
-          mode: '0644'
+            owner: grafana
+            group: grafana
+            mode: '0644'
 
         - name: Create Grafana provisioning directories for datasources
           file:
