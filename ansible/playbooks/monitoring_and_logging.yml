@@ -307,11 +307,12 @@
     #### Configure Firewall to Allow Required Ports
     - name: Open necessary ports in firewalld
       firewalld:
-        service:
-          - http
-          - https
+        service: "{{ item }}"
         permanent: yes
         state: enabled
+      loop:
+        - http
+        - https
       when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
 
     - name: Reload firewalld to apply changes
@@ -319,6 +320,7 @@
         name: firewalld
         state: reloaded
       when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
+
 
     #### Setup SSL with Let's Encrypt
     - name: Obtain SSL Certificate with Certbot
