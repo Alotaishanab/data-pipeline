@@ -99,52 +99,50 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
     
     # mgmtnode group with hosts list
     mgmtnode_group = {
-        "hosts": [mgmt_name]
-    }
-    
-    # storagegroup group with hosts list
-    storage_group_dict = {
-        "hosts": [storage_name]
-    }
-    
-    # workers group with hosts list
-    workers_group = {
-        "hosts": worker_names
-    }
-    
-    # hostvars
-    hostvars = {
-        mgmt_name: {
-            "ansible_host": mgmt_node,
-            **mgmt_tags
-        },
-        storage_name: {
-            "ansible_host": storage_nodes[0],
-            **storage_tags
+        "hosts": {
+            mgmt_name: {
+                "ansible_host": mgmt_node,
+                **mgmt_tags
+            }
         }
     }
     
+    # storagegroup group with storage tags
+    storage_group_dict = {
+        "hosts": {
+            storage_name: {
+                "ansible_host": storage_nodes[0],
+                **storage_tags
+            }
+        }
+    }
+    
+    # workers group with worker tags
+    workers_group = {
+        "hosts": {}
+    }
     for i, w_ip in enumerate(worker_nodes):
-        host_name = worker_names[i]
-        hostvars[host_name] = {
+        worker_entry = {
             "ansible_host": w_ip,
             "condenser_ingress_node_hostname": worker_tags["condenser_ingress_node_hostname"][i] + f".{base_domain}" if i < len(worker_tags["condenser_ingress_node_hostname"]) else "",
             "condenser_ingress_node_port": worker_tags["condenser_ingress_node_port"][i] if i < len(worker_tags["condenser_ingress_node_port"]) else "",
             "condenser_ingress_isAllowed": worker_tags["condenser_ingress_isAllowed"][i] if i < len(worker_tags["condenser_ingress_isAllowed"]) else "",
             "condenser_ingress_isEnabled": worker_tags["condenser_ingress_isEnabled"][i] if i < len(worker_tags["condenser_ingress_isEnabled"]) else ""
         }
+        workers_group["hosts"][worker_names[i]] = worker_entry
     
-    # all group with children as a list
+    # all group with children as a dictionary
     inventory = {
         "all": {
-            "children": ["mgmtnode", "workers", "storagegroup"]
+            "children": {
+                "mgmtnode": {},
+                "workers": {},
+                "storagegroup": {}
+            }
         },
         "mgmtnode": mgmtnode_group,
         "storagegroup": storage_group_dict,
-        "workers": workers_group,
-        "_meta": {
-            "hostvars": hostvars
-        }
+        "workers": workers_group
     }
     
     jd = json.dumps(inventory, indent=4)
