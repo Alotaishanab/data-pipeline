@@ -322,7 +322,7 @@
       when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
 
 
-    #### Setup SSL with Let's Encrypt
+   #### Setup SSL with Let's Encrypt
     - name: Obtain SSL Certificate with Certbot
       block:
         - name: Install Certbot Nginx plugin
@@ -330,35 +330,36 @@
             name: python3-certbot-nginx
             state: present
 
-        - name: Obtain SSL certificate for Prometheus
-          command: >
-            certbot --nginx
-            --non-interactive
-            --agree-tos
-            --email {{ admin_email }}
-            -d {{ condenser_ingress_prometheus_hostname }}
-          args:
-            creates: /etc/letsencrypt/live/{{ condenser_ingress_prometheus_hostname }}/fullchain.pem
+    - name: Obtain SSL certificate for Prometheus
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ hostvars['host'].admin_email }}
+        -d {{ hostvars['host'].condenser_ingress_prometheus_hostname }}
+      args:
+        creates: /etc/letsencrypt/live/{{ hostvars['host'].condenser_ingress_prometheus_hostname }}/fullchain.pem
 
-        - name: Obtain SSL certificate for Grafana
-          command: >
-            certbot --nginx
-            --non-interactive
-            --agree-tos
-            --email {{ admin_email }}
-            -d {{ condenser_ingress_grafana_hostname }}
-          args:
-            creates: /etc/letsencrypt/live/{{ condenser_ingress_grafana_hostname }}/fullchain.pem
+    - name: Obtain SSL certificate for Grafana
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ hostvars['host'].admin_email }}
+        -d {{ hostvars['host'].condenser_ingress_grafana_hostname }}
+      args:
+        creates: /etc/letsencrypt/live/{{ hostvars['host'].condenser_ingress_grafana_hostname }}/fullchain.pem
 
-        - name: Obtain SSL certificate for Node Exporter
-          command: >
-            certbot --nginx
-            --non-interactive
-            --agree-tos
-            --email {{ admin_email }}
-            -d {{ condenser_ingress_nodeexporter_hostname }}
-          args:
-            creates: /etc/letsencrypt/live/{{ condenser_ingress_nodeexporter_hostname }}/fullchain.pem
+    - name: Obtain SSL certificate for Node Exporter
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ hostvars['host'].admin_email }}
+        -d {{ hostvars['host'].condenser_ingress_nodeexporter_hostname }}
+      args:
+        creates: /etc/letsencrypt/live/{{ hostvars['host'].condenser_ingress_nodeexporter_hostname }}/fullchain.pem
+
 
     #### Configure Nginx as Reverse Proxy with SSL
     - name: Configure Nginx for Prometheus, Grafana, and Node Exporter
