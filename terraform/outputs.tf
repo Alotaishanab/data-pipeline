@@ -120,3 +120,8 @@ output "storage_ingress_isAllowed" {
 output "storage_ingress_isEnabled" {
   value = harvester_virtualmachine.storage.tags["condenser_ingress_isEnabled"]
 }
+
+output "admin_email" {
+  description = "The admin email address for Certbot notifications."
+  value       = var.username
+}

@@ -77,7 +77,8 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
         "condenser_ingress_nodeexporter_hostname": outputs.get("condenser_ingress_nodeexporter_hostname", {}).get("value", "") + f".{base_domain}",
         "condenser_ingress_nodeexporter_port": outputs.get("condenser_ingress_nodeexporter_port", {}).get("value", ""),
         "condenser_ingress_isAllowed": outputs.get("condenser_ingress_isAllowed", {}).get("value", ""),
-        "condenser_ingress_isEnabled": outputs.get("condenser_ingress_isEnabled", {}).get("value", "")
+        "condenser_ingress_isEnabled": outputs.get("condenser_ingress_isEnabled", {}).get("value", ""),
+        "admin_email": outputs.get("admin_email", {}).get("value", "")  # New line to include admin_email
     }
     
     # Extract worker VM tags (as lists)
@@ -90,7 +91,7 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
     
     # Extract storage VM tags
     storage_tags = {
-        "condenser_ingress_node_hostname": outputs.get("storage_ingress_node_hostname", {}).get("value", ""),
+        "condenser_ingress_node_hostname": outputs.get("storage_ingress_node_hostname", {}).get("value", "") + f".{base_domain}",
         "condenser_ingress_node_port": outputs.get("storage_ingress_node_port", {}).get("value", ""),
         "condenser_ingress_isAllowed": outputs.get("storage_ingress_isAllowed", {}).get("value", ""),
         "condenser_ingress_isEnabled": outputs.get("storage_ingress_isEnabled", {}).get("value", "")

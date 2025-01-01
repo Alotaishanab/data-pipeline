@@ -17,7 +17,8 @@
                 "condenser_ingress_nodeexporter_hostname": "ucabbaa-ucl-ac-uk-nodeexporter.harvesterhci.io",
                 "condenser_ingress_nodeexporter_port": "9100",
                 "condenser_ingress_isAllowed": "true",
-                "condenser_ingress_isEnabled": "true"
+                "condenser_ingress_isEnabled": "true",
+                "admin_email": "ucabbaa@ucl.ac.uk"
             }
         }
     },
@@ -25,7 +26,7 @@
         "hosts": {
             "storage": {
                 "ansible_host": "10.134.12.180",
-                "condenser_ingress_node_hostname": "ucabbaa-ucl-ac-uk-node",
+                "condenser_ingress_node_hostname": "ucabbaa-ucl-ac-uk-node.harvesterhci.io",
                 "condenser_ingress_node_port": "9100",
                 "condenser_ingress_isAllowed": "true",
                 "condenser_ingress_isEnabled": "true"
