@@ -172,7 +172,7 @@ def main():
     mgmt_node, worker_nodes, storage_nodes = get_terraform_ips(outputs)
     
     # Define your base domain
-    base_domain = "harvesterhci.io"
+    base_domain = "comp0235.condenser.arc.ucl.ac.uk"
     
     jd = generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_domain)
     
