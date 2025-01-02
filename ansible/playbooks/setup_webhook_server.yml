@@ -115,10 +115,10 @@
         state: link
 
     - name: Ensure /mnt/results is world-readable
-      shell: chmod -R 755 "{{ results_path }}"
-      args:
-        warn: false  # Suppress shell warnings
+      shell: "chmod -R 755 /mnt/results"
       become: yes
+      
+
 
     - name: Gather mount facts (to detect NFS)
       ansible.builtin.setup:
