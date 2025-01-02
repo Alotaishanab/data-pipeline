@@ -9,13 +9,14 @@
         name: epel-release
         state: present
 
-    #### Install firewalld, python3-pip, and python3-firewall
-    - name: Install firewalld, python3-pip, and python3-firewall
+    #### Install firewalld, python3-pip, python3-firewall, and lsof
+    - name: Install firewalld, python3-pip, python3-firewall, and lsof
       yum:
         name:
           - firewalld
           - python3-pip
           - python3-firewall
+          - lsof
         state: present
 
     #### Ensure firewalld is running and enabled
@@ -109,16 +110,17 @@
     - name: Ensure no conflicting service is using port 80
       block:
         - name: Identify services using port 80
-          shell: lsof -i :80 -t
+          command: lsof -i :80 -t
           register: port_80_pids
           changed_when: false
           failed_when: false
 
         - name: Kill processes using port 80
-          shell: kill -9 {{ item }}
+          command: kill -9 {{ item }}
           loop: "{{ port_80_pids.stdout_lines }}"
           when: port_80_pids.stdout != ""
           ignore_errors: yes
+      when: port_80_pids.stdout != ""
 
     - name: Ensure httpd service is started and enabled
       systemd:
