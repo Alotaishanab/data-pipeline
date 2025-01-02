@@ -78,6 +78,41 @@
       failed_when: node_exporter_pgrep.stdout == ""
       changed_when: false
 
+    #### Install and Start httpd (Apache HTTP Server)
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: present
+
+    #### Configure Firewall to Allow httpd Port (80)
+    - name: Open port 80 in firewalld for httpd
+      firewalld:
+        port: 80/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld to apply changes for httpd
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+    #### Start httpd via Command
+    - name: Start httpd
+      shell: |
+        nohup /usr/sbin/httpd > /var/log/httpd.log 2>&1 &
+      args:
+        creates: /var/log/httpd.log
+      register: httpd_start
+      ignore_errors: yes
+
+    - name: Verify httpd is running
+      shell: pgrep -f httpd
+      register: httpd_pgrep
+      failed_when: httpd_pgrep.stdout == ""
+      changed_when: false
+
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
   become: yes
@@ -291,7 +326,7 @@
         state: enabled
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld to apply changes
+    - name: Reload firewalld to apply changes for Grafana
       service:
         name: firewalld
         state: reloaded
@@ -396,7 +431,7 @@
         state: enabled
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld to apply changes
+    - name: Reload firewalld to apply changes for rsyslog
       service:
         name: firewalld
         state: reloaded
@@ -406,7 +441,7 @@
     - name: Configure rsyslog to send logs to control node
       lineinfile:
         path: /etc/rsyslog.conf
-        regexp: '^\*\.\* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514'
+        regexp: '^\*\.\* @@{{ hostvars["localhost"]["ansible_default_ipv4"]["address"] }}:514'
         line: "*.* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514"
         state: present
 
