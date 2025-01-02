@@ -48,12 +48,11 @@
         state: latest
 
     - name: Ensure firewalld is installed on RedHat-based systems
-      yum:
+      package:
         name: firewalld
         state: present
-      when:
-        - ansible_os_family == "RedHat"
-        - "'firewalld' not in ansible_facts.packages"
+      when: ansible_facts.os_family == "RedHat"
+
 
     - name: Ensure firewalld is running and enabled on RedHat-based systems
       systemd:

@@ -2,7 +2,6 @@
 
 import json
 import subprocess
-import argparse
 import sys
 
 def run(command):
@@ -61,77 +60,8 @@ def get_terraform_ips(outputs):
     
     return mgmt_node, worker_nodes, storage_nodes
 
-def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_domain):
-    # Friendly hostnames
-    mgmt_name = "host"
-    storage_name = "storage"
-    storage_group = "storagegroup"
-    worker_names = [f"worker{i+1}" for i in range(len(worker_nodes))]
-    
-    # Extract management VM tags
-    mgmt_tags = {
-        "condenser_ingress_prometheus_hostname": outputs.get("condenser_ingress_prometheus_hostname", {}).get("value", "") + f".{base_domain}",
-        "condenser_ingress_prometheus_port": outputs.get("condenser_ingress_prometheus_port", {}).get("value", ""),
-        "condenser_ingress_grafana_hostname": outputs.get("condenser_ingress_grafana_hostname", {}).get("value", "") + f".{base_domain}",
-        "condenser_ingress_grafana_port": outputs.get("condenser_ingress_grafana_port", {}).get("value", ""),
-        "condenser_ingress_nodeexporter_hostname": outputs.get("condenser_ingress_nodeexporter_hostname", {}).get("value", "") + f".{base_domain}",
-        "condenser_ingress_nodeexporter_port": outputs.get("condenser_ingress_nodeexporter_port", {}).get("value", ""),
-        "condenser_ingress_isAllowed": outputs.get("condenser_ingress_isAllowed", {}).get("value", ""),
-        "condenser_ingress_isEnabled": outputs.get("condenser_ingress_isEnabled", {}).get("value", ""),
-        "admin_email": outputs.get("admin_email", {}).get("value", "")
-    }
-    
-    # Extract worker VM tags (as lists)
-    worker_tags = {
-        "condenser_ingress_node_hostname": outputs.get("worker_storage_ingress_node_hostname", {}).get("value", []),
-        "condenser_ingress_node_port": outputs.get("worker_storage_ingress_node_port", {}).get("value", []),
-        "condenser_ingress_isAllowed": outputs.get("worker_storage_ingress_isAllowed", {}).get("value", []),
-        "condenser_ingress_isEnabled": outputs.get("worker_storage_ingress_isEnabled", {}).get("value", [])
-    }
-    
-    # Extract storage VM tags
-    storage_tags = {
-        "condenser_ingress_node_hostname": outputs.get("storage_ingress_node_hostname", {}).get("value", "") + f".{base_domain}",
-        "condenser_ingress_node_port": outputs.get("storage_ingress_node_port", {}).get("value", ""),
-        "condenser_ingress_isAllowed": outputs.get("storage_ingress_isAllowed", {}).get("value", ""),
-        "condenser_ingress_isEnabled": outputs.get("storage_ingress_isEnabled", {}).get("value", "")
-    }
-    
-    # mgmtnode group with hosts list
-    mgmtnode_group = {
-        "hosts": {
-            mgmt_name: {
-                "ansible_host": mgmt_node,
-                **mgmt_tags
-            }
-        }
-    }
-    
-    # storagegroup group with storage tags
-    storage_group_dict = {
-        "hosts": {
-            storage_name: {
-                "ansible_host": storage_nodes[0],
-                **storage_tags
-            }
-        }
-    }
-    
-    # workers group with worker tags
-    workers_group = {
-        "hosts": {}
-    }
-    for i, w_ip in enumerate(worker_nodes):
-        worker_entry = {
-            "ansible_host": w_ip,
-            "condenser_ingress_node_hostname": worker_tags["condenser_ingress_node_hostname"][i] + f".{base_domain}" if i < len(worker_tags["condenser_ingress_node_hostname"]) else "",
-            "condenser_ingress_node_port": worker_tags["condenser_ingress_node_port"][i] if i < len(worker_tags["condenser_ingress_node_port"]) else "",
-            "condenser_ingress_isAllowed": worker_tags["condenser_ingress_isAllowed"][i] if i < len(worker_tags["condenser_ingress_isAllowed"]) else "",
-            "condenser_ingress_isEnabled": worker_tags["condenser_ingress_isEnabled"][i] if i < len(worker_tags["condenser_ingress_isEnabled"]) else ""
-        }
-        workers_group["hosts"][worker_names[i]] = worker_entry
-    
-    # all group with children as a dictionary
+def generate_inventory(mgmt_node, worker_nodes, storage_nodes):
+    # Generate a simple inventory with just IPs
     inventory = {
         "all": {
             "children": {
@@ -140,48 +70,39 @@ def generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_dom
                 "storagegroup": {}
             }
         },
-        "mgmtnode": mgmtnode_group,
-        "storagegroup": storage_group_dict,
-        "workers": workers_group
+        "mgmtnode": {
+            "hosts": {
+                "host": {
+                    "ansible_host": mgmt_node
+                }
+            }
+        },
+        "workers": {
+            "hosts": {f"worker{i+1}": {"ansible_host": ip} for i, ip in enumerate(worker_nodes)}
+        },
+        "storagegroup": {
+            "hosts": {
+                "storage": {
+                    "ansible_host": storage_nodes[0]
+                }
+            }
+        }
     }
     
-    jd = json.dumps(inventory, indent=4)
-    return jd
+    return json.dumps(inventory, indent=4)
 
 def main():
-    ap = argparse.ArgumentParser(
-        description="Generate a cluster inventory from Terraform outputs.",
-        prog=__file__
-    )
-    
-    mo = ap.add_mutually_exclusive_group()
-    mo.add_argument("--list", action="store_true", help="Show JSON of all managed hosts")
-    mo.add_argument("--host", action="store", help="Display vars related to the host")
-    
-    args = ap.parse_args()
-    
-    if args.host:
-        # If we query a specific host, print empty vars
-        print(json.dumps({}))
-        sys.exit(0)
-    
-    if not args.list:
-        args.list = True
-    
     outputs = get_terraform_outputs()
     mgmt_node, worker_nodes, storage_nodes = get_terraform_ips(outputs)
     
-    # Define your base domain
-    base_domain = "comp0235.condenser.arc.ucl.ac.uk"
-    
-    jd = generate_inventory(mgmt_node, worker_nodes, storage_nodes, outputs, base_domain)
+    inventory = generate_inventory(mgmt_node, worker_nodes, storage_nodes)
     
     inventory_file_path = "../ansible/inventories/inventory.json"
     with open(inventory_file_path, "w") as f:
-        f.write(jd)
+        f.write(inventory)
     
     print(f"Inventory saved to {inventory_file_path}")
-    print(jd)
+    print(inventory)
 
 if __name__ == "__main__":
     main()
