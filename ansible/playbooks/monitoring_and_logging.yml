@@ -16,7 +16,6 @@
           - firewalld
           - python3-pip
           - python3-firewall
-          - lsof
         state: present
 
     #### Ensure firewalld is running and enabled
@@ -106,21 +105,6 @@
       yum:
         name: httpd
         state: present
-
-    - name: Ensure no conflicting service is using port 80
-      block:
-        - name: Identify services using port 80
-          command: lsof -i :80 -t
-          register: port_80_pids
-          changed_when: false
-          failed_when: false
-
-        - name: Kill processes using port 80
-          command: kill -9 {{ item }}
-          loop: "{{ port_80_pids.stdout_lines }}"
-          when: port_80_pids.stdout != ""
-          ignore_errors: yes
-      when: port_80_pids.stdout != ""
 
     - name: Ensure httpd service is started and enabled
       systemd:
