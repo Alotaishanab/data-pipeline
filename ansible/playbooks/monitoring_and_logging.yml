@@ -1,15 +1,30 @@
-###############################################################################
-# monitoring_and_logging.yml
-###############################################################################
-
-- name: Setup Monitoring, Logging, and Web Server on Management Node
-  hosts: mgmtnode  # Targeting the management node group
+---
+- name: Setup Monitoring and Logging on All Hosts
+  hosts: all
   become: yes
-  gather_facts: yes
-  vars:
-    admin_email: "{{ lookup('env', 'ADMIN_EMAIL') }}"
-    base_domain: "harvesterhci.io"
   tasks:
+    #### Enable EPEL repository
+    - name: Install EPEL repository
+      yum:
+        name: epel-release
+        state: present
+
+    #### Install firewalld, python3-pip, and python3-firewall
+    - name: Install firewalld, python3-pip, and python3-firewall
+      yum:
+        name:
+          - firewalld
+          - python3-pip
+          - python3-firewall
+        state: present
+
+    #### Ensure firewalld is running and enabled
+    - name: Ensure firewalld is running and enabled
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
@@ -18,7 +33,7 @@
             url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
             dest: "/tmp/node_exporter.tar.gz"
             mode: '0644'
-            force: yes
+            force: yes  # Force re-download to ensure we have the correct file
 
         - name: Extract Node Exporter
           unarchive:
@@ -34,427 +49,378 @@
             group: root
             mode: '0755'
 
-        - name: Create Node Exporter service
-          copy:
-            dest: /etc/systemd/system/node_exporter.service
-            content: |
-              [Unit]
-              Description=Node Exporter
-              After=network.target
-
-              [Service]
-              User=root
-              ExecStart=/usr/local/bin/node_exporter
-              Restart=always
-
-              [Install]
-              WantedBy=multi-user.target
-            owner: root
-            group: root
-            mode: '0644'
-
-        - name: Reload systemd daemon for Node Exporter
-          systemd:
-            daemon_reload: yes
-
-        - name: Start and enable Node Exporter service
-          systemd:
-            name: node_exporter
-            state: started
-            enabled: yes
-
-    #### Install and Configure Prometheus
-    - name: Install Prometheus
-      block:
-        - name: Create Prometheus user and group
-          user:
-            name: prometheus
-            system: yes
-            shell: /sbin/nologin
-
-        - name: Download Prometheus binary
-          get_url:
-            url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
-            dest: "/tmp/prometheus.tar.gz"
-            mode: '0644'
-            force: yes
-
-        - name: Extract Prometheus
-          unarchive:
-            src: "/tmp/prometheus.tar.gz"
-            dest: "/tmp/prometheus/"
-            remote_src: yes
-            extra_opts: ['--strip-components=1']
-
-        - name: Move Prometheus binaries to /usr/local/bin/
-          copy:
-            src: "/tmp/prometheus/prometheus"
-            dest: "/usr/local/bin/prometheus"
-            remote_src: yes
-            owner: prometheus
-            group: prometheus
-            mode: '0755'
-
-        - name: Move Prometheus promtool binary to /usr/local/bin/
-          copy:
-            src: "/tmp/prometheus/promtool"
-            dest: "/usr/local/bin/promtool"
-            remote_src: yes
-            owner: prometheus
-            group: prometheus
-            mode: '0755'
-
-        - name: Create Prometheus directories
-          file:
-            path: "{{ item }}"
-            state: directory
-            owner: prometheus
-            group: prometheus
-            mode: '0755'
-          loop:
-            - /var/lib/prometheus
-            - /etc/prometheus
-
-        - name: Move Prometheus consoles directory
-          copy:
-            src: "/tmp/prometheus/consoles"
-            dest: "/etc/prometheus/consoles"
-            remote_src: yes
-            owner: prometheus
-            group: prometheus
-            mode: '0755'
-
-        - name: Move Prometheus console_libraries directory
-          copy:
-            src: "/tmp/prometheus/console_libraries"
-            dest: "/etc/prometheus/console_libraries"
-            remote_src: yes
-            owner: prometheus
-            group: prometheus
-            mode: '0755'
-
-        - name: Set ownership and permissions for Prometheus directories
-          file:
-            path: "{{ item }}"
-            owner: prometheus
-            group: prometheus
-            mode: '0755'
-            recurse: yes
-          loop:
-            - /etc/prometheus/consoles
-            - /etc/prometheus/console_libraries
-
-        - name: Generate Prometheus configuration file
-          copy:
-            dest: /etc/prometheus/prometheus.yml
-            content: |
-              global:
-                scrape_interval: 15s
-
-              alerting:
-                alertmanagers:
-                  - static_configs:
-                      - targets: ['localhost:9093']
-
-              scrape_configs:
-                - job_name: 'prometheus'
-                  static_configs:
-                    - targets: ['localhost:{{ condenser_ingress_prometheus_port }}']
-
-                - job_name: 'node_exporter'
-                  static_configs:
-                    - targets: ['localhost:{{ condenser_ingress_nodeexporter_port }}']
-            owner: prometheus
-            group: prometheus
-            mode: '0644'
-
-        - name: Set ownership of Prometheus binaries
-          file:
-            path: "{{ item }}"
-            owner: prometheus
-            group: prometheus
-          loop:
-            - /usr/local/bin/prometheus
-            - /usr/local/bin/promtool
-
-        - name: Deploy Prometheus Alert Rules
-          include_role:
-            name: prometheus_alerts
-
-        - name: Create Prometheus service
-          copy:
-            dest: /etc/systemd/system/prometheus.service
-            content: |
-              [Unit]
-              Description=Prometheus Service
-              After=network.target
-
-              [Service]
-              User=prometheus
-              Group=prometheus
-              Type=simple
-              ExecStart=/usr/local/bin/prometheus \
-                --config.file=/etc/prometheus/prometheus.yml \
-                --storage.tsdb.path=/var/lib/prometheus/ \
-                --web.console.templates=/etc/prometheus/consoles \
-                --web.console.libraries=/etc/prometheus/console_libraries
-
-              [Install]
-              WantedBy=multi-user.target
-            owner: prometheus
-            group: prometheus
-            mode: '0644'
-
-        - name: Reload systemd daemon for Prometheus
-          systemd:
-            daemon_reload: yes
-
-        - name: Start and enable Prometheus service
-          systemd:
-            name: prometheus
-            state: started
-            enabled: yes
-
-    #### Install and Configure Grafana
-    - name: Install and Configure Grafana
-      block:
-        - name: Add Grafana repository
-          yum_repository:
-            name: grafana
-            description: Grafana Repository
-            baseurl: https://packages.grafana.com/oss/rpm
-            gpgcheck: yes
-            repo_gpgcheck: yes
-            gpgkey: https://packages.grafana.com/gpg.key
-            enabled: yes
-
-        - name: Install Grafana
-          yum:
-            name: grafana
-            state: present
-
-        - name: Start and enable Grafana service
-          systemd:
-            name: grafana-server
-            state: started
-            enabled: yes
-
-        - name: Create Grafana provisioning directories for dashboards
-          file:
-            path: /etc/grafana/provisioning/dashboards
-            state: directory
-            owner: grafana
-            group: grafana
-            mode: '0755'
-
-        - name: Copy Dashboard JSON
-          copy:
-            src: "{{ playbook_dir }}/../dashboard/cw.json"
-            dest: /etc/grafana/provisioning/dashboards/cw.json
-            owner: grafana
-            group: grafana
-            mode: '0644'
-          notify: Restart Grafana
-
-        - name: Create Dashboard Provisioning YAML
-          copy:
-            dest: /etc/grafana/provisioning/dashboards/dashboards.yml
-            content: |
-              apiVersion: 1
-
-              providers:
-                - name: 'default'
-                  orgId: 1
-                  folder: ''
-                  type: file
-                  options:
-                    path: /etc/grafana/provisioning/dashboards
-            owner: grafana
-            group: grafana
-            mode: '0644'
-
-        - name: Create Grafana provisioning directories for datasources
-          file:
-            path: /etc/grafana/provisioning/datasources
-            state: directory
-            owner: grafana
-            group: grafana
-            mode: '0755'
-
-        - name: Copy Prometheus Data Source Provisioning
-          copy:
-            src: "{{ playbook_dir }}/../datasource/prometheus.yml"
-            dest: /etc/grafana/provisioning/datasources/prometheus.yml
-            owner: grafana
-            group: grafana
-            mode: '0644'
-
-        - name: Set Grafana admin user and password
-          block:
-            - name: Set Grafana admin user
-              lineinfile:
-                path: /etc/grafana/grafana.ini
-                regexp: '^admin_user'
-                line: 'admin_user = admin'
-
-            - name: Set Grafana admin password
-              lineinfile:
-                path: /etc/grafana/grafana.ini
-                regexp: '^admin_password'
-                line: 'admin_password = admin'
-          notify: Restart Grafana
-
-    #### Configure Firewall to Allow Required Ports
-    - name: Open necessary ports in firewalld
+    #### Configure Firewall to Allow Node Exporter Port (9100)
+    - name: Open port 9100 in firewalld
       firewalld:
-        service: "{{ item }}"
+        port: 9100/tcp
         permanent: yes
         state: enabled
-      loop:
-        - http
-        - https
-      when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
+      when: ansible_service_mgr == 'systemd'
 
     - name: Reload firewalld to apply changes
       service:
         name: firewalld
         state: reloaded
-      when: condenser_ingress_isAllowed | bool and condenser_ingress_isEnabled | bool
+      when: ansible_service_mgr == 'systemd'
 
-
-   #### Setup SSL with Let's Encrypt
-    - name: Obtain SSL Certificate with Certbot
-      block:
-        - name: Install Certbot Nginx plugin
-          yum:
-            name: python3-certbot-nginx
-            state: present
-
-    - name: Obtain SSL certificate for Prometheus
-      command: >
-        certbot --nginx
-        --non-interactive
-        --agree-tos
-        --email {{ hostvars['host'].admin_email }}
-        -d {{ hostvars['host'].condenser_ingress_prometheus_hostname }}
+    #### Start Node Exporter Service via Command
+    - name: Start Node Exporter
+      shell: |
+        nohup /usr/local/bin/node_exporter > /var/log/node_exporter.log 2>&1 &
       args:
-        creates: /etc/letsencrypt/live/{{ hostvars['host'].condenser_ingress_prometheus_hostname }}/fullchain.pem
+        creates: /var/log/node_exporter.log
+      register: node_exporter_start
+      ignore_errors: yes
 
-    - name: Obtain SSL certificate for Grafana
-      command: >
-        certbot --nginx
-        --non-interactive
-        --agree-tos
-        --email {{ hostvars['host'].admin_email }}
-        -d {{ hostvars['host'].condenser_ingress_grafana_hostname }}
-      args:
-        creates: /etc/letsencrypt/live/{{ hostvars['host'].condenser_ingress_grafana_hostname }}/fullchain.pem
+    - name: Verify Node Exporter is running
+      shell: pgrep -f node_exporter
+      register: node_exporter_pgrep
+      failed_when: node_exporter_pgrep.stdout == ""
+      changed_when: false
 
-    - name: Obtain SSL certificate for Node Exporter
-      command: >
-        certbot --nginx
-        --non-interactive
-        --agree-tos
-        --email {{ hostvars['host'].admin_email }}
-        -d {{ hostvars['host'].condenser_ingress_nodeexporter_hostname }}
-      args:
-        creates: /etc/letsencrypt/live/{{ hostvars['host'].condenser_ingress_nodeexporter_hostname }}/fullchain.pem
+- name: Install and Configure Prometheus on Control Node
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Create Prometheus user and group
+      user:
+        name: prometheus
+        system: yes
+        shell: /sbin/nologin
 
-
-    #### Configure Nginx as Reverse Proxy with SSL
-    - name: Configure Nginx for Prometheus, Grafana, and Node Exporter
-      copy:
-        dest: /etc/nginx/conf.d/monitoring.conf
+    - name: Download Prometheus binary
+      get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
+        dest: "/tmp/prometheus.tar.gz"
         mode: '0644'
+        force: yes
+
+    - name: Create /tmp/prometheus directory
+      file:
+        path: /tmp/prometheus
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Extract Prometheus
+      unarchive:
+        src: "/tmp/prometheus.tar.gz"
+        dest: "/tmp/prometheus/"
+        remote_src: yes
+        extra_opts: ['--strip-components=1']
+
+    - name: Move Prometheus binaries to /usr/local/bin/
+      copy:
+        src: "/tmp/prometheus/prometheus"
+        dest: "/usr/local/bin/prometheus"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Move Prometheus promtool binary to /usr/local/bin/
+      copy:
+        src: "/tmp/prometheus/promtool"
+        dest: "/usr/local/bin/promtool"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    # Create Prometheus directories before copying consoles and console_libraries
+    - name: Create Prometheus directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /var/lib/prometheus
+        - /etc/prometheus
+
+    - name: Move Prometheus consoles directory
+      copy:
+        src: "/tmp/prometheus/consoles"
+        dest: "/etc/prometheus/consoles"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Move Prometheus console_libraries directory
+      copy:
+        src: "/tmp/prometheus/console_libraries"
+        dest: "/etc/prometheus/console_libraries"
+        remote_src: yes
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Set ownership and permissions for /etc/prometheus/consoles
+      file:
+        path: /etc/prometheus/consoles
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        recurse: yes
+
+    - name: Set ownership and permissions for /etc/prometheus/console_libraries
+      file:
+        path: /etc/prometheus/console_libraries
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        recurse: yes
+
+    - name: Generate Prometheus configuration file
+      copy:
+        dest: /etc/prometheus/prometheus.yml
         content: |
-          server {
-              listen 443 ssl;
-              server_name {{ condenser_ingress_prometheus_hostname }};
+          global:
+            scrape_interval: 15s
 
-              ssl_certificate /etc/letsencrypt/live/{{ condenser_ingress_prometheus_hostname }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ condenser_ingress_prometheus_hostname }}/privkey.pem;
+          alerting:
+            alertmanagers:
+              - static_configs:
+                  - targets: ['localhost:9093']
 
-              ssl_protocols TLSv1.2 TLSv1.3;
-              ssl_ciphers HIGH:!aNULL:!MD5;
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
 
-              location /prometheus/ {
-                  proxy_pass http://localhost:{{ condenser_ingress_prometheus_port }}/;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-              }
-          }
+            - job_name: 'node_exporter'
+              static_configs:
+                - targets:
+                    {% for host in groups['all'] %}
+                      - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+                    {% endfor %}
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
 
-          server {
-              listen 443 ssl;
-              server_name {{ condenser_ingress_grafana_hostname }};
+    - name: Set ownership of Prometheus binaries
+      file:
+        path: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+      loop:
+        - /usr/local/bin/prometheus
+        - /usr/local/bin/promtool
 
-              ssl_certificate /etc/letsencrypt/live/{{ condenser_ingress_grafana_hostname }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ condenser_ingress_grafana_hostname }}/privkey.pem;
+    - name: Deploy Prometheus Alert Rules
+      include_role:
+        name: prometheus_alerts
 
-              ssl_protocols TLSv1.2 TLSv1.3;
-              ssl_ciphers HIGH:!aNULL:!MD5;
+    #### Configure Firewall to Allow Prometheus Port (9090)
+    - name: Open port 9090 in firewalld
+      firewalld:
+        port: 9090/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
 
-              location /grafana/ {
-                  proxy_pass http://localhost:{{ condenser_ingress_grafana_port }}/;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-              }
-          }
-
-          server {
-              listen 443 ssl;
-              server_name {{ condenser_ingress_nodeexporter_hostname }};
-
-              ssl_certificate /etc/letsencrypt/live/{{ condenser_ingress_nodeexporter_hostname }}/fullchain.pem;
-              ssl_certificate_key /etc/letsencrypt/live/{{ condenser_ingress_nodeexporter_hostname }}/privkey.pem;
-
-              ssl_protocols TLSv1.2 TLSv1.3;
-              ssl_ciphers HIGH:!aNULL:!MD5;
-
-              location /node_exporter/ {
-                  proxy_pass http://localhost:{{ condenser_ingress_nodeexporter_port }}/;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-              }
-          }
-
-          server {
-              listen 80;
-              server_name {{ condenser_ingress_prometheus_hostname }}, {{ condenser_ingress_grafana_hostname }}, {{ condenser_ingress_nodeexporter_hostname }};
-
-              location / {
-                  return 301 https://$host$request_uri;
-              }
-          }
-      notify: Reload Nginx
-
-    #### Configure Logging on Management Node
-    - name: Configure Logging on Management Node
-      block:
-        - name: Install rsyslog
-          yum:
-            name: rsyslog
-            state: present
-
-        - name: Configure rsyslog to send logs to control node
-          lineinfile:
-            path: /etc/rsyslog.conf
-            regexp: '^\*\.\*'
-            line: "*.* @@{{ ansible_host }}:514"  # Assuming control node is the mgmt node itself
-            state: present
-
-        - name: Restart rsyslog
-          systemd:
-            name: rsyslog
-            state: restarted
-
-  handlers:
-    - name: Restart Grafana
-      systemd:
-        name: grafana-server
-        state: restarted
-
-    - name: Reload Nginx
-      systemd:
-        name: nginx
+    - name: Reload firewalld to apply changes
+      service:
+        name: firewalld
         state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+    #### Start Prometheus via Command
+    - name: Start Prometheus
+      shell: |
+        nohup /usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml > /var/log/prometheus.log 2>&1 &
+      args:
+        creates: /var/log/prometheus.log
+      register: prometheus_start
+      ignore_errors: yes
+
+    - name: Verify Prometheus is running
+      shell: pgrep -f prometheus
+      register: prometheus_pgrep
+      failed_when: prometheus_pgrep.stdout == ""
+      changed_when: false
+
+- name: Install and Configure Grafana on Control Node
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Add Grafana repository
+      yum_repository:
+        name: grafana
+        description: Grafana Repository
+        baseurl: https://packages.grafana.com/oss/rpm
+        gpgcheck: yes
+        repo_gpgcheck: yes
+        gpgkey: https://packages.grafana.com/gpg.key
+        enabled: yes
+
+    - name: Install Grafana
+      yum:
+        name: grafana
+        state: present
+
+    - name: Install initscripts package (for systemd-sysv-install)
+      yum:
+        name: initscripts
+        state: present
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Ensure Grafana directories have correct ownership
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: grafana
+        group: grafana
+        recurse: yes
+      loop:
+        - /var/lib/grafana
+        - /var/log/grafana
+        - /etc/grafana
+
+    #### Configure Firewall to Allow Grafana Port (3000)
+    - name: Open port 3000 in firewalld
+      firewalld:
+        port: 3000/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld to apply changes
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+    #### Start Grafana via Command
+    - name: Start Grafana
+      shell: |
+        nohup /usr/sbin/grafana-server --config=/etc/grafana/grafana.ini > /var/log/grafana.log 2>&1 &
+      args:
+        creates: /var/log/grafana.log
+      register: grafana_start
+      ignore_errors: yes
+
+    - name: Verify Grafana is running
+      shell: pgrep -f grafana-server
+      register: grafana_pgrep
+      failed_when: grafana_pgrep.stdout == ""
+      changed_when: false
+
+    - name: Create Grafana provisioning directories for dashboards
+      file:
+        path: /etc/grafana/provisioning/dashboards
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Replace datasource placeholder in cw.json
+      replace:
+        path: "{{ playbook_dir }}/../dashboard/cw.json"
+        regexp: '\$\{datasource\}'
+        replace: 'prometheus'
+
+    - name: Copy Dashboard JSON
+      copy:
+        src: "{{ playbook_dir }}/../dashboard/cw.json"
+        dest: /etc/grafana/provisioning/dashboards/cw.json
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Create Dashboard Provisioning YAML
+      copy:
+        dest: /etc/grafana/provisioning/dashboards/dashboards.yml
+        content: |
+          apiVersion: 1
+
+          providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              options:
+                path: /etc/grafana/provisioning/dashboards
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Create Grafana provisioning directories for datasources
+      file:
+        path: /etc/grafana/provisioning/datasources
+        state: directory
+        owner: grafana
+        group: grafana
+        mode: '0755'
+
+    - name: Copy Prometheus Data Source Provisioning
+      copy:
+        src: "{{ playbook_dir }}/../datasource/prometheus.yml"
+        dest: /etc/grafana/provisioning/datasources/prometheus.yml
+        owner: grafana
+        group: grafana
+        mode: '0644'
+
+    - name: Set Grafana admin user
+      lineinfile:
+        path: /etc/grafana/grafana.ini
+        regexp: '^admin_user'
+        line: 'admin_user = admin'
+
+    - name: Set Grafana admin password
+      lineinfile:
+        path: /etc/grafana/grafana.ini
+        regexp: '^admin_password'
+        line: 'admin_password = admin'
+
+- name: Configure Logging on All Hosts
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install rsyslog
+      yum:
+        name: rsyslog
+        state: present
+
+    #### Configure Firewall to Allow rsyslog Port (514)
+    - name: Open port 514 in firewalld for rsyslog
+      firewalld:
+        port: 514/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld to apply changes
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
+
+    #### Configure rsyslog to send logs to control node
+    - name: Configure rsyslog to send logs to control node
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^\*\.\* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514'
+        line: "*.* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514"
+        state: present
+
+    #### Start rsyslog via Command
+    - name: Start rsyslog
+      shell: |
+        nohup /usr/sbin/rsyslogd > /var/log/rsyslog.log 2>&1 &
+      args:
+        creates: /var/log/rsyslog.log
+      register: rsyslog_start
+      ignore_errors: yes
+
+    - name: Verify rsyslog is running
+      shell: pgrep -f rsyslogd
+      register: rsyslog_pgrep
+      failed_when: rsyslog_pgrep.stdout == ""
+      changed_when: false
