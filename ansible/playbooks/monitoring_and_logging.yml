@@ -28,6 +28,12 @@
     #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
+        - name: Create node_exporter user
+          user:
+            name: node_exporter
+            shell: /sbin/nologin
+            system: yes
+
         - name: Download Node Exporter binary
           get_url:
             url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
@@ -45,8 +51,8 @@
         - name: Ensure Node Exporter binary is executable
           file:
             path: /usr/local/bin/node_exporter
-            owner: root
-            group: root
+            owner: node_exporter
+            group: node_exporter
             mode: '0755'
 
         - name: Create Node Exporter systemd service
@@ -59,6 +65,8 @@
 
               [Service]
               User=node_exporter
+              Group=node_exporter
+              Type=simple
               ExecStart=/usr/local/bin/node_exporter
               Restart=always
 
@@ -289,9 +297,9 @@
 
           [Install]
           WantedBy=multi-user.target
-      owner: root
-      group: root
-      mode: '0644'
+        owner: root
+        group: root
+        mode: '0644'
 
     - name: Reload systemd daemon for Prometheus
       systemd:
