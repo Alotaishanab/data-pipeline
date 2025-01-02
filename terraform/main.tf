@@ -11,7 +11,8 @@ locals {
     key => contains([
       "condenser_ingress_prometheus_hostname",
       "condenser_ingress_grafana_hostname",
-      "condenser_ingress_nodeexporter_hostname"
+      "condenser_ingress_nodeexporter_hostname",
+      "condenser_ingress_webserver_hostname"
     ], key) ? "${local.sanitized_username}${suffix}" : suffix
   }
 

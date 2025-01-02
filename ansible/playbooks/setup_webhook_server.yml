@@ -7,18 +7,27 @@
     results_path: /mnt/results
 
   tasks:
-    - name: Install Flask
+
+    ########################################################################
+    # 1) Install Flask & Ensure Pipeline Directory
+    ########################################################################
+
+    - name: Install Flask (for the Webhook server)
       pip:
         name: flask
         state: present
 
-    - name: Ensure pipeline directory exists
+    - name: Ensure /opt/data_pipeline directory exists
       file:
         path: /opt/data_pipeline
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
+
+    ########################################################################
+    # 2) Deploy & Manage the Webhook Server (Python/Flask)
+    ########################################################################
 
     - name: Copy webhook_server.py
       copy:
@@ -28,7 +37,7 @@
         owner: almalinux
         group: almalinux
 
-    - name: Template update_disabled_workers.py
+    - name: Copy update_disabled_workers.py (AlertManager script)
       template:
         src: ../roles/alert_manager/templates/update_disabled_workers.py.j2
         dest: /opt/data_pipeline/update_disabled_workers.py
@@ -40,6 +49,9 @@
     - name: Create systemd service for webhook_server
       copy:
         dest: /etc/systemd/system/webhook_server.service
+        owner: root
+        group: root
+        mode: '0644'
         content: |
           [Unit]
           Description=Alertmanager Webhook Server
@@ -63,7 +75,7 @@
         state: started
         enabled: yes
 
-    - name: Allow port 8080 in firewall for webhook server
+    - name: Open port 8080 in the firewall for the webhook server
       firewalld:
         port: 8080/tcp
         permanent: yes
@@ -71,63 +83,71 @@
         immediate: yes
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld (webhook port)
+    - name: Reload firewalld for webhook port
       service:
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    # --------------------------------------------------------
-    # Install and configure Apache HTTP server
-    # --------------------------------------------------------
+    ########################################################################
+    # 3) Install and Configure Apache (httpd)
+    ########################################################################
+
     - name: Install Apache httpd
       yum:
         name: httpd
         state: present
 
-    - name: Start and enable httpd
+    - name: Start and enable Apache httpd
       systemd:
         name: httpd
         state: started
         enabled: yes
 
-    - name: Link results directory to web root
+    ########################################################################
+    # 4) Symlink /mnt/results → /var/www/html/results
+    ########################################################################
+
+    - name: Link /mnt/results to /var/www/html/results
       file:
         src: "{{ results_path }}"
         dest: /var/www/html/results
         state: link
 
     - name: Ensure /mnt/results is world-readable
-      shell: "chmod -R 755 /mnt/results"
+      shell: chmod -R 755 "{{ results_path }}"
+      args:
+        warn: false  # Suppress shell warnings
       become: yes
 
-    - name: Gather mount facts
+    - name: Gather mount facts (to detect NFS)
       ansible.builtin.setup:
         gather_subset:
           - mounts
 
-    - name: Determine if /mnt/results is an NFS share
+    - name: Check if /mnt/results is on NFS
       set_fact:
         results_is_nfs: >-
           {{ ansible_mounts
-            | selectattr('mount', 'equalto', '/mnt/results')
-            | map(attribute='fstype')
-            | list
-            | first
-            == 'nfs' }}
+             | selectattr('mount', 'equalto', '/mnt/results')
+             | map(attribute='fstype')
+             | list
+             | first
+             == 'nfs' }}
 
-    # Then skip chcon on NFS or ignore errors
     - name: Set SELinux context if SELinux is enforcing and not NFS
-      command: chcon -R -t httpd_sys_content_t /mnt/results
+      command: chcon -R -t httpd_sys_content_t "{{ results_path }}"
       when:
         - ansible_selinux is defined
         - ansible_selinux.status == 'enabled'
         - results_is_nfs == false
       ignore_errors: yes
 
+    ########################################################################
+    # 5) Enable Directory Listing & FancyIndexing
+    ########################################################################
 
-    # 3) Enable directory listing & FancyIndexing in a custom conf
-    - name: Enable directory listing for /results
+    - name: Create /etc/httpd/conf.d/results.conf (directory listing)
       copy:
         dest: /etc/httpd/conf.d/results.conf
         owner: root
@@ -135,16 +155,17 @@
         mode: '0644'
         content: |
           <Directory "/var/www/html/results">
-            # Let Apache follow the symlink to /mnt/results
-            Options +Indexes +FollowSymLinks
-            # Provide a slightly nicer auto-index style
-            IndexOptions FancyIndexing HTMLTable NameWidth=*
-            AllowOverride None
-            Require all granted
+              # Allow symlink from /var/www/html/results → /mnt/results
+              Options +Indexes +FollowSymLinks
+
+              # Provide a more readable auto-index style:
+              IndexOptions FancyIndexing HTMLTable VersionSort NameWidth=*
+
+              AllowOverride None
+              Require all granted
           </Directory>
       notify: restart_httpd
 
-    # EXPLICITLY open port 80 if you want to see it in 'firewall-cmd --list-ports'
     - name: Allow port 80/tcp in the firewall
       firewalld:
         port: 80/tcp
@@ -153,11 +174,15 @@
         immediate: yes
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld (http port)
+    - name: Reload firewalld for http port
       service:
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
+    ########################################################################
+    # 6) Deploy Custom index.html with a More Professional Design
+    ########################################################################
 
     - name: Deploy custom index.html
       copy:
@@ -166,44 +191,81 @@
         group: root
         mode: '0644'
         content: |
-          <html>
+          <!DOCTYPE html>
+          <html lang="en">
           <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <title>Proteomics Results</title>
             <style>
               body {
-                font-family: Arial, sans-serif;
-                margin: 20px; 
-                background: #f9f9f9;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: #efefef;
               }
-              h1 { color: #333; }
+              header {
+                background-color: #333;
+                color: #fff;
+                padding: 20px;
+                text-align: center;
+              }
+              header h1 {
+                margin: 0;
+                font-size: 28px;
+                letter-spacing: 1px;
+              }
+              .container {
+                max-width: 800px;
+                margin: 30px auto;
+                background: #fff;
+                padding: 30px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                border-radius: 5px;
+              }
+              h2 {
+                color: #333;
+                margin-bottom: 15px;
+              }
+              p {
+                line-height: 1.6;
+                color: #555;
+              }
               a {
-                color: #007bff;
+                color: #0066cc;
                 text-decoration: none;
+                font-weight: 600;
               }
               a:hover {
                 text-decoration: underline;
               }
-              .wrapper {
-                background: #fff;
-                padding: 20px;
-                border-radius: 4px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                max-width: 600px;
-                margin: 0 auto;
+              footer {
+                text-align: center;
+                font-size: 14px;
+                color: #888;
+                margin: 20px 0;
               }
             </style>
           </head>
           <body>
-            <div class="wrapper">
-              <h1>Welcome to the Proteomics Results</h1>
+            <header>
+              <h1>Proteomics Results</h1>
+            </header>
+            <div class="container">
+              <h2>Welcome!</h2>
               <p>
-                Below, you can <strong>browse</strong> parsed proteomics results, or 
-                <strong>download</strong> them for analysis.
+                This server provides access to <strong>parsed proteomics results</strong>.
+                You can either <strong>browse</strong> them directly or
+                <strong>download</strong> for offline analysis.
               </p>
               <p>
-                <a href="/results/">Click here to view the Results Directory</a>
+                <a href="/results/">Click here to view the <em>Results Directory</em></a>
               </p>
+              <p>Enjoy exploring your proteomics data!</p>
             </div>
+            <footer>
+              &copy; 2025 Your Research Group. All rights reserved.
+            </footer>
           </body>
           </html>
       notify: restart_httpd

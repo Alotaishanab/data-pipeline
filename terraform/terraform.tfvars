@@ -51,6 +51,7 @@ mgmt_vm_tags = {
   "condenser_ingress_grafana_port"          = "3000"
   "condenser_ingress_nodeexporter_hostname" = "-nodeexporter"
   "condenser_ingress_nodeexporter_port"     = "9100"
+  "condenser_ingress_webserver_hostname"    = "-webserver"
   "condenser_ingress_isAllowed"             = "true"
   "condenser_ingress_isEnabled"             = "true"
 }

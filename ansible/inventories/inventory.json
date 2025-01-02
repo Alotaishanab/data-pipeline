@@ -9,52 +9,27 @@
     "mgmtnode": {
         "hosts": {
             "host": {
-                "ansible_host": "10.134.12.173",
-                "condenser_ingress_prometheus_hostname": "ucabbaa-ucl-ac-uk-prometheus.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_prometheus_port": "9090",
-                "condenser_ingress_grafana_hostname": "ucabbaa-ucl-ac-uk-grafana.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_grafana_port": "3000",
-                "condenser_ingress_nodeexporter_hostname": "ucabbaa-ucl-ac-uk-nodeexporter.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_nodeexporter_port": "9100",
-                "condenser_ingress_isAllowed": "true",
-                "condenser_ingress_isEnabled": "true",
-                "admin_email": "ucabbaa@ucl.ac.uk"
-            }
-        }
-    },
-    "storagegroup": {
-        "hosts": {
-            "storage": {
-                "ansible_host": "10.134.12.180",
-                "condenser_ingress_node_hostname": "ucabbaa-ucl-ac-uk-node.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_node_port": "9100",
-                "condenser_ingress_isAllowed": "true",
-                "condenser_ingress_isEnabled": "true"
+                "ansible_host": "10.134.12.173"
             }
         }
     },
     "workers": {
         "hosts": {
             "worker1": {
-                "ansible_host": "10.134.12.117",
-                "condenser_ingress_node_hostname": "ucabbaa-ucl-ac-uk-node.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_node_port": "9100",
-                "condenser_ingress_isAllowed": "true",
-                "condenser_ingress_isEnabled": "true"
+                "ansible_host": "10.134.12.117"
             },
             "worker2": {
-                "ansible_host": "10.134.12.174",
-                "condenser_ingress_node_hostname": "ucabbaa-ucl-ac-uk-node.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_node_port": "9100",
-                "condenser_ingress_isAllowed": "true",
-                "condenser_ingress_isEnabled": "true"
+                "ansible_host": "10.134.12.174"
             },
             "worker3": {
-                "ansible_host": "10.134.12.116",
-                "condenser_ingress_node_hostname": "ucabbaa-ucl-ac-uk-node.comp0235.condenser.arc.ucl.ac.uk",
-                "condenser_ingress_node_port": "9100",
-                "condenser_ingress_isAllowed": "true",
-                "condenser_ingress_isEnabled": "true"
+                "ansible_host": "10.134.12.116"
+            }
+        }
+    },
+    "storagegroup": {
+        "hosts": {
+            "storage": {
+                "ansible_host": "10.134.12.180"
             }
         }
     }
