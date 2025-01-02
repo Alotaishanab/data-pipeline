@@ -311,9 +311,9 @@
 
           [Install]
           WantedBy=multi-user.target
-      owner: root
-      group: root
-      mode: '0644'
+        owner: root
+        group: root
+        mode: '0644'
 
     - name: Reload systemd daemon for Prometheus
       systemd:
