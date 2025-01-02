@@ -120,7 +120,7 @@
       
 
 
-    - name: Gather mount facts (to detect NFS)
+    - name: Gather mount facts
       ansible.builtin.setup:
         gather_subset:
           - mounts
@@ -129,19 +129,20 @@
       set_fact:
         results_is_nfs: >-
           {{ ansible_mounts
-             | selectattr('mount', 'equalto', '/mnt/results')
-             | map(attribute='fstype')
-             | list
-             | first
-             == 'nfs' }}
+            | selectattr('mount', 'equalto', '/mnt/results')
+            | map(attribute='fstype')
+            | list
+            | first
+            == 'nfs' }}
 
     - name: Set SELinux context if SELinux is enforcing and not NFS
-      command: chcon -R -t httpd_sys_content_t "{{ results_path }}"
+      command: chcon -R -t httpd_sys_content_t /mnt/results
       when:
         - ansible_selinux is defined
         - ansible_selinux.status == 'enabled'
         - results_is_nfs == false
       ignore_errors: yes
+
 
     ########################################################################
     # 5) Enable Directory Listing & FancyIndexing
