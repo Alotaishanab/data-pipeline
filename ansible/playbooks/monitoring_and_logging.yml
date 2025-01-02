@@ -49,6 +49,35 @@
             group: root
             mode: '0755'
 
+        - name: Create Node Exporter systemd service
+          copy:
+            dest: /etc/systemd/system/node_exporter.service
+            content: |
+              [Unit]
+              Description=Prometheus Node Exporter
+              After=network.target
+
+              [Service]
+              User=node_exporter
+              ExecStart=/usr/local/bin/node_exporter
+              Restart=always
+
+              [Install]
+              WantedBy=multi-user.target
+            owner: root
+            group: root
+            mode: '0644'
+
+        - name: Reload systemd daemon for Node Exporter
+          systemd:
+            daemon_reload: yes
+
+        - name: Start and enable Node Exporter service
+          systemd:
+            name: node_exporter
+            state: started
+            enabled: yes
+
     #### Configure Firewall to Allow Node Exporter Port (9100)
     - name: Open port 9100 in firewalld
       firewalld:
@@ -63,26 +92,17 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Start Node Exporter Service via Command
-    - name: Start Node Exporter
-      shell: |
-        nohup /usr/local/bin/node_exporter > /var/log/node_exporter.log 2>&1 &
-      args:
-        creates: /var/log/node_exporter.log
-      register: node_exporter_start
-      ignore_errors: yes
-
-    - name: Verify Node Exporter is running
-      shell: pgrep -f node_exporter
-      register: node_exporter_pgrep
-      failed_when: node_exporter_pgrep.stdout == ""
-      changed_when: false
-
     #### Install and Start httpd (Apache HTTP Server)
     - name: Install httpd
       yum:
         name: httpd
         state: present
+
+    - name: Ensure httpd service is started and enabled
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes
 
     #### Configure Firewall to Allow httpd Port (80)
     - name: Open port 80 in firewalld for httpd
@@ -97,21 +117,6 @@
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
-
-    #### Start httpd via Command
-    - name: Start httpd
-      shell: |
-        nohup /usr/sbin/httpd > /var/log/httpd.log 2>&1 &
-      args:
-        creates: /var/log/httpd.log
-      register: httpd_start
-      ignore_errors: yes
-
-    - name: Verify httpd is running
-      shell: pgrep -f httpd
-      register: httpd_pgrep
-      failed_when: httpd_pgrep.stdout == ""
-      changed_when: false
 
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
@@ -263,20 +268,40 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Start Prometheus via Command
-    - name: Start Prometheus
-      shell: |
-        nohup /usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml > /var/log/prometheus.log 2>&1 &
-      args:
-        creates: /var/log/prometheus.log
-      register: prometheus_start
-      ignore_errors: yes
+    #### Create Prometheus systemd service
+    - name: Create Prometheus systemd service
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        content: |
+          [Unit]
+          Description=Prometheus Service
+          After=network.target
 
-    - name: Verify Prometheus is running
-      shell: pgrep -f prometheus
-      register: prometheus_pgrep
-      failed_when: prometheus_pgrep.stdout == ""
-      changed_when: false
+          [Service]
+          User=prometheus
+          Group=prometheus
+          Type=simple
+          ExecStart=/usr/local/bin/prometheus \
+            --config.file=/etc/prometheus/prometheus.yml \
+            --storage.tsdb.path=/var/lib/prometheus/ \
+            --web.console.templates=/etc/prometheus/consoles \
+            --web.console.libraries=/etc/prometheus/console_libraries
+
+          [Install]
+          WantedBy=multi-user.target
+      owner: root
+      group: root
+      mode: '0644'
+
+    - name: Reload systemd daemon for Prometheus
+      systemd:
+        daemon_reload: yes
+
+    - name: Start and enable Prometheus service
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
 
 - name: Install and Configure Grafana on Control Node
   hosts: localhost
@@ -332,20 +357,12 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Start Grafana via Command
-    - name: Start Grafana
-      shell: |
-        nohup /usr/sbin/grafana-server --config=/etc/grafana/grafana.ini > /var/log/grafana.log 2>&1 &
-      args:
-        creates: /var/log/grafana.log
-      register: grafana_start
-      ignore_errors: yes
-
-    - name: Verify Grafana is running
-      shell: pgrep -f grafana-server
-      register: grafana_pgrep
-      failed_when: grafana_pgrep.stdout == ""
-      changed_when: false
+    #### Start and enable Grafana service
+    - name: Start and enable Grafana service
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
 
     - name: Create Grafana provisioning directories for dashboards
       file:
@@ -445,17 +462,9 @@
         line: "*.* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514"
         state: present
 
-    #### Start rsyslog via Command
-    - name: Start rsyslog
-      shell: |
-        nohup /usr/sbin/rsyslogd > /var/log/rsyslog.log 2>&1 &
-      args:
-        creates: /var/log/rsyslog.log
-      register: rsyslog_start
-      ignore_errors: yes
-
-    - name: Verify rsyslog is running
-      shell: pgrep -f rsyslogd
-      register: rsyslog_pgrep
-      failed_when: rsyslog_pgrep.stdout == ""
-      changed_when: false
+    #### Ensure rsyslog is started and enabled
+    - name: Start and enable rsyslog service
+      systemd:
+        name: rsyslog
+        state: started
+        enabled: yes
