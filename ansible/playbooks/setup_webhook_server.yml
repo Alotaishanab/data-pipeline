@@ -118,8 +118,6 @@
       shell: "chmod -R 755 /mnt/results"
       become: yes
       
-
-
     - name: Gather mount facts
       ansible.builtin.setup:
         gather_subset:

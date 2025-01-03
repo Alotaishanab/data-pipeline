@@ -65,7 +65,8 @@ def run_merizo_search(pdb_file, output_dir, id, database_path):
             os.rename(old_search, new_search)
             print(f"Renamed '_search.tsv' to '{new_search}'")
         else:
-            raise FileNotFoundError(f"Error: '_search.tsv' not found in {output_dir}")
+            print(f"No hits found for {pdb_file}. Skipping parsing.")
+            return None
         old_segment = os.path.join(output_dir, "_segment.tsv")
         new_segment = os.path.join(output_dir, f"{id}_segment.tsv")
         if os.path.isfile(old_segment):
@@ -84,7 +85,10 @@ def pipeline(pdb_file, output_dir, organism):
         id=os.path.splitext(os.path.basename(pdb_file))[0],
         database_path='/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
     )
-    run_parser(search_file, output_dir)
+    if search_file:
+        run_parser(search_file, output_dir)
+    else:
+        print(f"No search results to parse for {pdb_file}.")
     tmp_dir = os.path.join(output_dir, "tmp")
     if os.path.exists(tmp_dir):
         try:
