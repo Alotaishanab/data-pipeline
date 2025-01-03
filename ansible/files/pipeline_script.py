@@ -8,13 +8,19 @@ import json
 from collections import defaultdict
 import statistics
 import glob
+import redis
 
 """
-Usage: python3 pipeline_script.py [PDB_FILE] [OUTPUT_DIR] [ORGANISM]
-Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
+    Usage: python3 pipeline_script.py [PDB_FILE] [OUTPUT_DIR] [ORGANISM]
+    Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
 """
 
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
+
+# Redis configuration
+REDIS_HOST = 'localhost'  # Update if different
+REDIS_PORT = 6379
+REDIS_DB = 0
 
 def run_parser(search_file, output_dir):
     print(f"Search File: {search_file}")
@@ -35,7 +41,7 @@ def run_parser(search_file, output_dir):
         print(f"Error during Parsing: {e}")
         raise
 
-def run_merizo_search(pdb_file, output_dir, id, database_path):
+def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispatched_set_key):
     print(f"Checking if VIRTUALENV_PYTHON exists: {os.path.exists(VIRTUALENV_PYTHON)}")
     print(f"VIRTUALENV_PYTHON is executable: {os.access(VIRTUALENV_PYTHON, os.X_OK)}")
     os.makedirs(output_dir, exist_ok=True)
@@ -59,14 +65,25 @@ def run_merizo_search(pdb_file, output_dir, id, database_path):
             print(f"MERIZO STDERR:\n{err.decode('utf-8')}")
         if p.returncode != 0:
             raise RuntimeError("Merizo Search encountered an error.")
+        
         old_search = os.path.join(output_dir, "_search.tsv")
         new_search = os.path.join(output_dir, f"{id}_search.tsv")
         if os.path.isfile(old_search):
             os.rename(old_search, new_search)
             print(f"Renamed '_search.tsv' to '{new_search}'")
+            
+            # Check if the search file has data beyond header
+            with open(new_search, 'r') as f:
+                lines = f.readlines()
+                if len(lines) <= 1:
+                    print(f"No hits found in '{new_search}'. Skipping parsing.")
+                    redis_conn.sadd(dispatched_set_key, pdb_file)
+                    return None
         else:
             print(f"No hits found for {pdb_file}. Skipping parsing.")
+            redis_conn.sadd(dispatched_set_key, pdb_file)
             return None
+        
         old_segment = os.path.join(output_dir, "_segment.tsv")
         new_segment = os.path.join(output_dir, f"{id}_segment.tsv")
         if os.path.isfile(old_segment):
@@ -80,10 +97,16 @@ def run_merizo_search(pdb_file, output_dir, id, database_path):
         raise
 
 def pipeline(pdb_file, output_dir, organism):
+    # Initialize Redis connection
+    redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
+    dispatched_set_key = f"dispatched_tasks:{organism}"
+    
     search_file = run_merizo_search(
         pdb_file, output_dir,
         id=os.path.splitext(os.path.basename(pdb_file))[0],
-        database_path='/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
+        database_path='/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb',
+        redis_conn=redis_conn,
+        dispatched_set_key=dispatched_set_key
     )
     if search_file:
         run_parser(search_file, output_dir)

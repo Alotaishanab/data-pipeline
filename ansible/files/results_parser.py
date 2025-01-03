@@ -30,6 +30,11 @@ def main():
 
     try:
         with open(search_file_path, "r") as fhIn:
+            lines = fhIn.readlines()
+            if len(lines) <= 1:
+                print(f"No data found in {search_file_path}. Skipping parsing.")
+                sys.exit(0)
+            fhIn.seek(0)
             next(fhIn)  # Skip header
             msreader = csv.reader(fhIn, delimiter='\t')
             tot_entries = 0
@@ -64,8 +69,8 @@ def main():
 
         with open(parsed_file_path, "w", encoding="utf-8") as fhOut:
             if plDDT_values:
-                mean_plDDT = statistics.mean(plDDT_values)
-                fhOut.write(f"#{search_filename} Results. mean plddt: {mean_plDDT}\n")
+                mean_plddt = statistics.mean(plDDT_values)
+                fhOut.write(f"#{search_filename} Results. mean plddt: {mean_plddt}\n")
             else:
                 fhOut.write(f"#{search_filename} Results. mean plddt: 0\n")
             fhOut.write("cath_id,count\n")
