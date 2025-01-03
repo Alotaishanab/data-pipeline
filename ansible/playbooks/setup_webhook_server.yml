@@ -135,13 +135,23 @@
             | first
             == 'nfs' }}
 
-    - name: Set SELinux context if SELinux is enforcing and not NFS
-      command: chcon -R -t httpd_sys_content_t /mnt/results
+    - name: Skip SELinux context changes for NFS
       when:
         - ansible_selinux is defined
         - ansible_selinux.status == 'enabled'
         - results_is_nfs == false
-      ignore_errors: yes
+
+    - name: Allow httpd to read from NFS
+      seboolean:
+        name: httpd_use_nfs
+        state: true
+        persistent: yes
+      when:
+        - ansible_selinux is defined
+        - ansible_selinux.status == 'enabled'
+
+
+
 
 
     ########################################################################
