@@ -135,12 +135,6 @@
             | first
             == 'nfs' }}
 
-    - name: Skip SELinux context changes for NFS
-      when:
-        - ansible_selinux is defined
-        - ansible_selinux.status == 'enabled'
-        - results_is_nfs == false
-
     - name: Allow httpd to read from NFS
       seboolean:
         name: httpd_use_nfs
