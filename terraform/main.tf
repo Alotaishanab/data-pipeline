@@ -58,7 +58,13 @@ resource "harvester_cloudinit_secret" "cloud_config" {
 
   user_data = <<-EOF
 #cloud-config
+
+package_update: true
+packages:
+  - qemu-guest-agent
+
 runcmd:
+  - [ systemctl, enable, --now, qemu-guest-agent.service ]
   - yum install -y epel-release
   - yum install -y ansible git
   - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
@@ -71,9 +77,9 @@ runcmd:
   - chown -R almalinux:almalinux /home/almalinux/.ssh
 
 ssh_authorized_keys:
-  - ${data.local_file.public_key.content}
-  - ${data.local_file.marker_public_key.content}
-  - ${data.local_file.ansible_public_key.content}
+  - "${data.local_file.public_key.content}"
+  - "${data.local_file.marker_public_key.content}"
+  - "${data.local_file.ansible_public_key.content}"
 EOF
 }
 
