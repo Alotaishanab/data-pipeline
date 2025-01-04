@@ -8,3 +8,8 @@ users:
       - ${public_key_1}
       - ${public_key_2}
       - ${public_key_3}
+
+runcmd:
+  - yum install -y epel-release
+  - yum install -y ansible git
+  - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
