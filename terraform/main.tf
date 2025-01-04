@@ -57,25 +57,24 @@ resource "harvester_cloudinit_secret" "cloud_config" {
   namespace = var.provider_namespace
 
   user_data = <<-EOF
-    #cloud-config
+#cloud-config
+runcmd:
+  - yum install -y epel-release
+  - yum install -y ansible git
+  - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
 
-      runcmd:
-      - yum install -y epel-release
-      - yum install -y ansible git
-      - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
+  # Write Ansible private key & add public key to authorized_keys on Host VM
+  - mkdir -p /home/almalinux/.ssh
+  - echo "${data.local_file.ansible_private_key.content}" > /home/almalinux/.ssh/ansible_ed25519
+  - chmod 600 /home/almalinux/.ssh/ansible_ed25519
+  - echo "${data.local_file.ansible_public_key.content}" >> /home/almalinux/.ssh/authorized_keys
+  - chown -R almalinux:almalinux /home/almalinux/.ssh
 
-      # Write Ansible private key & add public key to authorized_keys on Host VM
-      - mkdir -p /home/almalinux/.ssh
-      - echo "${data.local_file.ansible_private_key.content}" > /home/almalinux/.ssh/ansible_ed25519
-      - chmod 600 /home/almalinux/.ssh/ansible_ed25519
-      - echo "${data.local_file.ansible_public_key.content}" >> /home/almalinux/.ssh/authorized_keys
-      - chown -R almalinux:almalinux /home/almalinux/.ssh
-      
-    ssh_authorized_keys:
-      - ${data.local_file.public_key.content}
-      - ${data.local_file.marker_public_key.content}
-      - ${data.local_file.ansible_public_key.content}
-  EOF
+ssh_authorized_keys:
+  - ${data.local_file.public_key.content}
+  - ${data.local_file.marker_public_key.content}
+  - ${data.local_file.ansible_public_key.content}
+EOF
 }
 
 ################################################################################
@@ -96,15 +95,15 @@ resource "harvester_virtualmachine" "mgmt" {
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description      = "Management Node"
-  cpu              = var.mgmt_cpu
-  memory           = var.mgmt_memory
-  efi              = true
-  secure_boot      = false
-  run_strategy     = "RerunOnFailure"
-  hostname         = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
-  reserved_memory  = "100Mi"
-  machine_type     = "q35"
+  description     = "Management Node"
+  cpu             = var.mgmt_cpu
+  memory          = var.mgmt_memory
+  efi             = true
+  secure_boot     = false
+  run_strategy    = "RerunOnFailure"
+  hostname        = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
+  reserved_memory = "100Mi"
+  machine_type    = "q35"
 
   # Inject instance tags
   tags = local.mgmt_vm_tags_full
@@ -141,15 +140,15 @@ resource "harvester_virtualmachine" "worker" {
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description      = "Worker Node"
-  cpu              = var.worker_cpu
-  memory           = var.worker_memory
-  efi              = true
-  secure_boot      = false
-  run_strategy     = "RerunOnFailure"
-  hostname         = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
-  reserved_memory  = "100Mi"
-  machine_type     = "q35"
+  description     = "Worker Node"
+  cpu             = var.worker_cpu
+  memory          = var.worker_memory
+  efi             = true
+  secure_boot     = false
+  run_strategy    = "RerunOnFailure"
+  hostname        = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  reserved_memory = "100Mi"
+  machine_type    = "q35"
 
   # Inject instance tags
   tags = local.worker_storage_vm_tags_full
@@ -185,15 +184,15 @@ resource "harvester_virtualmachine" "storage" {
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description      = "Storage Node"
-  cpu              = var.storage_cpu
-  memory           = var.storage_memory
-  efi              = true
-  secure_boot      = false
-  run_strategy     = "RerunOnFailure"
-  hostname         = "${local.sanitized_username}-storage-${random_id.secret.hex}"
-  reserved_memory  = "100Mi"
-  machine_type     = "q35"
+  description     = "Storage Node"
+  cpu             = var.storage_cpu
+  memory          = var.storage_memory
+  efi             = true
+  secure_boot     = false
+  run_strategy    = "RerunOnFailure"
+  hostname        = "${local.sanitized_username}-storage-${random_id.secret.hex}"
+  reserved_memory = "100Mi"
+  machine_type    = "q35"
 
   # Inject instance tags
   tags = local.worker_storage_vm_tags_full
