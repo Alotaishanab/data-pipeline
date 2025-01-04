@@ -72,7 +72,7 @@ packages:
   - qemu-guest-agent
 
 runcmd:
-  - [ systemctl, enable, --now, qemu-guest-agent.service ]
+  - systemctl enable --now qemu-guest-agent.service
   - yum install -y epel-release
   - yum install -y ansible git
   - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
@@ -119,7 +119,7 @@ resource "harvester_virtualmachine" "mgmt" {
   reserved_memory = "100Mi"
   machine_type    = "q35"
 
-  # This is critical: attach the key from Harvester
+  # Attach the existing Harvester SSH key
   ssh_keys = [
     data.harvester_ssh_key.ucabbaa_key.id
   ]
