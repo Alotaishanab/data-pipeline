@@ -2,7 +2,9 @@
 # main.tf
 ###############################################################################
 
-# Locals
+# ----------------------
+# 0. Local Variables
+# ----------------------
 locals {
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
 
@@ -24,107 +26,80 @@ locals {
   }
 }
 
-################################################################################
-# 1. Random ID & Cloud-init Secret
-################################################################################
-
+###############################################################################
+# 1. Random ID
+###############################################################################
 resource "random_id" "secret" {
   byte_length = 4
 }
 
-# Read your SSH public key file
-data "local_file" "public_key" {
-  filename = var.keyfile
+###############################################################################
+# 2. Read Your Local Public Keys
+###############################################################################
+data "local_file" "public_key_rsa" {
+  filename = var.keyfile       # e.g. ../keys/id_rsa.pub
 }
 
-# Read your SSH marker public key file (the lecturer's key)
-data "local_file" "marker_public_key" {
-  filename = var.marker_keyfile
+data "local_file" "public_key_lecturer" {
+  filename = var.marker_keyfile  # e.g. ../keys/lecturer_key.pub
 }
 
-# Read your Ansible private key file
-data "local_file" "ansible_private_key" {
-  filename = var.ansible_private
-}
-
-# Read your Ansible public key file
 data "local_file" "ansible_public_key" {
-  filename = var.ansible_public
+  filename = var.ansible_public  # e.g. ../keys/ansible_ed25519.pub
+}
+
+# (Optional) If you need the private key for something else:
+data "local_file" "ansible_private_key" {
+  filename = var.ansible_private # e.g. ../keys/ansible_ed25519
 }
 
 ###############################################################################
-# harvester_ssh_key data source (reads an existing key from Harvester)
+# 3. Minimal Cloud-Init: Copy Those 3 Public Keys to authorized_keys
 ###############################################################################
-data "harvester_ssh_key" "ucabbaa_key" {
-  name      = "ucabbaa"               # Must match the name in Harvester
-  namespace = var.provider_namespace  # e.g., "ucabbaa-comp0235-ns"
-}
-
 resource "harvester_cloudinit_secret" "cloud_config" {
   name      = "${local.sanitized_username}-cloudinit-${random_id.secret.hex}"
   namespace = var.provider_namespace
 
+  # The simplest approach: just echo each public key into authorized_keys
   user_data = <<-EOF
 #cloud-config
-
-package_update: true
-packages:
-  - qemu-guest-agent
-
 runcmd:
-  - systemctl enable --now qemu-guest-agent.service
-  - yum install -y epel-release
-  - yum install -y ansible git
-  - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
-
-  # Write Ansible private key & add public key to authorized_keys on Host VM
   - mkdir -p /home/almalinux/.ssh
-  - echo "${data.local_file.ansible_private_key.content}" > /home/almalinux/.ssh/ansible_ed25519
-  - chmod 600 /home/almalinux/.ssh/ansible_ed25519
+  - echo "${data.local_file.public_key_rsa.content}" >> /home/almalinux/.ssh/authorized_keys
+  - echo "${data.local_file.public_key_lecturer.content}" >> /home/almalinux/.ssh/authorized_keys
   - echo "${data.local_file.ansible_public_key.content}" >> /home/almalinux/.ssh/authorized_keys
+  - chmod 600 /home/almalinux/.ssh/authorized_keys
   - chown -R almalinux:almalinux /home/almalinux/.ssh
-
-ssh_authorized_keys:
-  - "${data.local_file.public_key.content}"
-  - "${data.local_file.marker_public_key.content}"
-  - "${data.local_file.ansible_public_key.content}"
 EOF
 }
 
-################################################################################
-# 2. Harvester Image Data
-################################################################################
-
+###############################################################################
+# 4. Harvester Image Data
+###############################################################################
 data "harvester_image" "img" {
   name      = var.image_name
   namespace = var.image_namespace
 }
 
-################################################################################
-# 3. Management VM
-################################################################################
-
+###############################################################################
+# 5. Management VM
+###############################################################################
 resource "harvester_virtualmachine" "mgmt" {
   name                 = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description     = "Management Node"
-  cpu             = var.mgmt_cpu
-  memory          = var.mgmt_memory
-  efi             = true
-  secure_boot     = false
-  run_strategy    = "RerunOnFailure"
-  hostname        = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
-  reserved_memory = "100Mi"
-  machine_type    = "q35"
+  description      = "Management Node"
+  cpu              = var.mgmt_cpu
+  memory           = var.mgmt_memory
+  efi              = true
+  secure_boot      = false
+  run_strategy     = "RerunOnFailure"
+  hostname         = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
+  reserved_memory  = "100Mi"
+  machine_type     = "q35"
 
-  # Attach the existing Harvester SSH key
-  ssh_keys = [
-    data.harvester_ssh_key.ucabbaa_key.id
-  ]
-
-  # Inject instance tags
+  # Instance tags
   tags = local.mgmt_vm_tags_full
 
   network_interface {
@@ -144,32 +119,32 @@ resource "harvester_virtualmachine" "mgmt" {
     auto_delete = true
   }
 
+  # This references the cloud-init secret
   cloudinit {
     user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
   }
 }
 
-################################################################################
-# 4. Worker VMs
-################################################################################
-
+###############################################################################
+# 6. Worker VMs
+###############################################################################
 resource "harvester_virtualmachine" "worker" {
   count                = var.worker_count
   name                 = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description     = "Worker Node"
-  cpu             = var.worker_cpu
-  memory          = var.worker_memory
-  efi             = true
-  secure_boot     = false
-  run_strategy    = "RerunOnFailure"
-  hostname        = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
-  reserved_memory = "100Mi"
-  machine_type    = "q35"
+  description      = "Worker Node"
+  cpu              = var.worker_cpu
+  memory           = var.worker_memory
+  efi              = true
+  secure_boot      = false
+  run_strategy     = "RerunOnFailure"
+  hostname         = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  reserved_memory  = "100Mi"
+  machine_type     = "q35"
 
-  # Inject instance tags
+  # Instance tags
   tags = local.worker_storage_vm_tags_full
 
   network_interface {
@@ -189,31 +164,31 @@ resource "harvester_virtualmachine" "worker" {
     auto_delete = true
   }
 
+  # Same cloud-init secret as mgmt
   cloudinit {
     user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
   }
 }
 
-################################################################################
-# 5. Storage VM
-################################################################################
-
+###############################################################################
+# 7. Storage VM
+###############################################################################
 resource "harvester_virtualmachine" "storage" {
   name                 = "${local.sanitized_username}-storage-${random_id.secret.hex}"
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description     = "Storage Node"
-  cpu             = var.storage_cpu
-  memory          = var.storage_memory
-  efi             = true
-  secure_boot     = false
-  run_strategy    = "RerunOnFailure"
-  hostname        = "${local.sanitized_username}-storage-${random_id.secret.hex}"
-  reserved_memory = "100Mi"
-  machine_type    = "q35"
+  description      = "Storage Node"
+  cpu              = var.storage_cpu
+  memory           = var.storage_memory
+  efi              = true
+  secure_boot      = false
+  run_strategy     = "RerunOnFailure"
+  hostname         = "${local.sanitized_username}-storage-${random_id.secret.hex}"
+  reserved_memory  = "100Mi"
+  machine_type     = "q35"
 
-  # Inject instance tags
+  # Instance tags
   tags = local.worker_storage_vm_tags_full
 
   network_interface {
@@ -241,6 +216,7 @@ resource "harvester_virtualmachine" "storage" {
     auto_delete = true
   }
 
+  # Same cloud-init secret
   cloudinit {
     user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
   }
