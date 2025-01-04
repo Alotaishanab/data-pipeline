@@ -2,10 +2,12 @@
 # main.tf
 ###############################################################################
 
+
 # ----------------------
 # 0. Local Variables
 # ----------------------
 locals {
+  # This replaces any @ or . in var.username with -
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
 
   mgmt_vm_tags_full = {
@@ -27,50 +29,31 @@ locals {
 }
 
 ###############################################################################
-# 1. Random ID
+# 1. Random ID (for naming uniqueness)
 ###############################################################################
 resource "random_id" "secret" {
   byte_length = 4
 }
 
 ###############################################################################
-# 2. Read Your Local Public Keys
+# 2. Generate Ansible Key Pair
 ###############################################################################
-data "local_file" "public_key_rsa" {
-  filename = var.keyfile       # e.g. ../keys/id_rsa.pub
-}
-
-data "local_file" "public_key_lecturer" {
-  filename = var.marker_keyfile  # e.g. ../keys/lecturer_key.pub
-}
-
-data "local_file" "ansible_public_key" {
-  filename = var.ansible_public  # e.g. ../keys/ansible_ed25519.pub
-}
-
-# (Optional) If you need the private key for something else:
-data "local_file" "ansible_private_key" {
-  filename = var.ansible_private # e.g. ../keys/ansible_ed25519
+resource "tls_private_key" "ansible" {
+  algorithm = "ED25519"
+  # This automatically generates:
+  #   tls_private_key.ansible.private_key_pem
+  #   tls_private_key.ansible.public_key_openssh
 }
 
 ###############################################################################
-# 3. Minimal Cloud-Init: Copy Those 3 Public Keys to authorized_keys
+# 3. Store the Private Key locally
 ###############################################################################
-resource "harvester_cloudinit_secret" "cloud_config" {
-  name      = "${local.sanitized_username}-cloudinit-${random_id.secret.hex}"
-  namespace = var.provider_namespace
-
-  # The simplest approach: just echo each public key into authorized_keys
-  user_data = <<-EOF
-#cloud-config
-runcmd:
-  - mkdir -p /home/almalinux/.ssh
-  - echo "${data.local_file.public_key_rsa.content}" >> /home/almalinux/.ssh/authorized_keys
-  - echo "${data.local_file.public_key_lecturer.content}" >> /home/almalinux/.ssh/authorized_keys
-  - echo "${data.local_file.ansible_public_key.content}" >> /home/almalinux/.ssh/authorized_keys
-  - chmod 600 /home/almalinux/.ssh/authorized_keys
-  - chown -R almalinux:almalinux /home/almalinux/.ssh
-EOF
+# This writes the auto-generated private key to /home/almalinux/.ssh/ansible_ed25519.
+resource "local_file" "ansible_private_key" {
+  content              = tls_private_key.ansible.private_key_pem
+  filename             = "/home/almalinux/.ssh/ansible_ed25519"
+  file_permission      = "0600"
+  directory_permission = "0700"
 }
 
 ###############################################################################
@@ -119,9 +102,17 @@ resource "harvester_virtualmachine" "mgmt" {
     auto_delete = true
   }
 
-  # This references the cloud-init secret
-  cloudinit {
-    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
+  cloud_init {
+    user_data = templatefile(
+      "${path.module}/templates/cloud-config.yaml",
+      {
+        public_key_1 = file(var.keyfile)                  # e.g. ../keys/id_rsa.pub
+        public_key_2 = file(var.marker_keyfile)           # e.g. ../keys/lecturer_key.pub
+        public_key_3 = tls_private_key.ansible.public_key_openssh
+      }
+    )
+    # If you have network_data, you can do:
+    # network_data = file("${path.module}/templates/network-config.yaml")
   }
 }
 
@@ -144,7 +135,6 @@ resource "harvester_virtualmachine" "worker" {
   reserved_memory  = "100Mi"
   machine_type     = "q35"
 
-  # Instance tags
   tags = local.worker_storage_vm_tags_full
 
   network_interface {
@@ -164,9 +154,15 @@ resource "harvester_virtualmachine" "worker" {
     auto_delete = true
   }
 
-  # Same cloud-init secret as mgmt
-  cloudinit {
-    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
+  cloud_init {
+    user_data = templatefile(
+      "${path.module}/templates/cloud-config.yaml",
+      {
+        public_key_1 = file(var.keyfile)
+        public_key_2 = file(var.marker_keyfile)
+        public_key_3 = tls_private_key.ansible.public_key_openssh
+      }
+    )
   }
 }
 
@@ -188,7 +184,6 @@ resource "harvester_virtualmachine" "storage" {
   reserved_memory  = "100Mi"
   machine_type     = "q35"
 
-  # Instance tags
   tags = local.worker_storage_vm_tags_full
 
   network_interface {
@@ -216,8 +211,14 @@ resource "harvester_virtualmachine" "storage" {
     auto_delete = true
   }
 
-  # Same cloud-init secret
-  cloudinit {
-    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
+  cloud_init {
+    user_data = templatefile(
+      "${path.module}/templates/cloud-config.yaml",
+      {
+        public_key_1 = file(var.keyfile)
+        public_key_2 = file(var.marker_keyfile)
+        public_key_3 = tls_private_key.ansible.public_key_openssh
+      }
+    )
   }
 }

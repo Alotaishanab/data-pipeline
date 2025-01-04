@@ -33,16 +33,6 @@ variable "marker_keyfile" {
   description = "Path to your SSH marker key file"
 }
 
-variable "ansible_private" {
-  type        = string
-  description = "Path to your SSH marker key file"
-}
-
-variable "ansible_public" {
-  type        = string
-  description = "Path to your SSH marker key file"
-}
-
 variable "image_name" {
   description = "Name of the Harvester image"
   type        = string

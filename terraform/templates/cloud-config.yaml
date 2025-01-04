@@ -1,0 +1,10 @@
+#cloud-config
+users:
+  - name: almalinux
+    groups: sudo
+    home: /home/ubuntu
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${public_key_1}
+      - ${public_key_2}
+      - ${public_key_3}

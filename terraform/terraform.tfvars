@@ -9,8 +9,7 @@ username           = "ucabbaa@ucl.ac.uk"
 
 keyfile       = "../keys/id_rsa.pub"
 marker_keyfile = "../keys/lecturer_key.pub"
-ansible_private = "../keys/ansible_ed25519"
-ansible_public = "../keys/ansible_ed25519.pub"
+
 
 
 image_name      = "image-bp52g"
