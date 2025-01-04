@@ -52,6 +52,14 @@ data "local_file" "ansible_public_key" {
   filename = var.ansible_public
 }
 
+###############################################################################
+# harvester_ssh_key data source (reads an existing key from Harvester)
+###############################################################################
+data "harvester_ssh_key" "ucabbaa_key" {
+  name      = "ucabbaa"               # Must match the name in Harvester
+  namespace = var.provider_namespace  # e.g., "ucabbaa-comp0235-ns"
+}
+
 resource "harvester_cloudinit_secret" "cloud_config" {
   name      = "${local.sanitized_username}-cloudinit-${random_id.secret.hex}"
   namespace = var.provider_namespace
@@ -110,6 +118,11 @@ resource "harvester_virtualmachine" "mgmt" {
   hostname        = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
   reserved_memory = "100Mi"
   machine_type    = "q35"
+
+  # This is critical: attach the key from Harvester
+  ssh_keys = [
+    data.harvester_ssh_key.ucabbaa_key.id
+  ]
 
   # Inject instance tags
   tags = local.mgmt_vm_tags_full
