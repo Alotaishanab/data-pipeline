@@ -47,7 +47,6 @@ resource "tls_private_key" "ansible" {
 ###############################################################################
 # 3. Store the Private Key locally
 ###############################################################################
-# This writes the auto-generated private key to /home/almalinux/.ssh/ansible_ed25519.
 resource "local_file" "ansible_private_key" {
   content              = tls_private_key.ansible.private_key_pem
   filename             = "/home/almalinux/.ssh/ansible_ed25519"
@@ -100,19 +99,19 @@ resource "harvester_virtualmachine" "mgmt" {
     auto_delete = true
   }
 
-  # -------------- FIX: rename cloud_init -> cloudinit, add type ---------------
   cloudinit {
-    type      = "cloudInitNoCloud"
+    # Fix: Harvester only accepts "noCloud" or "configDrive"
+    type      = "noCloud"
+
     user_data = templatefile(
       "${path.module}/templates/cloud-config.yaml",
       {
-        public_key_1 = file(var.keyfile)
+        public_key_1 = file(var.keyfile)     # e.g. ../keys/id_rsa.pub
         public_key_2 = file(var.marker_keyfile)
         public_key_3 = tls_private_key.ansible.public_key_openssh
       }
     )
   }
-  # ---------------------------------------------------------------------------
 }
 
 ###############################################################################
@@ -154,7 +153,8 @@ resource "harvester_virtualmachine" "worker" {
   }
 
   cloudinit {
-    type      = "cloudInitNoCloud"
+    type      = "noCloud"
+
     user_data = templatefile(
       "${path.module}/templates/cloud-config.yaml",
       {
@@ -212,7 +212,8 @@ resource "harvester_virtualmachine" "storage" {
   }
 
   cloudinit {
-    type      = "cloudInitNoCloud"
+    type      = "noCloud"
+
     user_data = templatefile(
       "${path.module}/templates/cloud-config.yaml",
       {
