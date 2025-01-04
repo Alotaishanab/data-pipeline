@@ -17,44 +17,6 @@ output "storage_vm_ips" {
   value = [harvester_virtualmachine.storage.network_interface[0].ip_address]
 }
 
-# SSH Config (Optional)
-output "ssh_config" {
-  value = <<-EOT
-    # Host Machine
-    Host host
-        HostName ${harvester_virtualmachine.mgmt.network_interface[0].ip_address}
-        User almalinux
-        IdentityFile ~/.ssh/id_rsa                    # Correct SSH private key
-        ProxyJump condenser-proxy
-
-    # Worker Machines
-    Host worker1
-        HostName ${harvester_virtualmachine.worker[0].network_interface[0].ip_address}
-        User almalinux
-        IdentityFile ~/.ssh/id_rsa                    # Correct SSH private key
-        ProxyJump condenser-proxy
-
-    Host worker2
-        HostName ${harvester_virtualmachine.worker[1].network_interface[0].ip_address}
-        User almalinux
-        IdentityFile ~/.ssh/id_rsa                    # Correct SSH private key
-        ProxyJump condenser-proxy
-
-    Host worker3
-        HostName ${harvester_virtualmachine.worker[2].network_interface[0].ip_address}
-        User almalinux
-        IdentityFile ~/.ssh/id_rsa                    # Correct SSH private key
-        ProxyJump condenser-proxy
-
-    # Storage Machine
-    Host storage
-        HostName ${harvester_virtualmachine.storage.network_interface[0].ip_address}
-        User almalinux
-        IdentityFile ~/.ssh/id_rsa                    # Correct SSH private key
-        ProxyJump condenser-proxy
-  EOT
-}
-
 # Management VM Tags
 output "condenser_ingress_prometheus_hostname" {
   value = harvester_virtualmachine.mgmt.tags["condenser_ingress_prometheus_hostname"]
@@ -126,7 +88,3 @@ output "admin_email" {
   value       = var.username
 }
 
-output "cloudinit_user_data" {
-  value     = harvester_cloudinit_secret.cloud_config.user_data
-  sensitive = true
-}

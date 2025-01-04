@@ -2,12 +2,10 @@
 # main.tf
 ###############################################################################
 
-
 # ----------------------
 # 0. Local Variables
 # ----------------------
 locals {
-  # This replaces any @ or . in var.username with -
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
 
   mgmt_vm_tags_full = {
@@ -17,14 +15,18 @@ locals {
       "condenser_ingress_grafana_hostname",
       "condenser_ingress_nodeexporter_hostname",
       "condenser_ingress_webserver_hostname"
-    ], key) ? "${local.sanitized_username}${suffix}" : suffix
+    ], key)
+      ? "${local.sanitized_username}${suffix}"
+      : suffix
   }
 
   worker_storage_vm_tags_full = {
     for key, suffix in var.worker_storage_vm_tags :
     key => contains([
       "condenser_ingress_node_hostname"
-    ], key) ? "${local.sanitized_username}${suffix}" : suffix
+    ], key)
+      ? "${local.sanitized_username}${suffix}"
+      : suffix
   }
 }
 
@@ -40,9 +42,6 @@ resource "random_id" "secret" {
 ###############################################################################
 resource "tls_private_key" "ansible" {
   algorithm = "ED25519"
-  # This automatically generates:
-  #   tls_private_key.ansible.private_key_pem
-  #   tls_private_key.ansible.public_key_openssh
 }
 
 ###############################################################################
@@ -72,17 +71,16 @@ resource "harvester_virtualmachine" "mgmt" {
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description      = "Management Node"
-  cpu              = var.mgmt_cpu
-  memory           = var.mgmt_memory
-  efi              = true
-  secure_boot      = false
-  run_strategy     = "RerunOnFailure"
-  hostname         = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
-  reserved_memory  = "100Mi"
-  machine_type     = "q35"
+  description     = "Management Node"
+  cpu             = var.mgmt_cpu
+  memory          = var.mgmt_memory
+  efi             = true
+  secure_boot     = false
+  run_strategy    = "RerunOnFailure"
+  hostname        = "${local.sanitized_username}-mgmt-${random_id.secret.hex}"
+  reserved_memory = "100Mi"
+  machine_type    = "q35"
 
-  # Instance tags
   tags = local.mgmt_vm_tags_full
 
   network_interface {
@@ -102,18 +100,19 @@ resource "harvester_virtualmachine" "mgmt" {
     auto_delete = true
   }
 
-  cloud_init {
+  # -------------- FIX: rename cloud_init -> cloudinit, add type ---------------
+  cloudinit {
+    type      = "cloudInitNoCloud"
     user_data = templatefile(
       "${path.module}/templates/cloud-config.yaml",
       {
-        public_key_1 = file(var.keyfile)                  # e.g. ../keys/id_rsa.pub
-        public_key_2 = file(var.marker_keyfile)           # e.g. ../keys/lecturer_key.pub
+        public_key_1 = file(var.keyfile)
+        public_key_2 = file(var.marker_keyfile)
         public_key_3 = tls_private_key.ansible.public_key_openssh
       }
     )
-    # If you have network_data, you can do:
-    # network_data = file("${path.module}/templates/network-config.yaml")
   }
+  # ---------------------------------------------------------------------------
 }
 
 ###############################################################################
@@ -125,15 +124,15 @@ resource "harvester_virtualmachine" "worker" {
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description      = "Worker Node"
-  cpu              = var.worker_cpu
-  memory           = var.worker_memory
-  efi              = true
-  secure_boot      = false
-  run_strategy     = "RerunOnFailure"
-  hostname         = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
-  reserved_memory  = "100Mi"
-  machine_type     = "q35"
+  description     = "Worker Node"
+  cpu             = var.worker_cpu
+  memory          = var.worker_memory
+  efi             = true
+  secure_boot     = false
+  run_strategy    = "RerunOnFailure"
+  hostname        = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
+  reserved_memory = "100Mi"
+  machine_type    = "q35"
 
   tags = local.worker_storage_vm_tags_full
 
@@ -154,7 +153,8 @@ resource "harvester_virtualmachine" "worker" {
     auto_delete = true
   }
 
-  cloud_init {
+  cloudinit {
+    type      = "cloudInitNoCloud"
     user_data = templatefile(
       "${path.module}/templates/cloud-config.yaml",
       {
@@ -174,15 +174,15 @@ resource "harvester_virtualmachine" "storage" {
   namespace            = var.provider_namespace
   restart_after_update = true
 
-  description      = "Storage Node"
-  cpu              = var.storage_cpu
-  memory           = var.storage_memory
-  efi              = true
-  secure_boot      = false
-  run_strategy     = "RerunOnFailure"
-  hostname         = "${local.sanitized_username}-storage-${random_id.secret.hex}"
-  reserved_memory  = "100Mi"
-  machine_type     = "q35"
+  description     = "Storage Node"
+  cpu             = var.storage_cpu
+  memory          = var.storage_memory
+  efi             = true
+  secure_boot     = false
+  run_strategy    = "RerunOnFailure"
+  hostname        = "${local.sanitized_username}-storage-${random_id.secret.hex}"
+  reserved_memory = "100Mi"
+  machine_type    = "q35"
 
   tags = local.worker_storage_vm_tags_full
 
@@ -211,7 +211,8 @@ resource "harvester_virtualmachine" "storage" {
     auto_delete = true
   }
 
-  cloud_init {
+  cloudinit {
+    type      = "cloudInitNoCloud"
     user_data = templatefile(
       "${path.module}/templates/cloud-config.yaml",
       {
