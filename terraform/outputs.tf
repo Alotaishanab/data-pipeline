@@ -125,3 +125,8 @@ output "admin_email" {
   description = "The admin email address for Certbot notifications."
   value       = var.username
 }
+
+output "cloudinit_user_data" {
+  value     = harvester_cloudinit_secret.cloud_config.user_data
+  sensitive = true
+}

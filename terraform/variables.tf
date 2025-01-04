@@ -23,25 +23,24 @@ variable "username" {
   type        = string
 }
 
-variable "ssh_key" {
-  description = "SSH public key for authentication"
+variable "keyfile" {
   type        = string
+  description = "Path to your SSH public key file"
 }
 
-variable "ssh_key_marker" {
-  description = "SSH key marker"
+variable "marker_keyfile" {
   type        = string
+  description = "Path to your SSH marker key file"
 }
 
-variable "ssh_ansible_private" {
-  description = "Ansible private SSH key"
+variable "ansible_private" {
   type        = string
-  sensitive   = true
+  description = "Path to your SSH marker key file"
 }
 
-variable "ssh_ansible_public" {
-  description = "Ansible public SSH key"
+variable "ansible_public" {
   type        = string
+  description = "Path to your SSH marker key file"
 }
 
 variable "image_name" {

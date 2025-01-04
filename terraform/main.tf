@@ -32,28 +32,49 @@ resource "random_id" "secret" {
   byte_length = 4
 }
 
+# Read your SSH public key file
+data "local_file" "public_key" {
+  filename = var.keyfile
+}
+
+# Read your SSH marker public key file (the lecturer's key)
+data "local_file" "marker_public_key" {
+  filename = var.marker_keyfile
+}
+
+# Read your Ansible private key file
+data "local_file" "ansible_private_key" {
+  filename = var.ansible_private
+}
+
+# Read your Ansible public key file
+data "local_file" "ansible_public_key" {
+  filename = var.ansible_public
+}
+
 resource "harvester_cloudinit_secret" "cloud_config" {
   name      = "${local.sanitized_username}-cloudinit-${random_id.secret.hex}"
   namespace = var.provider_namespace
 
   user_data = <<-EOF
     #cloud-config
-    ssh_authorized_keys:
-      - ${var.ssh_key}
-      - ${var.ssh_key_marker}
-      - ${var.ssh_ansible_public}
 
-    runcmd:
+      runcmd:
       - yum install -y epel-release
       - yum install -y ansible git
       - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
 
-        # Write Ansible private key & add public key to authorized_keys on Host VM
+      # Write Ansible private key & add public key to authorized_keys on Host VM
       - mkdir -p /home/almalinux/.ssh
-      - echo "${var.ssh_ansible_private}" > /home/almalinux/.ssh/ansible_ed25519
+      - echo "${data.local_file.ansible_private_key.content}" > /home/almalinux/.ssh/ansible_ed25519
       - chmod 600 /home/almalinux/.ssh/ansible_ed25519
-      - echo "${var.ssh_ansible_public}" >> /home/almalinux/.ssh/authorized_keys
+      - echo "${data.local_file.ansible_public_key.content}" >> /home/almalinux/.ssh/authorized_keys
       - chown -R almalinux:almalinux /home/almalinux/.ssh
+      
+    ssh_authorized_keys:
+      - ${data.local_file.public_key.content}
+      - ${data.local_file.marker_public_key.content}
+      - ${data.local_file.ansible_public_key.content}
   EOF
 }
 
@@ -203,6 +224,6 @@ resource "harvester_virtualmachine" "storage" {
   }
 
   cloudinit {
-    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name 
+    user_data_secret_name = harvester_cloudinit_secret.cloud_config.name
   }
 }
