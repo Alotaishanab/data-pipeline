@@ -7,10 +7,10 @@ provider_token     = "kubeconfig-u-fhgdi4zayztbpvr:dwrdmsvv68wbnq7vp7sb25bgl9qgm
 provider_namespace = "ucabbaa-comp0235-ns"
 username           = "ucabbaa@ucl.ac.uk"
 
-keyfile       = "/Users/almalinux/.ssh/id_rsa.pub"
-marker_keyfile = "/Users/almalinux/.ssh/lecturer_key.pub"
-ansible_private = "/Users/almalinux/.ssh/ansible_ed25519"
-ansible_public = "/Users/almalinux/.ssh/ansible_ed25519.pub"
+keyfile       = "../keys/id_rsa.pub"
+marker_keyfile = "../keys/lecturer_key.pub"
+ansible_private = "../keys/ansible_ed25519"
+ansible_public = "../keys/ansible_ed25519.pub"
 
 
 image_name      = "image-bp52g"
