@@ -45,14 +45,16 @@ resource "tls_private_key" "ansible" {
 }
 
 ###############################################################################
-# 3. Store the Private Key locally
+# 3. Store the Private Key locally (OpenSSH format)
 ###############################################################################
 resource "local_file" "ansible_private_key" {
-  content              = tls_private_key.ansible.private_key_pem
+  # Use OpenSSH-format key for direct SSH usage
+  content              = tls_private_key.ansible.private_key_openssh
   filename             = "/home/almalinux/.ssh/ansible_ed25519"
   file_permission      = "0600"
   directory_permission = "0700"
 }
+
 
 ###############################################################################
 # 4. Harvester Image Data
