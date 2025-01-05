@@ -8,12 +8,10 @@
     - name: Remove old known_hosts entry for mgmt IP (if previously used)
       local_action:
         module: shell
-        # Overwrite the default known_hosts file if you need a specific location:
-        # cmd: ssh-keygen -R {{ ansible_host }} -f /home/almalinux/.ssh/known_hosts
         cmd: ssh-keygen -R {{ ansible_host }}
       run_once: true
       delegate_to: localhost
-      become: false   # <--- TURN OFF BECOME for this local action
+      become: false
 
     - name: Copy private key from LOCAL to mgmt node
       ansible.builtin.copy:
@@ -23,17 +21,16 @@
         group: almalinux
         mode: '0600'
 
-    - name: Ensure data-pipeline/ansible/inventories directory is correct
+    - name: Ensure data-pipeline/ansible/inventories directory exists
       file:
         path: /home/almalinux/data-pipeline/ansible/inventories
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
-        recurse: true
 
     - name: Copy updated inventory.json to mgmt node
-      copy:
+      ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
         dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
         owner: almalinux
