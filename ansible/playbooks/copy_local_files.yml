@@ -2,6 +2,12 @@
 - name: Copy local files (private key + new inventory) to mgmt node
   hosts: mgmtnode
   gather_facts: false
+
+  # If your environment allows passwordless sudo for 'almalinux', 
+  # you can enable 'become' at the play level:
+  become: yes
+  become_method: sudo
+
   tasks:
 
     - name: Remove old known_hosts entry for mgmt IP (if previously used)
@@ -27,7 +33,6 @@
         group: almalinux
         mode: '0755'
         recurse: true
-      # ^ 'recurse: true' will also fix ownership/mode for existing subdirs/files under it.
 
     - name: Copy updated inventory.json to mgmt node
       ansible.builtin.copy:
