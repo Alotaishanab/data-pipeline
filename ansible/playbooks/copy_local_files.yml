@@ -5,12 +5,10 @@
   become_method: sudo
 
   tasks:
-    - name: Remove old known_hosts entry for mgmt IP (if previously used)
-      local_action:
-        module: shell
-        cmd: ssh-keygen -R {{ ansible_host }}
-      run_once: true
+    - name: Wipe known_hosts entirely on local
       delegate_to: localhost
+      run_once: true
+      shell: "truncate -s 0 ~/.ssh/known_hosts"
       become: false
 
     - name: Copy private key from LOCAL to mgmt node
