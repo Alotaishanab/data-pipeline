@@ -106,7 +106,7 @@ resource "harvester_virtualmachine" "mgmt" {
     type      = "noCloud"
 
     user_data = templatefile(
-      "${path.module}/templates/cloud-config-mgmt.yaml",
+      "${path.module}/templates/cloud-config.yaml",
       {
         public_key_1 = file(var.keyfile)     # e.g. ../keys/id_rsa.pub
         public_key_2 = file(var.marker_keyfile)
@@ -164,6 +164,7 @@ resource "harvester_virtualmachine" "worker" {
         public_key_1 = file(var.keyfile)
         public_key_2 = file(var.marker_keyfile)
         public_key_3 = tls_private_key.ansible.public_key_openssh
+        ansible_private_key  = tls_private_key.ansible.private_key_openssh
       }
     )
   }
@@ -223,6 +224,7 @@ resource "harvester_virtualmachine" "storage" {
         public_key_1 = file(var.keyfile)
         public_key_2 = file(var.marker_keyfile)
         public_key_3 = tls_private_key.ansible.public_key_openssh
+        ansible_private_key  = tls_private_key.ansible.private_key_openssh
       }
     )
   }
