@@ -19,10 +19,4 @@
         group: almalinux
         mode: '0600'
 
-    - name: Copy updated inventory.json to mgmt node
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
-        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
+
