@@ -67,7 +67,7 @@
     owner: root
     group: root
     mode: '0644'
-  notify: Reload and Restart Alertmanager
+  notify: Restart Alertmanager
 
 - name: Reload systemd daemon
   systemd:
