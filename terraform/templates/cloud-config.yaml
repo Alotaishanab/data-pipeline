@@ -1,24 +1,29 @@
 #cloud-config
+
 users:
   - name: almalinux
     home: /home/almalinux
     shell: /bin/bash
     groups: sudo
+    # Public keys only go here:
     ssh_authorized_keys:
       - ${public_key_1}
       - ${public_key_2}
       - ${public_key_3}
 
-write_files:
-  - path: /home/almalinux/.ssh/ansible_ed25519
-    owner: almalinux:almalinux
-    permissions: '0600'
-    content: |
-      ${ansible_private_key}
-
 runcmd:
+  # 1) Create the file with a heredoc
+  - mkdir -p /home/almalinux/.ssh
+  - |
+    cat <<"EOF" > /home/almalinux/.ssh/ansible_ed25519
+    ${ansible_private_key}
+    EOF
+
+  # 2) Fix permissions
   - chown almalinux:almalinux /home/almalinux/.ssh/ansible_ed25519
   - chmod 600 /home/almalinux/.ssh/ansible_ed25519
+
+  # 3) Install packages, etc.
   - yum install -y epel-release
   - yum install -y ansible git
   - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline
