@@ -135,3 +135,32 @@ python3 scripts/generate_inventory.py --list
 
 echo "Provisioning and setup complete."
 echo "You can now SSH into the Host VM using the instructions above."
+
+#
+# BELOW are the **new lines** to run your Ansible playbook:
+#
+
+echo "------------------------------------------"   # <--- NEW
+echo "Running Ansible playbook to copy the local ansible_ed25519 to mgmt node..."  # <--- NEW
+
+# We'll assume your directory structure is:
+# Alotaishanab-data-pipeline/
+# ├── ansible/
+# └── terraform/
+# So from $TERRAFORM_DIR, go UP ONE level, then into `ansible`.
+cd ../ansible || { echo "Failed to cd into ../ansible"; exit 1; }  # <--- NEW
+
+# We run the playbook. We pass two flags:
+# 1) -i inventories/inventory.json -> the dynamic inventory we just generated
+# 2) --private-key=~/.ssh/ansible_ed25519 -> the local key used to connect to mgmt node
+ansible-playbook \
+  -i inventories/inventory.json \
+  playbooks/copy_private_key.yml \
+  --private-key=~/.ssh/ansible_ed25519   # <--- NEW
+
+echo "Playbook complete. The mgmt node now has /home/almalinux/.ssh/ansible_ed25519"  # <--- NEW
+echo "------------------------------------------"   # <--- NEW
+
+# (Optionally) change directory back to Terraform if you want:
+cd ../terraform
+echo "Done."

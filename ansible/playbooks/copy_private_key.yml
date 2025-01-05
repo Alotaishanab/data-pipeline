@@ -1,0 +1,20 @@
+---
+- name: Copy local ansible_ed25519 to mgmt node
+  hosts: mgmtnode       
+  gather_facts: false
+  tasks:
+
+    - name: Remove old known_hosts entry for mgmt IP (if previously used)
+      local_action:
+        module: shell
+        cmd: ssh-keygen -R {{ ansible_host }}
+      run_once: true
+      delegate_to: localhost
+
+    - name: Copy private key from LOCAL to mgmt node
+      ansible.builtin.copy:
+        src: "{{ lookup('env','HOME') }}/.ssh/ansible_ed25519"   # local path
+        dest: /home/almalinux/.ssh/ansible_ed25519               # remote path
+        owner: almalinux
+        group: almalinux
+        mode: '0600'
