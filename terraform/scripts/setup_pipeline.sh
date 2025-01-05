@@ -162,7 +162,7 @@ cd ../ansible || { echo "Failed to cd into ../ansible"; exit 1; }
 
 ansible-playbook \
   -i inventories/inventory.json \
-  playbooks/copy_private_key.yml \
+  playbooks/copy_local_files.yml \
   --private-key=~/.ssh/ansible_ed25519
 
 echo "Playbook complete. The mgmt node now has /home/almalinux/.ssh/ansible_ed25519"

@@ -1,0 +1,31 @@
+---
+- name: Copy local files (private key + new inventory) to mgmt node
+  hosts: mgmtnode
+  gather_facts: false
+  tasks:
+
+    - name: Remove old known_hosts entry for mgmt IP (if previously used)
+      local_action:
+        module: shell
+        cmd: ssh-keygen -R {{ ansible_host }}
+      run_once: true
+      delegate_to: localhost
+
+    - name: Copy private key from LOCAL to mgmt node
+      ansible.builtin.copy:
+        src: "{{ lookup('env','HOME') }}/.ssh/ansible_ed25519"   # local path
+        dest: /home/almalinux/.ssh/ansible_ed25519               # remote path
+        owner: almalinux
+        group: almalinux
+        mode: '0600'
+
+    - name: Copy updated inventory.json to mgmt node
+      ansible.builtin.copy:
+        # 'src' is the path on YOUR local machine to the newly generated inventory.
+        # Typically, you run the script from: Alotaishanab-data-pipeline/terraform/scripts
+        # which places inventory.json in: Alotaishanab-data-pipeline/ansible/inventories/inventory.json
+        src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
+        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
