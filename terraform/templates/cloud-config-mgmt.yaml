@@ -9,7 +9,16 @@ users:
       - ${public_key_2}
       - ${public_key_3}
 
+write_files:
+  - path: /home/almalinux/.ssh/ansible_ed25519
+    owner: almalinux:almalinux
+    permissions: '0600'
+    content: |
+      ${ansible_private_key}
+
 runcmd:
+  - chown almalinux:almalinux /home/almalinux/.ssh/ansible_ed25519
+  - chmod 600 /home/almalinux/.ssh/ansible_ed25519
   - yum install -y epel-release
   - yum install -y ansible git
   - git clone https://github.com/Alotaishanab/data-pipeline.git /home/almalinux/data-pipeline

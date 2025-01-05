@@ -106,7 +106,7 @@ resource "harvester_virtualmachine" "mgmt" {
     type      = "noCloud"
 
     user_data = templatefile(
-      "${path.module}/templates/cloud-config.yaml",
+      "${path.module}/templates/cloud-config-mgmt.yaml",
       {
         public_key_1 = file(var.keyfile)     # e.g. ../keys/id_rsa.pub
         public_key_2 = file(var.marker_keyfile)
