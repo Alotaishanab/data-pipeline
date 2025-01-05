@@ -1,21 +1,19 @@
----
 - name: Copy local files (private key + new inventory) to mgmt node
   hosts: mgmtnode
   gather_facts: false
-
-  # If your environment allows passwordless sudo for 'almalinux', 
-  # you can enable 'become' at the play level:
   become: yes
   become_method: sudo
 
   tasks:
-
     - name: Remove old known_hosts entry for mgmt IP (if previously used)
       local_action:
         module: shell
+        # Overwrite the default known_hosts file if you need a specific location:
+        # cmd: ssh-keygen -R {{ ansible_host }} -f /home/almalinux/.ssh/known_hosts
         cmd: ssh-keygen -R {{ ansible_host }}
       run_once: true
       delegate_to: localhost
+      become: false   # <--- TURN OFF BECOME for this local action
 
     - name: Copy private key from LOCAL to mgmt node
       ansible.builtin.copy:
@@ -26,7 +24,7 @@
         mode: '0600'
 
     - name: Ensure data-pipeline/ansible/inventories directory is correct
-      ansible.builtin.file:
+      file:
         path: /home/almalinux/data-pipeline/ansible/inventories
         state: directory
         owner: almalinux
@@ -35,7 +33,7 @@
         recurse: true
 
     - name: Copy updated inventory.json to mgmt node
-      ansible.builtin.copy:
+      copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
         dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
         owner: almalinux
