@@ -114,9 +114,12 @@
         dest: /var/www/html/results
         state: link
 
-    - name: Ensure /mnt/results is world-readable
-      shell: "chmod -R 755 /mnt/results"
-      become: yes
+    - name: Ensure /mnt/results is world-readable (recursively)
+      file:
+        path: /mnt/results
+        mode: '0755'
+        recurse: yes
+
       
     - name: Gather mount facts
       ansible.builtin.setup:
