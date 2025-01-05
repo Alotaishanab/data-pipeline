@@ -439,6 +439,13 @@
         regexp: '^admin_password'
         line: 'admin_password = admin'
 
+    - name: Restart Grafana to apply provisioning changes
+      systemd:
+        name: grafana-server
+        state: restarted
+      when: ansible_os_family == "RedHat"  
+
+
 - name: Configure Logging on All Hosts
   hosts: all
   become: yes
