@@ -35,21 +35,23 @@ install_packages() {
     echo "Installing required packages..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if command -v apt-get &> /dev/null; then
-            sudo apt-get update -y && sudo apt-get install -y wget unzip git python3
+            sudo apt-get update -y
+            sudo apt-get install -y wget unzip git python3 ansible  # <-- ADDED ansible
         elif command -v yum &> /dev/null; then
-            sudo yum update -y && sudo yum install -y wget unzip git python3
+            sudo yum update -y
+            sudo yum install -y wget unzip git python3 ansible      # <-- ADDED ansible
         else
-            echo "Unsupported Linux package manager. Please install wget, unzip, git, and python3 manually."
+            echo "Unsupported Linux package manager. Please install wget, unzip, git, python3, and ansible manually."
             exit 1
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew install wget unzip git python3
+        brew install wget unzip git python3 ansible               # <-- ADDED ansible
         if ! command -v jq &> /dev/null; then
             echo "jq not found. Installing jq..."
             brew install jq
         fi
     else
-        echo "Unsupported OS. Please install wget, unzip, git, and python3 manually."
+        echo "Unsupported OS. Please install wget, unzip, git, python3, and ansible manually."
         exit 1
     fi
 }
@@ -106,7 +108,7 @@ print_ssh_instructions() {
 }
 
 # Main script execution
-install_packages
+install_packages        # <--- This now installs ansible as well
 install_terraform
 
 generate_placeholder_files
@@ -140,26 +142,23 @@ echo "You can now SSH into the Host VM using the instructions above."
 # BELOW are the **new lines** to run your Ansible playbook:
 #
 
-echo "------------------------------------------"   # <--- NEW
-echo "Running Ansible playbook to copy the local ansible_ed25519 to mgmt node..."  # <--- NEW
+echo "------------------------------------------"
+echo "Running Ansible playbook to copy the local ansible_ed25519 to mgmt node..."
 
 # We'll assume your directory structure is:
 # Alotaishanab-data-pipeline/
 # ├── ansible/
 # └── terraform/
 # So from $TERRAFORM_DIR, go UP ONE level, then into `ansible`.
-cd ../ansible || { echo "Failed to cd into ../ansible"; exit 1; }  # <--- NEW
+cd ../ansible || { echo "Failed to cd into ../ansible"; exit 1; }
 
-# We run the playbook. We pass two flags:
-# 1) -i inventories/inventory.json -> the dynamic inventory we just generated
-# 2) --private-key=~/.ssh/ansible_ed25519 -> the local key used to connect to mgmt node
 ansible-playbook \
   -i inventories/inventory.json \
   playbooks/copy_private_key.yml \
-  --private-key=~/.ssh/ansible_ed25519   # <--- NEW
+  --private-key=~/.ssh/ansible_ed25519
 
-echo "Playbook complete. The mgmt node now has /home/almalinux/.ssh/ansible_ed25519"  # <--- NEW
-echo "------------------------------------------"   # <--- NEW
+echo "Playbook complete. The mgmt node now has /home/almalinux/.ssh/ansible_ed25519"
+echo "------------------------------------------"
 
 # (Optionally) change directory back to Terraform if you want:
 cd ../terraform
