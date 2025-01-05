@@ -1,5 +1,4 @@
 #cloud-config
-
 users:
   - name: almalinux
     home: /home/almalinux
@@ -9,15 +8,6 @@ users:
       - ${public_key_1}
       - ${public_key_2}
       - ${public_key_3}
-
-%{ if want_ansible_key_file }
-write_files:
-  - path: /home/almalinux/.ssh/ansible_ed25519
-    owner: almalinux:almalinux
-    permissions: '0600'
-    content: |
-      ${ansible_private_key}
-%{ endif }
 
 runcmd:
   - yum install -y epel-release
