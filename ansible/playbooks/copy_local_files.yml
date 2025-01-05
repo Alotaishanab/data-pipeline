@@ -21,14 +21,6 @@
         group: almalinux
         mode: '0600'
 
-    - name: Ensure data-pipeline/ansible/inventories directory exists
-      file:
-        path: /home/almalinux/data-pipeline/ansible/inventories
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
     - name: Copy updated inventory.json to mgmt node
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
