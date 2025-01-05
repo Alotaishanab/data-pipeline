@@ -36,16 +36,23 @@ install_packages() {
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         if command -v apt-get &> /dev/null; then
             sudo apt-get update -y
-            sudo apt-get install -y wget unzip git python3 ansible  # <-- ADDED ansible
+            sudo apt-get install -y wget unzip git python3
         elif command -v yum &> /dev/null; then
+            # For RHEL / CentOS / AlmaLinux / RockyLinux etc.
             sudo yum update -y
-            sudo yum install -y wget unzip git python3 ansible      # <-- ADDED ansible
+
+            # Enable EPEL first
+            sudo yum install -y epel-release
+
+            # Now you can install Ansible
+            sudo yum install -y ansible wget unzip git python3
+
         else
             echo "Unsupported Linux package manager. Please install wget, unzip, git, python3, and ansible manually."
             exit 1
         fi
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew install wget unzip git python3 ansible               # <-- ADDED ansible
+        brew install wget unzip git python3 ansible
         if ! command -v jq &> /dev/null; then
             echo "jq not found. Installing jq..."
             brew install jq
@@ -55,6 +62,7 @@ install_packages() {
         exit 1
     fi
 }
+
 
 
 run_terraform() {
