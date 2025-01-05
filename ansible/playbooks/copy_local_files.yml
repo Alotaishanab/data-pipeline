@@ -11,7 +11,15 @@
       shell: "truncate -s 0 ~/.ssh/known_hosts"
       become: false
 
+    - name: Ensure /home/almalinux/data-pipeline/ansible/inventories exists
+      become_user: almalinux
+      file:
+        path: /home/almalinux/data-pipeline/ansible/inventories
+        state: directory
+        mode: '0755'
+
     - name: Copy private key from LOCAL to mgmt node
+      become_user: almalinux
       ansible.builtin.copy:
         src: "{{ lookup('env','HOME') }}/.ssh/ansible_ed25519"
         dest: /home/almalinux/.ssh/ansible_ed25519
@@ -20,9 +28,10 @@
         mode: '0600'
 
     - name: Overwrite existing inventory.json on mgmt node
+      become_user: almalinux
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
-        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json"
+        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
         owner: almalinux
         group: almalinux
         mode: '0644'
