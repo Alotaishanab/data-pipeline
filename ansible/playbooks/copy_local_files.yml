@@ -19,4 +19,11 @@
         group: almalinux
         mode: '0600'
 
-
+    - name: Overwrite existing inventory.json on mgmt node
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
+        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json"
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
+        force: yes
