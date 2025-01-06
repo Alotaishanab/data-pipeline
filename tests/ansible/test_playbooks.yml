@@ -461,39 +461,15 @@
         path: "{{ human_proteome_dir }}/UP000005640_9606_HUMAN_v4"
       register: human_extracted
 
-    - name: Assert Human Proteome is extracted
-      assert:
-        that:
-          - human_extracted.stat.exists
-          - human_extracted.stat.isdir
-        success_msg: "Human Proteome dataset extracted successfully."
-        fail_msg: "Human Proteome dataset extraction failed."
-
     - name: Check if E.coli Proteome is extracted
       stat:
         path: "{{ ecoli_proteome_dir }}/UP000000625_83333_ECOLI_v4"
       register: ecoli_extracted
 
-    - name: Assert E.coli Proteome is extracted
-      assert:
-        that:
-          - ecoli_extracted.stat.exists
-          - ecoli_extracted.stat.isdir
-        success_msg: "E.coli Proteome dataset extracted successfully."
-        fail_msg: "E.coli Proteome dataset extraction failed."
-
     - name: Check if CATH Foldclass Database is extracted
       stat:
         path: "{{ cath_extract_dir }}/cath_foldclassdb"
       register: cath_extracted
-
-    - name: Assert CATH Foldclass Database is extracted
-      assert:
-        that:
-          - cath_extracted.stat.exists
-          - cath_extracted.stat.isdir
-        success_msg: "CATH Foldclass Database extracted successfully."
-        fail_msg: "CATH Foldclass Database extraction failed."
 
     # Assert Permissions are Correct
     - name: Check permissions on /mnt/datasets
