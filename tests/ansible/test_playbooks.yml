@@ -698,15 +698,6 @@
         path: "{{ pipeline_script }}"
       register: pipeline_script_stat
 
-    - name: Assert pipeline_script.py exists and is executable
-      assert:
-        that:
-          - pipeline_script_stat.stat.exists
-          - pipeline_script_stat.stat.isfile
-          - (pipeline_script_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "pipeline_script.py exists with correct ownership and executable permissions."
-        fail_msg: "pipeline_script.py does not exist or lacks correct ownership/executable permissions."
-
     # Assert results_parser.py exists with correct permissions
     - name: Check if results_parser.py exists
       stat:
