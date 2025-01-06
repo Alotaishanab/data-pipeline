@@ -9,7 +9,7 @@
   tasks:
     # Apply Common Configuration
     - name: Apply Common Configuration
-      import_tasks: ../../ansible/playbooks/common.yml
+      import_playbook: ../../ansible/playbooks/common.yml
 
     # Assert that essential packages are installed
     - name: Check if git is installed
@@ -153,7 +153,7 @@
   tasks:
     # Apply NFS Server Configuration
     - name: Apply NFS Server Configuration
-      import_tasks: ../../ansible/playbooks/nfsserver.yml
+      import_playbook: ../../ansible/playbooks/nfsserver.yml
 
     # Assert nfs-utils is installed
     - name: Check if nfs-utils is installed
@@ -312,7 +312,7 @@
   tasks:
     # Apply NFS Clients Configuration
     - name: Apply NFS Clients Configuration
-      import_tasks: ../../ansible/playbooks/nfsclients.yml
+      import_playbook: ../../ansible/playbooks/nfsclients.yml
 
     # Assert nfs-utils is installed
     - name: Check if nfs-utils is installed on clients
@@ -376,7 +376,7 @@
   tasks:
     # Apply Download and Prepare Datasets Playbook
     - name: Apply Download and Prepare Datasets Playbook
-      import_tasks: ../../ansible/playbooks/download_and_prepare_datasets.yml
+      import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -614,7 +614,7 @@
   tasks:
     # Apply Setup Symlinks Playbook
     - name: Apply Setup Symlinks Playbook
-      import_tasks: ../../ansible/playbooks/setup_symlinks.yml
+      import_playbook: ../../ansible/playbooks/setup_symlinks.yml
 
     # Define expected symlinks and their targets
     - name: Define expected symlinks and targets
@@ -677,7 +677,7 @@
   tasks:
     # Apply Uncompress Files Playbook
     - name: Apply Uncompress Files Playbook
-      import_tasks: ../../ansible/playbooks/uncompress_files.yml
+      import_playbook: ../../ansible/playbooks/uncompress_files.yml
 
     # Define datasets directories
     - name: Define datasets directories
@@ -748,7 +748,7 @@
   tasks:
     # Apply Deploy Scripts Playbook
     - name: Apply Deploy Scripts Playbook
-      import_tasks: ../../ansible/playbooks/deploy_scripts.yml
+      import_playbook: ../../ansible/playbooks/deploy_scripts.yml
 
     # Define pipeline directory and script paths
     - name: Define script paths
@@ -813,7 +813,7 @@
   tasks:
     # Apply Monitoring and Logging Playbook
     - name: Apply Monitoring and Logging Playbook
-      import_tasks: ../../ansible/playbooks/monitoring_and_logging.yml
+      import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
 
     # Assert Installation of EPEL Repository
     - name: Check if EPEL repository is installed
@@ -1059,7 +1059,7 @@
   tasks:
     # Apply Redis Setup Playbook
     - name: Apply Redis Setup Playbook
-      import_tasks: ../../ansible/playbooks/redis_setup.yml
+      import_playbook: ../../ansible/playbooks/redis_setup.yml
 
     # Assert Installation of EPEL Repository
     - name: Check if EPEL repository is installed
@@ -1155,7 +1155,7 @@
   tasks:
     # Apply Celery Setup Playbook
     - name: Apply Celery Setup Playbook
-      import_tasks: ../../ansible/playbooks/celery_setup.yml
+      import_playbook: ../../ansible/playbooks/celery_setup.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -1281,7 +1281,7 @@
   tasks:
     # Apply Setup Webhook Server Playbook
     - name: Apply Setup Webhook Server Playbook
-      import_tasks: ../../ansible/playbooks/setup_webhook_server.yml
+      import_playbook: ../../ansible/playbooks/setup_webhook_server.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -1524,7 +1524,7 @@
   tasks:
     # Apply Distribute and Run Pipeline Playbook
     - name: Apply Distribute and Run Pipeline Playbook
-      import_tasks: ../../ansible/playbooks/distribute_and_run_pipeline.yml
+      import_playbook: ../../ansible/playbooks/distribute_and_run_pipeline.yml
 
     # Define variables for testing
     - name: Define variables for testing
