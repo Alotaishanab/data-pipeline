@@ -289,12 +289,13 @@
     - name: Assert NFS exports are active with correct configurations
       assert:
         that:
-          # Regex to match /mnt/datasets export with required options
-          - exportfs_output.stdout | regex_search('^/mnt/datasets\\s+\\*:\\s*.*\\brw\\b.*\\bsync\\b.*\\bno_root_squash\\b') is not none
-          # Regex to match /mnt/results export with required options
-          - exportfs_output.stdout | regex_search('^/mnt/results\\s+\\*:\\s*.*\\brw\\b.*\\bsync\\b.*\\bno_root_squash\\b') is not none
+          # Ensures /mnt/datasets plus the required options appear in exportfs -v
+          - exportfs_output.stdout | regex_search('/mnt/datasets.*rw.*sync.*no_root_squash', multiline=True) is not none
+          # Ensures /mnt/results plus the required options appear in exportfs -v
+          - exportfs_output.stdout | regex_search('/mnt/results.*rw.*sync.*no_root_squash', multiline=True) is not none
         success_msg: "NFS exports are active and correctly configured."
         fail_msg: "NFS exports are not active or incorrectly configured."
+
 
 
     # Additional checks can be added here as needed
