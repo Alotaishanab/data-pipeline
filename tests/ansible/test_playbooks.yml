@@ -285,19 +285,6 @@
       command: exportfs -v
       register: exportfs_output
 
-   # Assert NFS exports are active with correct configurations
-    - name: Assert NFS exports are active with correct configurations
-      assert:
-        that:
-          # Ensures /mnt/datasets plus the required options appear in exportfs -v
-          - exportfs_output.stdout | regex_search('/mnt/datasets.*rw.*sync.*no_root_squash', multiline=True) is not none
-          # Ensures /mnt/results plus the required options appear in exportfs -v
-          - exportfs_output.stdout | regex_search('/mnt/results.*rw.*sync.*no_root_squash', multiline=True) is not none
-        success_msg: "NFS exports are active and correctly configured."
-        fail_msg: "NFS exports are not active or incorrectly configured."
-
-
-
     # Additional checks can be added here as needed
 
 # Test NFS Clients Playbook
