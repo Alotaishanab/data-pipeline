@@ -610,7 +610,18 @@
       - /mnt/datasets/ecoli_proteome
       - /mnt/datasets/cath_foldclassdb
   tasks:
-    # Assert that .pdb and .cif files are uncompressed
+    - name: Find .pdb and .cif files
+      find:
+        paths: "{{ item }}"
+        patterns:
+          - "*.pdb"
+          - "*.cif"
+        recurse: yes
+      loop: "{{ datasets_dirs }}"
+      loop_control:
+        loop_var: dataset_dir
+      register: uncompressed_files
+
     - name: Assert uncompressed files exist
       assert:
         that:
@@ -621,19 +632,6 @@
       loop_control:
         loop_var: item
 
-
-    - name: Assert uncompressed files exist
-      assert:
-        that:
-          - uncompressed_files.results[index].matched > 0
-        success_msg: "Found {{ uncompressed_files.results[index].matched }} uncompressed files in {{ item }}."
-        fail_msg: "No uncompressed files found in {{ item }}."
-      loop: "{{ datasets_dirs }}"
-      loop_control:
-        loop_var: item
-        index_var: index
-
-    # Optional: Assert that no .gz files remain
     - name: Find remaining .gz files
       find:
         paths: "{{ item }}"
@@ -649,13 +647,12 @@
     - name: Assert no .gz files are present
       assert:
         that:
-          - remaining_gz_files.results[index].matched == 0
+          - remaining_gz_files.results[loop.index0].matched == 0
         success_msg: "No compressed .gz files remain in {{ item }}."
         fail_msg: "There are still compressed .gz files in {{ item }}."
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: item
-        index_var: index
 
 # Test Deploy Scripts Playbook
 - import_playbook: ../../ansible/playbooks/deploy_scripts.yml
