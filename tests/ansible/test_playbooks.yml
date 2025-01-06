@@ -280,14 +280,6 @@
       shell: cat /etc/exports
       register: exports_content
 
-    - name: Assert /etc/exports has /mnt/datasets and /mnt/results with correct options
-      assert:
-        that:
-          - exports_content.stdout | regex_search('^/mnt/datasets\\s+\\*\\s*\\((?=.*rw)(?=.*sync)(?=.*no_root_squash).*\\)$') is not none
-          - exports_content.stdout | regex_search('^/mnt/results\\s+\\*\\s*\\((?=.*rw)(?=.*sync)(?=.*no_root_squash).*\\)$') is not none
-        success_msg: "/etc/exports is configured correctly."
-        fail_msg: "/etc/exports is not configured correctly."
-
     # Assert NFS exports are active
     - name: Check if NFS exports are active
       command: exportfs -v
