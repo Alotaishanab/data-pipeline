@@ -115,10 +115,12 @@
         state: link
 
     - name: Ensure /mnt/results is world-readable (recursively)
+      become: yes
       file:
         path: /mnt/results
         mode: '0755'
         recurse: yes
+      ignore_errors: true
 
       
     - name: Gather mount facts
