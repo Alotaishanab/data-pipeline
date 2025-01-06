@@ -1489,7 +1489,7 @@
         fail_msg: "Flask app is not accessible."
 
 # Test Distribute and Run Data Analysis Pipeline Playbook
-- import_playbook: ../../ansible/playbooks/distribute_and_run_pipeline.yml
+- import_playbook: ../../ansible/playbooks/run_pipeline.yml
 
 - name: Assert Distribute and Run Data Analysis Pipeline Playbook
   hosts: localhost
