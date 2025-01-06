@@ -344,14 +344,15 @@
     - name: Assert ownership and permissions on mount points
       assert:
         that:
-          - mount_stat.results[index].stat.pw_name == "almalinux"
-          - mount_stat.results[index].stat.gr_name == "almalinux"
-          - mount_stat.results[index].stat.mode == "0755"
-        success_msg: "Mount point {{ item.mount_point }} has correct ownership and permissions."
-        fail_msg: "Mount point {{ item.mount_point }} has incorrect ownership or permissions."
+          - item.stat.pw_name == "almalinux"
+          - item.stat.gr_name == "almalinux"
+          - item.stat.mode == "0755"
+        success_msg: "Mount point {{ item.stat.path }} has correct ownership and permissions."
+        fail_msg: "Mount point {{ item.stat.path }} has incorrect ownership or permissions."
       loop: "{{ mount_stat.results }}"
       loop_control:
-        index_var: index
+        loop_var: item
+
 
 # Test Download and Prepare Datasets Playbook
 - import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
