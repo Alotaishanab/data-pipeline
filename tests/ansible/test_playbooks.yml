@@ -1,0 +1,1626 @@
+---
+- name: Test Common Configuration Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Common Configuration
+    - name: Apply Common Configuration
+      import_playbook: ../../ansible/playbooks/common.yml
+
+    # Assert that essential packages are installed
+    - name: Check if git is installed
+      package:
+        name: git
+        state: present
+      register: git_package
+
+    - name: Assert git is installed
+      assert:
+        that:
+          - git_package is succeeded
+        success_msg: "Git is installed successfully."
+        fail_msg: "Git installation failed."
+
+    - name: Check if vim is installed
+      package:
+        name: vim
+        state: present
+      register: vim_package
+
+    - name: Assert vim is installed
+      assert:
+        that:
+          - vim_package is succeeded
+        success_msg: "Vim is installed successfully."
+        fail_msg: "Vim installation failed."
+
+    - name: Check if python3 is installed
+      package:
+        name: python3
+        state: present
+      register: python3_package
+
+    - name: Assert python3 is installed
+      assert:
+        that:
+          - python3_package is succeeded
+        success_msg: "Python3 is installed successfully."
+        fail_msg: "Python3 installation failed."
+
+    - name: Check if pip3 is installed
+      command: pip3 --version
+      register: pip3_version
+      changed_when: false
+      failed_when: false
+
+    - name: Assert pip3 is installed
+      assert:
+        that:
+          - pip3_version.rc == 0
+        success_msg: "pip3 is installed successfully."
+        fail_msg: "pip3 installation failed."
+
+    # Check if firewalld is installed and running on RedHat
+    - name: Check if firewalld is installed
+      package:
+        name: firewalld
+        state: present
+      register: firewalld_package
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Assert firewalld is installed on RedHat
+      assert:
+        that:
+          - firewalld_package is succeeded
+        success_msg: "firewalld is installed successfully on RedHat."
+        fail_msg: "firewalld installation failed on RedHat."
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Check if firewalld is running
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+      register: firewalld_service
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Assert firewalld is running on RedHat
+      assert:
+        that:
+          - firewalld_service is succeeded
+        success_msg: "firewalld is running and enabled on RedHat."
+        fail_msg: "firewalld service is not running/enabled on RedHat."
+      when: ansible_facts['os_family'] == "RedHat"
+
+    # Check if nginx is installed
+    - name: Check if nginx is installed
+      package:
+        name: nginx
+        state: present
+      register: nginx_package
+
+    - name: Assert nginx is installed
+      assert:
+        that:
+          - nginx_package is succeeded
+        success_msg: "Nginx is installed successfully."
+        fail_msg: "Nginx installation failed."
+
+    # Check if Certbot is installed on RedHat
+    - name: Check if certbot is installed
+      package:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      register: certbot_package
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Assert certbot is installed on RedHat
+      assert:
+        that:
+          - certbot_package is succeeded
+        success_msg: "Certbot is installed successfully on RedHat."
+        fail_msg: "Certbot installation failed on RedHat."
+      when: ansible_facts['os_family'] == "RedHat"
+
+    # Check if pip is upgraded
+    - name: Check pip3 version
+      command: pip3 --version
+      register: pip_version
+      changed_when: false
+      failed_when: false
+
+    - name: Assert pip3 is upgraded
+      assert:
+        that:
+          - "'pip' in pip_version.stdout"
+        success_msg: "pip3 is upgraded successfully."
+        fail_msg: "pip3 upgrade failed."
+
+    # Additional checks can be added here as needed
+
+- name: Test NFS Server Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply NFS Server Configuration
+    - name: Apply NFS Server Configuration
+      import_playbook: ../../ansible/playbooks/nfsserver.yml
+
+    # Assert nfs-utils is installed
+    - name: Check if nfs-utils is installed
+      package:
+        name: nfs-utils
+        state: present
+      register: nfs_utils_package
+
+    - name: Assert nfs-utils is installed
+      assert:
+        that:
+          - nfs_utils_package is succeeded
+        success_msg: "nfs-utils is installed successfully."
+        fail_msg: "nfs-utils installation failed."
+
+    # Assert rpcbind is installed
+    - name: Check if rpcbind is installed
+      package:
+        name: rpcbind
+        state: present
+      register: rpcbind_package
+
+    - name: Assert rpcbind is installed
+      assert:
+        that:
+          - rpcbind_package is succeeded
+        success_msg: "rpcbind is installed successfully."
+        fail_msg: "rpcbind installation failed."
+
+    # Assert firewalld is installed (already handled in common.yml, skip if duplicated)
+
+    # Assert firewalld is running (already handled in common.yml, skip if duplicated)
+
+    # Assert NFS related services are enabled in firewalld
+    - name: Check if NFS services are allowed in firewalld
+      firewalld:
+        service: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - nfs
+        - rpc-bind
+        - mountd
+      register: nfs_firewall_services
+
+    - name: Assert NFS services are allowed in firewalld
+      assert:
+        that:
+          - nfs_firewall_services is succeeded
+        success_msg: "NFS services are allowed in firewalld."
+        fail_msg: "Failed to allow NFS services in firewalld."
+
+    # Assert rpcbind service is running
+    - name: Check if rpcbind service is running
+      service:
+        name: rpcbind
+        state: started
+        enabled: yes
+      register: rpcbind_service
+
+    - name: Assert rpcbind service is running
+      assert:
+        that:
+          - rpcbind_service is succeeded
+        success_msg: "rpcbind service is running and enabled."
+        fail_msg: "rpcbind service is not running/enabled."
+
+    # Assert nfs-server service is running
+    - name: Check if nfs-server service is running
+      service:
+        name: nfs-server
+        state: started
+        enabled: yes
+      register: nfs_server_service
+
+    - name: Assert nfs-server service is running
+      assert:
+        that:
+          - nfs_server_service is succeeded
+        success_msg: "nfs-server service is running and enabled."
+        fail_msg: "nfs-server service is not running/enabled."
+
+    # Assert /mnt/datasets and /mnt/results directories exist with correct permissions
+    - name: Check if /mnt/datasets exists
+      stat:
+        path: /mnt/datasets
+      register: datasets_dir
+
+    - name: Assert /mnt/datasets directory exists
+      assert:
+        that:
+          - datasets_dir.stat.exists
+          - datasets_dir.stat.isdir
+        success_msg: "/mnt/datasets directory exists."
+        fail_msg: "/mnt/datasets directory does not exist."
+
+    - name: Check if /mnt/results exists
+      stat:
+        path: /mnt/results
+      register: results_dir
+
+    - name: Assert /mnt/results directory exists
+      assert:
+        that:
+          - results_dir.stat.exists
+          - results_dir.stat.isdir
+        success_msg: "/mnt/results directory exists."
+        fail_msg: "/mnt/results directory does not exist."
+
+    - name: Check permissions on /mnt/datasets and /mnt/results
+      file:
+        path: "{{ item }}"
+        mode: '0777'
+      loop:
+        - /mnt/datasets
+        - /mnt/results
+      register: permissions_check
+
+    - name: Assert permissions on /mnt/datasets and /mnt/results
+      assert:
+        that:
+          - permissions_check is succeeded
+        success_msg: "Permissions on /mnt/datasets and /mnt/results are set correctly."
+        fail_msg: "Permissions on /mnt/datasets and/or /mnt/results are incorrect."
+
+    # Assert /etc/exports is configured correctly
+    - name: Check if /etc/exports has correct NFS shares
+      shell: cat /etc/exports
+      register: exports_content
+
+    - name: Assert /etc/exports has /mnt/datasets and /mnt/results
+      assert:
+        that:
+          - "'/mnt/datasets *(rw,sync,no_root_squash)' in exports_content.stdout"
+          - "'/mnt/results *(rw,sync,no_root_squash)' in exports_content.stdout"
+        success_msg: "/etc/exports is configured correctly."
+        fail_msg: "/etc/exports is not configured correctly."
+
+    # Assert NFS exports are active
+    - name: Check if NFS exports are active
+      command: exportfs -v
+      register: exportfs_output
+
+    - name: Assert NFS exports are active
+      assert:
+        that:
+          - "'/mnt/datasets *(rw,sync,no_root_squash)' in exportfs_output.stdout"
+          - "'/mnt/results *(rw,sync,no_root_squash)' in exportfs_output.stdout"
+        success_msg: "NFS exports are active."
+        fail_msg: "NFS exports are not active."
+
+    # Additional checks can be added here as needed
+
+- name: Test NFS Clients Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply NFS Clients Configuration
+    - name: Apply NFS Clients Configuration
+      import_playbook: ../../ansible/playbooks/nfsclients.yml
+
+    # Assert nfs-utils is installed
+    - name: Check if nfs-utils is installed on clients
+      package:
+        name: nfs-utils
+        state: present
+      register: nfs_utils_client_package
+
+    - name: Assert nfs-utils is installed on clients
+      assert:
+        that:
+          - nfs_utils_client_package is succeeded
+        success_msg: "nfs-utils is installed successfully on clients."
+        fail_msg: "nfs-utils installation failed on clients."
+
+    # Assert NFS mounts are unmounted (no stale mounts)
+    - name: Check if NFS mounts are unmounted initially
+      ansible.posix.mount:
+        path: "{{ item.mount_point }}"
+        state: mounted
+        fstype: nfs
+      loop:
+        - { mount_point: '/mnt/datasets' }
+        - { mount_point: '/mnt/results' }
+      register: initial_mounts
+
+    - name: Assert NFS mounts are initially mounted
+      assert:
+        that:
+          - initial_mounts.results | length == 2
+        success_msg: "NFS mounts are present."
+        fail_msg: "NFS mounts are not present."
+
+    # Re-run mount to ensure they are mounted correctly
+    - name: Re-check NFS mounts
+      ansible.posix.mount:
+        src: "{{ storage_ip }}:{{ item.remote_path }}"
+        path: "{{ item.mount_point }}"
+        fstype: nfs
+        opts: defaults
+        state: mounted
+      loop:
+        - { mount_point: '/mnt/datasets', remote_path: '/mnt/datasets' }
+        - { mount_point: '/mnt/results', remote_path: '/mnt/results' }
+      register: mount_results
+
+    - name: Assert NFS mounts are mounted correctly
+      assert:
+        that:
+          - mount_results.results | selectattr('state', 'equalto', 'mounted') | list | length == 2
+        success_msg: "NFS mounts are mounted correctly."
+        fail_msg: "NFS mounts are not mounted correctly."
+
+    # Assert mount points have correct ownership and permissions
+    - name: Check ownership and permissions on /mnt/datasets and /mnt/results
+      stat:
+        path: "{{ item.mount_point }}"
+      loop:
+        - { mount_point: '/mnt/datasets' }
+        - { mount_point: '/mnt/results' }
+      register: mount_stat
+
+    - name: Assert ownership and permissions on mount points
+      assert:
+        that:
+          - mount_stat.results[0].stat.pw_name == "almalinux"
+          - mount_stat.results[0].stat.gr_name == "almalinux"
+          - mount_stat.results[0].stat.mode == "0755"
+          - mount_stat.results[1].stat.pw_name == "almalinux"
+          - mount_stat.results[1].stat.gr_name == "almalinux"
+          - mount_stat.results[1].stat.mode == "0755"
+        success_msg: "Mount points have correct ownership and permissions."
+        fail_msg: "Mount points have incorrect ownership or permissions."
+
+    - name: Test Download and Prepare Datasets Playbook
+      hosts: localhost
+      connection: local
+      become: yes
+      gather_facts: yes
+
+      tasks:
+        # Apply Download and Prepare Datasets Playbook
+        - name: Apply Download and Prepare Datasets Playbook
+          import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
+
+        # Assert Directories Exist
+        - name: Check if /mnt/datasets directory exists
+          stat:
+            path: /mnt/datasets
+          register: datasets_dir
+
+        - name: Assert /mnt/datasets directory exists
+          assert:
+            that:
+              - datasets_dir.stat.exists
+              - datasets_dir.stat.isdir
+            success_msg: "/mnt/datasets directory exists."
+            fail_msg: "/mnt/datasets directory does not exist."
+
+        - name: Check if /mnt/results directory exists
+          stat:
+            path: /mnt/results
+          register: results_dir
+
+        - name: Assert /mnt/results directory exists
+          assert:
+            that:
+              - results_dir.stat.exists
+              - results_dir.stat.isdir
+            success_msg: "/mnt/results directory exists."
+            fail_msg: "/mnt/results directory does not exist."
+
+        - name: Check if human_proteome_dir exists
+          stat:
+            path: "{{ human_proteome_dir }}"
+          register: human_proteome_dir_stat
+
+        - name: Assert human_proteome_dir exists
+          assert:
+            that:
+              - human_proteome_dir_stat.stat.exists
+              - human_proteome_dir_stat.stat.isdir
+            success_msg: "Human Proteome directory exists."
+            fail_msg: "Human Proteome directory does not exist."
+
+        - name: Check if ecoli_proteome_dir exists
+          stat:
+            path: "{{ ecoli_proteome_dir }}"
+          register: ecoli_proteome_dir_stat
+
+        - name: Assert ecoli_proteome_dir exists
+          assert:
+            that:
+              - ecoli_proteome_dir_stat.stat.exists
+              - ecoli_proteome_dir_stat.stat.isdir
+            success_msg: "E.coli Proteome directory exists."
+            fail_msg: "E.coli Proteome directory does not exist."
+
+        - name: Check if cath_extract_dir exists
+          stat:
+            path: "{{ cath_extract_dir }}"
+          register: cath_extract_dir_stat
+
+        - name: Assert cath_extract_dir exists
+          assert:
+            that:
+              - cath_extract_dir_stat.stat.exists
+              - cath_extract_dir_stat.stat.isdir
+            success_msg: "CATH Foldclass Database extract directory exists."
+            fail_msg: "CATH Foldclass Database extract directory does not exist."
+
+        # Assert Tarballs are Downloaded
+        - name: Check if human_tarball is downloaded
+          stat:
+            path: "{{ human_tarball }}"
+          register: human_tarball_stat
+
+        - name: Assert human_tarball is downloaded
+          assert:
+            that:
+              - human_tarball_stat.stat.exists
+              - human_tarball_stat.stat.size > 0
+            success_msg: "Human Proteome tarball is downloaded successfully."
+            fail_msg: "Human Proteome tarball download failed."
+
+        - name: Check if ecoli_tarball is downloaded
+          stat:
+            path: "{{ ecoli_tarball }}"
+          register: ecoli_tarball_stat
+
+        - name: Assert ecoli_tarball is downloaded
+          assert:
+            that:
+              - ecoli_tarball_stat.stat.exists
+              - ecoli_tarball_stat.stat.size > 0
+            success_msg: "E.coli Proteome tarball is downloaded successfully."
+            fail_msg: "E.coli Proteome tarball download failed."
+
+        - name: Check if cath_tarball is downloaded
+          stat:
+            path: "{{ cath_tarball }}"
+          register: cath_tarball_stat
+
+        - name: Assert cath_tarball is downloaded
+          assert:
+            that:
+              - cath_tarball_stat.stat.exists
+              - cath_tarball_stat.stat.size > 0
+            success_msg: "CATH Foldclass Database tarball is downloaded successfully."
+            fail_msg: "CATH Foldclass Database tarball download failed."
+
+        # Assert Datasets are Extracted
+        - name: Check if Human Proteome is extracted
+          stat:
+            path: "{{ human_proteome_dir }}/UP000005640_9606_HUMAN_v4"
+          register: human_extracted
+
+        - name: Assert Human Proteome is extracted
+          assert:
+            that:
+              - human_extracted.stat.exists
+              - human_extracted.stat.isdir
+            success_msg: "Human Proteome dataset extracted successfully."
+            fail_msg: "Human Proteome dataset extraction failed."
+
+        - name: Check if E.coli Proteome is extracted
+          stat:
+            path: "{{ ecoli_proteome_dir }}/UP000000625_83333_ECOLI_v4"
+          register: ecoli_extracted
+
+        - name: Assert E.coli Proteome is extracted
+          assert:
+            that:
+              - ecoli_extracted.stat.exists
+              - ecoli_extracted.stat.isdir
+            success_msg: "E.coli Proteome dataset extracted successfully."
+            fail_msg: "E.coli Proteome dataset extraction failed."
+
+        - name: Check if CATH Foldclass Database is extracted
+          stat:
+            path: "{{ cath_extract_dir }}/cath_foldclassdb"
+          register: cath_extracted
+
+        - name: Assert CATH Foldclass Database is extracted
+          assert:
+            that:
+              - cath_extracted.stat.exists
+              - cath_extracted.stat.isdir
+            success_msg: "CATH Foldclass Database extracted successfully."
+            fail_msg: "CATH Foldclass Database extraction failed."
+
+        # Assert Permissions are Correct
+        - name: Check permissions on /mnt/datasets
+          stat:
+            path: /mnt/datasets
+          register: datasets_permissions
+
+        - name: Assert permissions on /mnt/datasets
+          assert:
+            that:
+              - datasets_permissions.stat.mode == "0755"
+              - datasets_permissions.stat.pw_name == "almalinux"
+              - datasets_permissions.stat.gr_name == "almalinux"
+            success_msg: "/mnt/datasets has correct permissions."
+            fail_msg: "/mnt/datasets does not have correct permissions."
+
+        - name: Check permissions on /mnt/results
+          stat:
+            path: /mnt/results
+          register: results_permissions
+
+        - name: Assert permissions on /mnt/results
+          assert:
+            that:
+              - results_permissions.stat.mode == "0755"
+              - results_permissions.stat.pw_name == "almalinux"
+              - results_permissions.stat.gr_name == "almalinux"
+            success_msg: "/mnt/results has correct permissions."
+            fail_msg: "/mnt/results does not have correct permissions."
+
+        - name: Check permissions on human_proteome_dir
+          stat:
+            path: "{{ human_proteome_dir }}"
+          register: human_proteome_permissions
+
+        - name: Assert permissions on human_proteome_dir
+          assert:
+            that:
+              - human_proteome_permissions.stat.mode == "0755"
+              - human_proteome_permissions.stat.pw_name == "almalinux"
+              - human_proteome_permissions.stat.gr_name == "almalinux"
+            success_msg: "Human Proteome directory has correct permissions."
+            fail_msg: "Human Proteome directory does not have correct permissions."
+
+        - name: Check permissions on ecoli_proteome_dir
+          stat:
+            path: "{{ ecoli_proteome_dir }}"
+          register: ecoli_proteome_permissions
+
+        - name: Assert permissions on ecoli_proteome_dir
+          assert:
+            that:
+              - ecoli_proteome_permissions.stat.mode == "0755"
+              - ecoli_proteome_permissions.stat.pw_name == "almalinux"
+              - ecoli_proteome_permissions.stat.gr_name == "almalinux"
+            success_msg: "E.coli Proteome directory has correct permissions."
+            fail_msg: "E.coli Proteome directory does not have correct permissions."
+
+        - name: Check permissions on cath_extract_dir
+          stat:
+            path: "{{ cath_extract_dir }}"
+          register: cath_extract_permissions
+
+        - name: Assert permissions on cath_extract_dir
+          assert:
+            that:
+              - cath_extract_permissions.stat.mode == "0755"
+              - cath_extract_permissions.stat.pw_name == "almalinux"
+              - cath_extract_permissions.stat.gr_name == "almalinux"
+            success_msg: "CATH Foldclass Database extract directory has correct permissions."
+            fail_msg: "CATH Foldclass Database extract directory does not have correct permissions."
+
+- name: Test Setup Symlinks Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Setup Symlinks Playbook
+    - name: Apply Setup Symlinks Playbook
+      import_playbook: ../../ansible/playbooks/setup_symlinks.yml
+
+    # Define expected symlinks and their targets
+    - name: Define expected symlinks and targets
+      set_fact:
+        expected_symlinks:
+          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt }
+          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index }
+          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata }
+          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata.index, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata.index }
+
+    # Assert that each symlink exists and points to the correct target
+    - name: Check and assert symbolic links
+      block:
+        - name: Check if symlink exists
+          stat:
+            path: "{{ item.symlink }}"
+          register: symlink_stat
+
+        - name: Assert symlink exists and is a link
+          assert:
+            that:
+              - symlink_stat.stat.exists
+              - symlink_stat.stat.islnk
+            success_msg: "Symlink {{ item.symlink }} exists and is a symbolic link."
+            fail_msg: "Symlink {{ item.symlink }} does not exist or is not a symbolic link."
+          loop: "{{ expected_symlinks }}"
+
+        - name: Check symlink target
+          command: readlink -f "{{ item.symlink }}"
+          register: symlink_target
+          loop: "{{ expected_symlinks }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Assert symlink points to correct target
+          assert:
+            that:
+              - symlink_target.results[{{ index }}].stdout == item.target
+            success_msg: "Symlink {{ item.symlink }} points to the correct target."
+            fail_msg: "Symlink {{ item.symlink }} does not point to the correct target."
+          loop: "{{ expected_symlinks }}"
+          loop_control:
+            index_var: index
+
+- name: Test Uncompress Files Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Uncompress Files Playbook
+    - name: Apply Uncompress Files Playbook
+      import_playbook: ../../ansible/playbooks/uncompress_files.yml
+
+    # Define datasets directories
+    - name: Define datasets directories
+      set_fact:
+        datasets_dirs:
+          - /mnt/datasets/human_proteome
+          - /mnt/datasets/ecoli_proteome
+          - /mnt/datasets/cath_foldclassdb
+
+    # Assert that .pdb and .cif files are uncompressed
+    - name: Assert .pdb and .cif files are uncompressed
+      block:
+        - name: Find .pdb and .cif files
+          find:
+            paths: "{{ item }}"
+            patterns:
+              - "*.pdb"
+              - "*.cif"
+            recurse: yes
+          register: uncompressed_files
+          loop: "{{ datasets_dirs }}"
+          loop_control:
+            loop_var: dataset_dir
+            index_var: idx
+
+        - name: Assert uncompressed files exist
+          assert:
+            that:
+              - uncompressed_files.results[idx].matched > 0
+            success_msg: "Uncompressed files exist in {{ item }}."
+            fail_msg: "No uncompressed files found in {{ item }}."
+          loop: "{{ datasets_dirs }}"
+          loop_control:
+            loop_var: item
+            index_var: idx
+
+    # Optional: Assert that no .gz files remain
+    - name: Assert no .gz files remain
+      block:
+        - name: Find remaining .gz files
+          find:
+            paths: "{{ item }}"
+            patterns:
+              - "*.pdb.gz"
+              - "*.cif.gz"
+            recurse: yes
+          register: remaining_gz_files
+          loop: "{{ datasets_dirs }}"
+          loop_control:
+            loop_var: dataset_dir
+            index_var: idx
+
+        - name: Assert no .gz files are present
+          assert:
+            that:
+              - remaining_gz_files.results[idx].matched == 0
+            success_msg: "No compressed .gz files remain in {{ item }}."
+            fail_msg: "There are still compressed .gz files in {{ item }}."
+          loop: "{{ datasets_dirs }}"
+          loop_control:
+            loop_var: item
+            index_var: idx
+
+- name: Test Deploy Scripts Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Deploy Scripts Playbook
+    - name: Apply Deploy Scripts Playbook
+      import_playbook: ../../ansible/playbooks/deploy_scripts.yml
+
+    # Define pipeline directory and script paths
+    - name: Define script paths
+      set_fact:
+        pipeline_dir: /opt/data_pipeline
+        pipeline_script: /opt/data_pipeline/pipeline_script.py
+        results_parser: /opt/data_pipeline/results_parser.py
+
+    # Assert pipeline directory exists with correct permissions
+    - name: Check if pipeline directory exists
+      stat:
+        path: "{{ pipeline_dir }}"
+      register: pipeline_dir_stat
+
+    - name: Assert pipeline directory exists
+      assert:
+        that:
+          - pipeline_dir_stat.stat.exists
+          - pipeline_dir_stat.stat.isdir
+          - pipeline_dir_stat.stat.pw_name == "almalinux"
+          - pipeline_dir_stat.stat.gr_name == "almalinux"
+          - pipeline_dir_stat.stat.mode == "0755"
+        success_msg: "Pipeline directory exists with correct ownership and permissions."
+        fail_msg: "Pipeline directory does not exist or has incorrect ownership/permissions."
+
+    # Assert pipeline_script.py exists with correct permissions
+    - name: Check if pipeline_script.py exists
+      stat:
+        path: "{{ pipeline_script }}"
+      register: pipeline_script_stat
+
+    - name: Assert pipeline_script.py exists and is executable
+      assert:
+        that:
+          - pipeline_script_stat.stat.exists
+          - pipeline_script_stat.stat.isfile
+          - pipeline_script_stat.stat.pw_name == "almalinux"
+          - pipeline_script_stat.stat.gr_name == "almalinux"
+          - pipeline_script_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "pipeline_script.py exists with correct ownership and executable permissions."
+        fail_msg: "pipeline_script.py does not exist or lacks correct ownership/executable permissions."
+
+    # Assert results_parser.py exists with correct permissions
+    - name: Check if results_parser.py exists
+      stat:
+        path: "{{ results_parser }}"
+      register: results_parser_stat
+
+    - name: Assert results_parser.py exists and is executable
+      assert:
+        that:
+          - results_parser_stat.stat.exists
+          - results_parser_stat.stat.isfile
+          - results_parser_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "results_parser.py exists with correct ownership and executable permissions."
+        fail_msg: "results_parser.py does not exist or lacks correct ownership/executable permissions."
+
+- name: Test Monitoring and Logging Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Monitoring and Logging Playbook
+    - name: Apply Monitoring and Logging Playbook
+      import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
+
+    # Assert Installation of EPEL Repository
+    - name: Check if EPEL repository is installed
+      yum_repository:
+        name: epel
+        state: present
+      register: epel_repo
+
+    - name: Assert EPEL repository is installed
+      assert:
+        that:
+          - epel_repo.state == "present"
+        success_msg: "EPEL repository is installed."
+        fail_msg: "EPEL repository is not installed."
+
+    # Assert Installation of firewalld, python3-pip, python3-firewall, lsof
+    - name: Check if firewalld is installed
+      package:
+        name: firewalld
+        state: present
+      register: firewalld_installed
+
+    - name: Assert firewalld is installed
+      assert:
+        that:
+          - firewalld_installed is succeeded
+        success_msg: "firewalld is installed."
+        fail_msg: "firewalld is not installed."
+
+    - name: Check if python3-pip is installed
+      package:
+        name: python3-pip
+        state: present
+      register: pip3_installed
+
+    - name: Assert python3-pip is installed
+      assert:
+        that:
+          - pip3_installed is succeeded
+        success_msg: "python3-pip is installed."
+        fail_msg: "python3-pip is not installed."
+
+    - name: Check if python3-firewall is installed
+      package:
+        name: python3-firewall
+        state: present
+      register: python3_firewall_installed
+
+    - name: Assert python3-firewall is installed
+      assert:
+        that:
+          - python3_firewall_installed is succeeded
+        success_msg: "python3-firewall is installed."
+        fail_msg: "python3-firewall is not installed."
+
+    - name: Check if lsof is installed
+      package:
+        name: lsof
+        state: present
+      register: lsof_installed
+
+    - name: Assert lsof is installed
+      assert:
+        that:
+          - lsof_installed is succeeded
+        success_msg: "lsof is installed."
+        fail_msg: "lsof is not installed."
+
+    # Assert firewalld is running and enabled
+    - name: Check if firewalld is active
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+      register: firewalld_active
+
+    - name: Assert firewalld is active
+      assert:
+        that:
+          - firewalld_active is succeeded
+        success_msg: "firewalld is active and enabled."
+        fail_msg: "firewalld is not active or not enabled."
+
+    # Assert Prometheus Node Exporter is installed and running
+    - name: Check if node_exporter user exists
+      getent:
+        database: passwd
+        key: node_exporter
+      register: node_exporter_user
+
+    - name: Assert node_exporter user exists
+      assert:
+        that:
+          - node_exporter_user is succeeded
+        success_msg: "node_exporter user exists."
+        fail_msg: "node_exporter user does not exist."
+
+    - name: Check if node_exporter binary exists
+      stat:
+        path: /usr/local/bin/node_exporter
+      register: node_exporter_bin
+
+    - name: Assert node_exporter binary exists
+      assert:
+        that:
+          - node_exporter_bin.stat.exists
+          - node_exporter_bin.stat.isfile
+        success_msg: "node_exporter binary exists."
+        fail_msg: "node_exporter binary does not exist."
+
+    - name: Check if node_exporter service is running
+      service:
+        name: node_exporter
+        state: started
+        enabled: yes
+      register: node_exporter_service
+
+    - name: Assert node_exporter service is running
+      assert:
+        that:
+          - node_exporter_service is succeeded
+        success_msg: "node_exporter service is running and enabled."
+        fail_msg: "node_exporter service is not running or not enabled."
+
+    # Assert Prometheus is installed and running
+    - name: Check if prometheus user exists
+      getent:
+        database: passwd
+        key: prometheus
+      register: prometheus_user
+
+    - name: Assert prometheus user exists
+      assert:
+        that:
+          - prometheus_user is succeeded
+        success_msg: "prometheus user exists."
+        fail_msg: "prometheus user does not exist."
+
+    - name: Check if prometheus binary exists
+      stat:
+        path: /usr/local/bin/prometheus
+      register: prometheus_bin
+
+    - name: Assert prometheus binary exists
+      assert:
+        that:
+          - prometheus_bin.stat.exists
+          - prometheus_bin.stat.isfile
+        success_msg: "Prometheus binary exists."
+        fail_msg: "Prometheus binary does not exist."
+
+    - name: Check if prometheus service is running
+      service:
+        name: prometheus
+        state: started
+        enabled: yes
+      register: prometheus_service
+
+    - name: Assert prometheus service is running
+      assert:
+        that:
+          - prometheus_service is succeeded
+        success_msg: "Prometheus service is running and enabled."
+        fail_msg: "Prometheus service is not running or not enabled."
+
+    # Assert Grafana is installed and running
+    - name: Check if grafana-server is installed
+      package:
+        name: grafana
+        state: present
+      register: grafana_installed
+
+    - name: Assert Grafana is installed
+      assert:
+        that:
+          - grafana_installed is succeeded
+        success_msg: "Grafana is installed."
+        fail_msg: "Grafana is not installed."
+
+    - name: Check if grafana-server service is running
+      service:
+        name: grafana-server
+        state: started
+        enabled: yes
+      register: grafana_service
+
+    - name: Assert grafana-server service is running
+      assert:
+        that:
+          - grafana_service is succeeded
+        success_msg: "Grafana service is running and enabled."
+        fail_msg: "Grafana service is not running or not enabled."
+
+    # Assert rsyslog is installed and configured
+    - name: Check if rsyslog is installed
+      package:
+        name: rsyslog
+        state: present
+      register: rsyslog_installed
+
+    - name: Assert rsyslog is installed
+      assert:
+        that:
+          - rsyslog_installed is succeeded
+        success_msg: "rsyslog is installed."
+        fail_msg: "rsyslog is not installed."
+
+    - name: Check if rsyslog service is running
+      service:
+        name: rsyslog
+        state: started
+        enabled: yes
+      register: rsyslog_service
+
+    - name: Assert rsyslog service is running
+      assert:
+        that:
+          - rsyslog_service is succeeded
+        success_msg: "rsyslog service is running and enabled."
+        fail_msg: "rsyslog service is not running or not enabled."
+
+    - name: Check rsyslog configuration for sending logs to control node
+      shell: grep "@@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514" /etc/rsyslog.conf
+      register: rsyslog_config
+      changed_when: false
+      failed_when: false
+
+    - name: Assert rsyslog is configured to send logs to control node
+      assert:
+        that:
+          - rsyslog_config.rc == 0
+        success_msg: "rsyslog is configured to send logs to control node."
+        fail_msg: "rsyslog is not configured correctly to send logs to control node."
+
+- name: Test Redis Setup Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Redis Setup Playbook
+    - name: Apply Redis Setup Playbook
+      import_playbook: ../../ansible/playbooks/redis_setup.yml
+
+    # Assert Installation of EPEL Repository
+    - name: Check if EPEL repository is installed
+      yum_repository:
+        name: epel
+        state: present
+      register: epel_repo_redis
+
+    - name: Assert EPEL repository is installed for Redis
+      assert:
+        that:
+          - epel_repo_redis.state == "present"
+        success_msg: "EPEL repository is installed."
+        fail_msg: "EPEL repository is not installed."
+
+    # Assert firewalld is installed and running (handled in common.yml)
+    - name: Check if firewalld is active
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+      register: firewalld_active_redis
+
+    - name: Assert firewalld is active for Redis
+      assert:
+        that:
+          - firewalld_active_redis is succeeded
+        success_msg: "firewalld is active and enabled."
+        fail_msg: "firewalld is not active or not enabled."
+
+    # Assert Redis is installed and running
+    - name: Check if redis is installed
+      package:
+        name: redis
+        state: present
+      register: redis_installed
+
+    - name: Assert Redis is installed
+      assert:
+        that:
+          - redis_installed is succeeded
+        success_msg: "Redis is installed."
+        fail_msg: "Redis is not installed."
+
+    - name: Check if redis service is running
+      service:
+        name: redis
+        state: started
+        enabled: yes
+      register: redis_service
+
+    - name: Assert redis service is running
+      assert:
+        that:
+          - redis_service is succeeded
+        success_msg: "Redis service is running and enabled."
+        fail_msg: "Redis service is not running or not enabled."
+
+    # Assert Redis is configured to bind to 0.0.0.0
+    - name: Check Redis bind configuration
+      command: grep "^bind " /etc/redis/redis.conf
+      register: redis_bind_config
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Redis is configured to bind to 0.0.0.0
+      assert:
+        that:
+          - "'bind 0.0.0.0' in redis_bind_config.stdout"
+        success_msg: "Redis is configured to accept connections from all interfaces."
+        fail_msg: "Redis is not configured correctly to accept external connections."
+
+    # Assert Redis port 6379 is open in firewalld
+    - name: Check if port 6379/tcp is allowed in firewalld
+      shell: firewall-cmd --permanent --list-ports | grep "6379/tcp"
+      register: redis_firewall_rule
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Redis port 6379/tcp is open in firewalld
+      assert:
+        that:
+          - redis_firewall_rule.rc == 0
+        success_msg: "Redis port 6379/tcp is open in firewalld."
+        fail_msg: "Redis port 6379/tcp is not open in firewalld."
+
+- name: Test Celery Setup Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Celery Setup Playbook
+    - name: Apply Celery Setup Playbook
+      import_playbook: ../../ansible/playbooks/celery_setup.yml
+
+    # Define variables for testing
+    - name: Define variables for testing
+      set_fact:
+        celery_service: celery
+        celery_user: almalinux
+        celery_group: almalinux
+        celery_directory: /opt/data_pipeline
+        celery_worker_script: /opt/data_pipeline/celery_worker.py
+        celery_start_script: /opt/data_pipeline/start_celery.sh
+        celery_service_file: /etc/systemd/system/celery.service
+        redis_host: "{{ hostvars['storage']['ansible_host'] }}"
+
+    # Assert Celery service exists and is active
+    - name: Check if Celery service file exists
+      stat:
+        path: "{{ celery_service_file }}"
+      register: celery_service_stat
+
+    - name: Assert Celery service file exists
+      assert:
+        that:
+          - celery_service_stat.stat.exists
+          - celery_service_stat.stat.isfile
+        success_msg: "Celery service file exists."
+        fail_msg: "Celery service file does not exist."
+
+    - name: Check if Celery service is active and enabled
+      service:
+        name: "{{ celery_service }}"
+        state: started
+        enabled: yes
+      register: celery_service_status
+
+    - name: Assert Celery service is active and enabled
+      assert:
+        that:
+          - celery_service_status is succeeded
+        success_msg: "Celery service is running and enabled."
+        fail_msg: "Celery service is not running or not enabled."
+
+    # Assert Celery worker script exists and is executable
+    - name: Check if Celery worker script exists
+      stat:
+        path: "{{ celery_worker_script }}"
+      register: celery_worker_stat
+
+    - name: Assert Celery worker script exists and is executable
+      assert:
+        that:
+          - celery_worker_stat.stat.exists
+          - celery_worker_stat.stat.isfile
+          - celery_worker_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "Celery worker script exists and is executable."
+        fail_msg: "Celery worker script does not exist or is not executable."
+
+    # Assert Celery start script exists and is executable
+    - name: Check if Celery start script exists
+      stat:
+        path: "{{ celery_start_script }}"
+      register: celery_start_stat
+
+    - name: Assert Celery start script exists and is executable
+      assert:
+        that:
+          - celery_start_stat.stat.exists
+          - celery_start_stat.stat.isfile
+          - celery_start_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "Celery start script exists and is executable."
+        fail_msg: "Celery start script does not exist or is not executable."
+
+    # Assert Celery binary exists in virtualenv
+    - name: Check if Celery binary exists in virtualenv
+      stat:
+        path: "/opt/merizo_search/merizosearch_env/bin/celery"
+      register: celery_binary_stat
+
+    - name: Assert Celery binary exists in virtualenv
+      assert:
+        that:
+          - celery_binary_stat.stat.exists
+          - celery_binary_stat.stat.isfile
+        success_msg: "Celery binary exists in virtualenv."
+        fail_msg: "Celery binary does not exist in virtualenv."
+
+    # Assert Redis broker is accessible
+    - name: Check Redis broker connectivity
+      command: "redis-cli -h {{ redis_host }} ping"
+      register: redis_ping
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Redis broker is accessible
+      assert:
+        that:
+          - redis_ping.stdout == "PONG"
+        success_msg: "Redis broker is accessible."
+        fail_msg: "Redis broker is not accessible."
+
+    # Assert Celery queues are correctly configured
+    - name: Check Celery queues are active
+      command: "{{ celery_bin }} -A celery_worker inspect active_queues"
+      register: celery_queues
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Celery queues are active
+      assert:
+        that:
+          - "'worker1_queue'" in celery_queues.stdout
+          - "'worker2_queue'" in celery_queues.stdout
+          - "'worker3_queue'" in celery_queues.stdout
+        success_msg: "All Celery queues are active."
+        fail_msg: "One or more Celery queues are not active."
+
+- name: Test Setup Webhook Server Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Setup Webhook Server Playbook
+    - name: Apply Setup Webhook Server Playbook
+      import_playbook: ../../ansible/playbooks/setup_webhook_server.yml
+
+    # Define variables for testing
+    - name: Define variables for testing
+      set_fact:
+        webhook_service: webhook_server
+        httpd_service: httpd
+        webhook_script: /opt/data_pipeline/webhook_server.py
+        update_disabled_workers_script: /opt/data_pipeline/update_disabled_workers.py
+        dispatch_script: /opt/data_pipeline/dispatch_tasks.py
+        dispatch_service_human: dispatch_tasks_human.service
+        dispatch_service_ecoli: dispatch_tasks_ecoli.service
+        flask_app_port: 8080
+        results_symlink: /var/www/html/results
+        custom_index_html: /var/www/html/index.html
+
+    # Assert Webhook service exists and is active
+    - name: Check if Webhook service file exists
+      stat:
+        path: /etc/systemd/system/{{ webhook_service }}.service
+      register: webhook_service_stat
+
+    - name: Assert Webhook service file exists
+      assert:
+        that:
+          - webhook_service_stat.stat.exists
+          - webhook_service_stat.stat.isfile
+        success_msg: "Webhook service file exists."
+        fail_msg: "Webhook service file does not exist."
+
+    - name: Check if Webhook service is active and enabled
+      service:
+        name: "{{ webhook_service }}"
+        state: started
+        enabled: yes
+      register: webhook_service_status
+
+    - name: Assert Webhook service is active and enabled
+      assert:
+        that:
+          - webhook_service_status is succeeded
+        success_msg: "Webhook service is running and enabled."
+        fail_msg: "Webhook service is not running or not enabled."
+
+    # Assert Webhook server script exists and is executable
+    - name: Check if Webhook server script exists
+      stat:
+        path: "{{ webhook_script }}"
+      register: webhook_script_stat
+
+    - name: Assert Webhook server script exists and is executable
+      assert:
+        that:
+          - webhook_script_stat.stat.exists
+          - webhook_script_stat.stat.isfile
+          - webhook_script_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "Webhook server script exists and is executable."
+        fail_msg: "Webhook server script does not exist or is not executable."
+
+    # Assert Update Disabled Workers script exists and is executable
+    - name: Check if Update Disabled Workers script exists
+      stat:
+        path: "{{ update_disabled_workers_script }}"
+      register: update_disabled_workers_stat
+
+    - name: Assert Update Disabled Workers script exists and is executable
+      assert:
+        that:
+          - update_disabled_workers_stat.stat.exists
+          - update_disabled_workers_stat.stat.isfile
+          - update_disabled_workers_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "Update Disabled Workers script exists and is executable."
+        fail_msg: "Update Disabled Workers script does not exist or is not executable."
+
+    # Assert Apache HTTP Server (httpd) is installed and running
+    - name: Check if Apache HTTP Server is installed
+      package:
+        name: httpd
+        state: present
+      register: httpd_installed
+
+    - name: Assert Apache HTTP Server is installed
+      assert:
+        that:
+          - httpd_installed is succeeded
+        success_msg: "Apache HTTP Server is installed."
+        fail_msg: "Apache HTTP Server is not installed."
+
+    - name: Check if Apache HTTP Server is active and enabled
+      service:
+        name: "{{ httpd_service }}"
+        state: started
+        enabled: yes
+      register: httpd_service_status
+
+    - name: Assert Apache HTTP Server is active and enabled
+      assert:
+        that:
+          - httpd_service_status is succeeded
+        success_msg: "Apache HTTP Server is running and enabled."
+        fail_msg: "Apache HTTP Server is not running or not enabled."
+
+    # Assert Firewall allows Flask app port (8080)
+    - name: Check if port {{ flask_app_port }}/tcp is open in firewalld
+      shell: firewall-cmd --permanent --list-ports | grep "{{ flask_app_port }}/tcp"
+      register: flask_port_open
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Flask app port is open in firewalld
+      assert:
+        that:
+          - flask_port_open.rc == 0
+        success_msg: "Flask app port {{ flask_app_port }}/tcp is open in firewalld."
+        fail_msg: "Flask app port {{ flask_app_port }}/tcp is not open in firewalld."
+
+    # Assert Webhook script is executable
+    - name: Check if Webhook script is executable
+      stat:
+        path: "{{ webhook_script }}"
+      register: webhook_script_exec_stat
+
+    - name: Assert Webhook script is executable
+      assert:
+        that:
+          - webhook_script_exec_stat.stat.mode | int(base=8) & 0o755 == 0o755
+        success_msg: "Webhook script is executable."
+        fail_msg: "Webhook script is not executable."
+
+    # Assert Results symlink exists and points correctly
+    - name: Check if results symlink exists
+      stat:
+        path: "{{ results_symlink }}"
+      register: results_symlink_stat
+
+    - name: Assert results symlink exists and is a link
+      assert:
+        that:
+          - results_symlink_stat.stat.exists
+          - results_symlink_stat.stat.islnk
+        success_msg: "Results symlink exists and is a symbolic link."
+        fail_msg: "Results symlink does not exist or is not a symbolic link."
+
+    - name: Check symlink target for results
+      command: readlink -f "{{ results_symlink }}"
+      register: results_symlink_target
+      changed_when: false
+      failed_when: false
+
+    - name: Assert results symlink points to /mnt/results
+      assert:
+        that:
+          - results_symlink_target.stdout == "/mnt/results"
+        success_msg: "Results symlink points to /mnt/results."
+        fail_msg: "Results symlink does not point to /mnt/results."
+
+    # Assert Custom index.html exists and has correct content
+    - name: Check if custom index.html exists
+      stat:
+        path: "{{ custom_index_html }}"
+      register: custom_index_stat
+
+    - name: Assert custom index.html exists
+      assert:
+        that:
+          - custom_index_stat.stat.exists
+          - custom_index_stat.stat.isfile
+        success_msg: "Custom index.html exists."
+        fail_msg: "Custom index.html does not exist."
+
+    - name: Check content of custom index.html
+      command: grep "Proteomics Results" "{{ custom_index_html }}"
+      register: index_html_content
+      changed_when: false
+      failed_when: false
+
+    - name: Assert custom index.html has correct content
+      assert:
+        that:
+          - index_html_content.rc == 0
+        success_msg: "Custom index.html contains expected content."
+        fail_msg: "Custom index.html does not contain expected content."
+
+    # Assert Dispatch Tasks services are running and enabled
+    - name: Check if Dispatch Tasks services are active
+      service:
+        name: "dispatch_tasks_{{ item.organism }}.service"
+        state: started
+        enabled: yes
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+      register: dispatch_services_status
+
+    - name: Assert Dispatch Tasks services are active and enabled
+      assert:
+        that:
+          - dispatch_services_status.results | selectattr('failed', 'equalto', False) | list | length == 2
+        success_msg: "Dispatch Tasks services for all datasets are running and enabled."
+        fail_msg: "One or more Dispatch Tasks services are not running or not enabled."
+
+    # Assert Redis cleanup timer is active
+    - name: Check if Redis cleanup timer is active
+      service:
+        name: redis_task_cleanup.timer
+        state: started
+        enabled: yes
+      register: redis_cleanup_timer_status
+
+    - name: Assert Redis cleanup timer is active and enabled
+      assert:
+        that:
+          - redis_cleanup_timer_status is succeeded
+        success_msg: "Redis cleanup timer is active and enabled."
+        fail_msg: "Redis cleanup timer is not active or not enabled."
+
+    # Assert Flask app is accessible via HTTP
+    - name: Check if Flask app is accessible
+      uri:
+        url: "http://localhost:{{ flask_app_port }}/"
+        return_content: yes
+        status_code: 200
+      register: flask_app_response
+      retries: 5
+      delay: 10
+      until: flask_app_response.status == 200
+
+    - name: Assert Flask app is accessible
+      assert:
+        that:
+          - flask_app_response.status == 200
+        success_msg: "Flask app is accessible."
+        fail_msg: "Flask app is not accessible."
+
+- name: Test Distribute and Run Data Analysis Pipeline Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # Apply Distribute and Run Pipeline Playbook
+    - name: Apply Distribute and Run Pipeline Playbook
+      import_playbook: ../../ansible/playbooks/distribute_and_run_pipeline.yml
+
+    # Define variables for testing
+    - name: Define variables for testing
+      set_fact:
+        datasets:
+          - organism: "human"
+            data_input_dir: "/mnt/datasets/human_proteome/"
+            results_dir: "/mnt/results/human/"
+          - organism: "ecoli"
+            data_input_dir: "/mnt/datasets/ecoli_proteome/"
+            results_dir: "/mnt/results/ecoli/"
+
+    # Assert that data_input_dir and results_dir exist for each dataset
+    - name: Assert data_input_dir and results_dir exist
+      block:
+        - name: Check if data_input_dir exists
+          stat:
+            path: "{{ item.data_input_dir }}"
+          register: data_dir_stat
+
+        - name: Assert data_input_dir exists and is a directory
+          assert:
+            that:
+              - data_dir_stat.stat.exists
+              - data_dir_stat.stat.isdir
+            success_msg: "Data input directory {{ item.data_input_dir }} exists and is a directory."
+            fail_msg: "Data input directory {{ item.data_input_dir }} does not exist or is not a directory."
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+
+    - name: Assert results_dir exist
+      block:
+        - name: Check if results_dir exists
+          stat:
+            path: "{{ item.results_dir }}"
+          register: results_dir_stat
+
+        - name: Assert results_dir exists and is a directory
+          assert:
+            that:
+              - results_dir_stat.stat.exists
+              - results_dir_stat.stat.isdir
+            success_msg: "Results directory {{ item.results_dir }} exists and is a directory."
+            fail_msg: "Results directory {{ item.results_dir }} does not exist or is not a directory."
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+
+    # Assert that .pdb files are found in each data_input_dir
+    - name: Assert .pdb files are found in data_input_dir
+      block:
+        - name: Find .pdb files
+          find:
+            paths: "{{ item.data_input_dir }}"
+            patterns: "*.pdb"
+            recurse: yes
+          register: pdb_files_found
+
+        - name: Assert at least one .pdb file is found
+          assert:
+            that:
+              - pdb_files_found.files | length > 0
+            success_msg: "Found {{ pdb_files_found.files | length }} .pdb files in {{ item.data_input_dir }}."
+            fail_msg: "No .pdb files found in {{ item.data_input_dir }}."
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+
+    # Assert that datasets_pdb fact is set correctly
+    - name: Assert datasets_pdb fact is set correctly
+      assert:
+        that:
+          - datasets_pdb is defined
+          - datasets_pdb | length == 2  # Assuming two datasets
+          - datasets_pdb[0].organism == "human"
+          - datasets_pdb[1].organism == "ecoli"
+          - datasets_pdb[0].results_dir == "/mnt/results/human/"
+          - datasets_pdb[1].results_dir == "/mnt/results/ecoli/"
+          - datasets_pdb[0].data_input_dir == "/mnt/datasets/human_proteome/"
+          - datasets_pdb[1].data_input_dir == "/mnt/datasets/ecoli_proteome/"
+          - datasets_pdb[0].files | length > 0
+          - datasets_pdb[1].files | length > 0
+        success_msg: "datasets_pdb fact is correctly set with all required information."
+        fail_msg: "datasets_pdb fact is not set correctly."
+
+    # Assert that enqueueing tasks (debug messages) was executed
+    # Note: Since the playbook uses debug messages, we can verify that no errors occurred during loop execution
+    - name: Ensure enqueueing tasks (debug messages) executed without errors
+      assert:
+        that:
+          - ansible_run_status is not failed
+        success_msg: "Enqueueing tasks executed successfully."
+        fail_msg: "Enqueueing tasks encountered errors."

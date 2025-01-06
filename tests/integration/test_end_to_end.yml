@@ -1,0 +1,30 @@
+- name: End-to-End Pipeline Test
+  hosts: host  
+  gather_facts: false
+  become: yes
+
+  tasks:
+    - name: Run pipeline_script on a sample PDB
+      command: python3 /opt/data_pipeline/pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
+      register: pipeline_run
+      changed_when: false
+
+    - name: Assert pipeline_script completed successfully
+      ansible.builtin.assert:
+        that:
+          - pipeline_run.rc == 0
+        success_msg: "pipeline_script.py completed successfully."
+        fail_msg: "pipeline_script.py failed with an error."
+
+    - name: Check for parsed results in /mnt/results/test
+      find:
+        paths: /mnt/results/test
+        patterns: "*parsed"
+      register: parsed_files
+
+    - name: Assert at least one parsed file is found
+      ansible.builtin.assert:
+        that:
+          - parsed_files.matched > 0
+        success_msg: "Parsed files found for test organism."
+        fail_msg: "No parsed files found; pipeline end-to-end test failed."

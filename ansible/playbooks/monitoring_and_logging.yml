@@ -1,31 +1,19 @@
----
 - name: Setup Monitoring and Logging on All Hosts
   hosts: all
   become: yes
   tasks:
-    #### Enable EPEL repository
     - name: Install EPEL repository
       yum:
         name: epel-release
         state: present
 
-    #### Install firewalld, python3-pip, python3-firewall, and lsof
-    - name: Install firewalld, python3-pip, python3-firewall, and lsof
-      yum:
-        name:
-          - firewalld
-          - python3-pip
-          - python3-firewall
-        state: present
-
-    #### Ensure firewalld is running and enabled
+    
     - name: Ensure firewalld is running and enabled
       systemd:
         name: firewalld
         state: started
         enabled: yes
 
-    #### Install Prometheus Node Exporter
     - name: Install Prometheus Node Exporter
       block:
         - name: Create node_exporter user
@@ -39,7 +27,7 @@
             url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
             dest: "/tmp/node_exporter.tar.gz"
             mode: '0644'
-            force: yes  # Force re-download to ensure we have the correct file
+            force: yes  
 
         - name: Extract Node Exporter
           unarchive:
@@ -86,7 +74,6 @@
             state: started
             enabled: yes
 
-    #### Configure Firewall to Allow Node Exporter Port (9100)
     - name: Open port 9100 in firewalld
       firewalld:
         port: 9100/tcp
@@ -100,7 +87,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Install and Start httpd (Apache HTTP Server)
     - name: Install httpd
       yum:
         name: httpd
@@ -112,7 +98,6 @@
         state: started
         enabled: yes
 
-    #### Configure Firewall to Allow httpd Port (80)
     - name: Open port 80 in firewalld for httpd
       firewalld:
         port: 80/tcp
@@ -176,7 +161,6 @@
         group: prometheus
         mode: '0755'
 
-    # Create Prometheus directories before copying consoles and console_libraries
     - name: Create Prometheus directories
       file:
         path: "{{ item }}"
@@ -262,7 +246,6 @@
       include_role:
         name: prometheus_alerts
 
-    #### Configure Firewall to Allow Prometheus Port (9090)
     - name: Open port 9090 in firewalld
       firewalld:
         port: 9090/tcp
@@ -276,7 +259,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Create Prometheus systemd service
     - name: Create Prometheus systemd service
       copy:
         dest: /etc/systemd/system/prometheus.service
@@ -351,7 +333,6 @@
         - /var/log/grafana
         - /etc/grafana
 
-    #### Configure Firewall to Allow Grafana Port (3000)
     - name: Open port 3000 in firewalld
       firewalld:
         port: 3000/tcp
@@ -365,7 +346,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Start and enable Grafana service
     - name: Start and enable Grafana service
       systemd:
         name: grafana-server
@@ -455,7 +435,6 @@
         name: rsyslog
         state: present
 
-    #### Configure Firewall to Allow rsyslog Port (514)
     - name: Open port 514 in firewalld for rsyslog
       firewalld:
         port: 514/tcp
@@ -469,7 +448,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    #### Configure rsyslog to send logs to control node
     - name: Configure rsyslog to send logs to control node
       lineinfile:
         path: /etc/rsyslog.conf
@@ -477,7 +455,6 @@
         line: "*.* @@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514"
         state: present
 
-    #### Ensure rsyslog is started and enabled
     - name: Start and enable rsyslog service
       systemd:
         name: rsyslog

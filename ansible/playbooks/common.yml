@@ -3,22 +3,18 @@
   become: yes
   vars:
   tasks:
-
-    # For Debian-based systems
     - name: Update and upgrade packages on Debian-based systems
       apt:
         update_cache: yes
         upgrade: dist
       when: ansible_os_family == "Debian"
 
-    # For RedHat-based systems
     - name: Update and upgrade packages on RedHat-based systems
       yum:
         name: "*"
         state: latest
       when: ansible_os_family == "RedHat"
 
-    # Install essential packages on Debian
     - name: Install essential packages on Debian-based systems
       apt:
         name:
@@ -31,7 +27,6 @@
         state: present
       when: ansible_os_family == "Debian"
 
-    # Install essential packages on RedHat
     - name: Install essential packages on RedHat-based systems
       yum:
         name:
@@ -43,17 +38,17 @@
           - python3-pip
           - python3-devel    # Provides development headers for building virtual environments
           - pigz
+          - firewalld
+          - python3-firewall
         state: present
       when: ansible_os_family == "RedHat"
 
-    # Upgrade pip everywhere
     - name: Upgrade pip to the latest version on all machines
       pip:
         name: pip
         executable: pip3
         state: latest
 
-    # Firewalld (RedHat)
     - name: Ensure firewalld is installed on RedHat-based systems
       package:
         name: firewalld
@@ -67,13 +62,11 @@
         enabled: yes
       when: ansible_os_family == "RedHat"
 
-    # Nginx on all machines (idempotent install)
     - name: Ensure Nginx is installed on all machines
       package:
         name: nginx
         state: present
 
-    # Certbot (RedHat only)
     - name: Install Certbot on RedHat-based systems
       yum:
         name:

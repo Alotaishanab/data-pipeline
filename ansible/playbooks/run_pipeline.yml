@@ -38,5 +38,4 @@
       loop_control:
         label: "{{ item.organism }}"
 
-    # Removed the direct shell execution to rely on systemd services
-    # The systemd services will continuously monitor and dispatch tasks
+

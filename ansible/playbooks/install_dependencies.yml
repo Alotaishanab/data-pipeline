@@ -12,16 +12,6 @@
     user_home: "/home/almalinux"
 
   tasks:
-    - name: Install required system packages
-      package:
-        name:
-          - python3
-          - python3-pip
-          - python3-devel    # Provides development headers required for building virtual environments
-          - pigz
-          - git
-        state: present
-
     - name: Upgrade pip to the latest version
       pip:
         name: pip
@@ -92,7 +82,6 @@
         requirements: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
         virtualenv: "{{ virtualenv_path }}"
         state: present
-        # Removed 'extra_args: "--no-deps"' to allow dependency installation
 
     - name: Install CPU-only PyTorch in Virtualenv
       pip:
