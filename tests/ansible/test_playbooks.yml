@@ -283,8 +283,8 @@
     - name: Assert /etc/exports has /mnt/datasets and /mnt/results with correct options
       assert:
         that:
-          - exports_content.stdout | regex_search('/mnt/datasets\s+\*\(rw,sync,no_root_squash\)')
-          - exports_content.stdout | regex_search('/mnt/results\s+\*\(rw,sync,no_root_squash\)')
+          - exports_content.stdout | regex_search('/mnt/datasets\\s+\\*\\(rw,sync,no_root_squash\\)') is not none
+          - exports_content.stdout | regex_search('/mnt/results\\s+\\*\\(rw,sync,no_root_squash\\)') is not none
         success_msg: "/etc/exports is configured correctly."
         fail_msg: "/etc/exports is not configured correctly."
 
