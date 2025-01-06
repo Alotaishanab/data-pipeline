@@ -1,4 +1,4 @@
-- name: Copy local files (private key + new inventory) to mgmt node
+- name: Manage data pipeline and copy files to mgmt node
   hosts: mgmtnode
   gather_facts: false
   become: yes
@@ -10,6 +10,17 @@
       run_once: true
       shell: "truncate -s 0 ~/.ssh/known_hosts"
       become: false
+
+    - name: Move data-pipeline from /root to /home/almalinux (if present in /root)
+      shell: >
+        if [ -d /root/data-pipeline ]; then
+          mv /root/data-pipeline /home/almalinux/
+        fi
+      ignore_errors: true
+
+    - name: Fix ownership of /home/almalinux/data-pipeline
+      command: chown -R almalinux:almalinux /home/almalinux/data-pipeline
+      ignore_errors: true
 
     - name: Ensure /home/almalinux/data-pipeline/ansible/inventories exists
       become_user: almalinux
@@ -26,6 +37,7 @@
         owner: almalinux
         group: almalinux
         mode: '0600'
+        force: yes
 
     - name: Overwrite existing inventory.json on mgmt node
       become_user: almalinux
