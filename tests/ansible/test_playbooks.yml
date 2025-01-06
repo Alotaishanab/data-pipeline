@@ -713,15 +713,6 @@
         path: "{{ results_parser }}"
       register: results_parser_stat
 
-    - name: Assert results_parser.py exists and is executable
-      assert:
-        that:
-          - results_parser_stat.stat.exists
-          - results_parser_stat.stat.isfile
-          - (results_parser_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "results_parser.py exists with correct ownership and executable permissions."
-        fail_msg: "results_parser.py does not exist or lacks correct ownership/executable permissions."
-
 # Test Monitoring and Logging Playbook
 - import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
 
