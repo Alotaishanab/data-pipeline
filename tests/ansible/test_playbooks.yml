@@ -449,6 +449,8 @@
           - human_tarball_stat.stat.size > 0
         success_msg: "Human Proteome tarball is downloaded successfully."
         fail_msg: "Human Proteome tarball download failed."
+      delegate_to: storage
+
 
     - name: Check if ecoli_tarball is downloaded
       stat:
@@ -462,6 +464,7 @@
           - ecoli_tarball_stat.stat.size > 0
         success_msg: "E.coli Proteome tarball is downloaded successfully."
         fail_msg: "E.coli Proteome tarball download failed."
+      delegate_to: storage
 
     - name: Check if cath_tarball is downloaded
       stat:
@@ -475,6 +478,7 @@
           - cath_tarball_stat.stat.size > 0
         success_msg: "CATH Foldclass Database tarball is downloaded successfully."
         fail_msg: "CATH Foldclass Database tarball download failed."
+      delegate_to: storage
 
     # Assert Datasets are Extracted
     - name: Check if Human Proteome is extracted
