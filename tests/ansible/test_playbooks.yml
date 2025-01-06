@@ -1,4 +1,3 @@
----
 # Test Playbooks for Alotaishanab-data-pipeline
 
 - name: Test Common Configuration Playbook
@@ -10,7 +9,7 @@
   tasks:
     # Apply Common Configuration
     - name: Apply Common Configuration
-      import_playbook: ../../ansible/playbooks/common.yml
+      import_tasks: ../../ansible/playbooks/common.yml
 
     # Assert that essential packages are installed
     - name: Check if git is installed
@@ -154,7 +153,7 @@
   tasks:
     # Apply NFS Server Configuration
     - name: Apply NFS Server Configuration
-      import_playbook: ../../ansible/playbooks/nfsserver.yml
+      import_tasks: ../../ansible/playbooks/nfsserver.yml
 
     # Assert nfs-utils is installed
     - name: Check if nfs-utils is installed
@@ -200,8 +199,8 @@
       assert:
         that:
           - nfs_firewall_services is succeeded
-      success_msg: "NFS services are allowed in firewalld."
-      fail_msg: "Failed to allow NFS services in firewalld."
+        success_msg: "NFS services are allowed in firewalld."
+        fail_msg: "Failed to allow NFS services in firewalld."
 
     # Assert rpcbind service is running
     - name: Check if rpcbind service is running
@@ -215,8 +214,8 @@
       assert:
         that:
           - rpcbind_service is succeeded
-      success_msg: "rpcbind service is running and enabled."
-      fail_msg: "rpcbind service is not running/enabled."
+        success_msg: "rpcbind service is running and enabled."
+        fail_msg: "rpcbind service is not running/enabled."
 
     # Assert nfs-server service is running
     - name: Check if nfs-server service is running
@@ -230,8 +229,8 @@
       assert:
         that:
           - nfs_server_service is succeeded
-      success_msg: "nfs-server service is running and enabled."
-      fail_msg: "nfs-server service is not running/enabled."
+        success_msg: "nfs-server service is running and enabled."
+        fail_msg: "nfs-server service is not running/enabled."
 
     # Assert /mnt/datasets and /mnt/results directories exist with correct permissions
     - name: Check if /mnt/datasets exists
@@ -273,8 +272,8 @@
       assert:
         that:
           - permissions_check is succeeded
-      success_msg: "Permissions on /mnt/datasets and /mnt/results are set correctly."
-      fail_msg: "Permissions on /mnt/datasets and/or /mnt/results are incorrect."
+        success_msg: "Permissions on /mnt/datasets and /mnt/results are set correctly."
+        fail_msg: "Permissions on /mnt/datasets and/or /mnt/results are incorrect."
 
     # Assert /etc/exports is configured correctly
     - name: Check if /etc/exports has correct NFS shares
@@ -286,8 +285,8 @@
         that:
           - "'/mnt/datasets *(rw,sync,no_root_squash)' in exports_content.stdout"
           - "'/mnt/results *(rw,sync,no_root_squash)' in exports_content.stdout"
-      success_msg: "/etc/exports is configured correctly."
-      fail_msg: "/etc/exports is not configured correctly."
+        success_msg: "/etc/exports is configured correctly."
+        fail_msg: "/etc/exports is not configured correctly."
 
     # Assert NFS exports are active
     - name: Check if NFS exports are active
@@ -299,8 +298,8 @@
         that:
           - "'/mnt/datasets *(rw,sync,no_root_squash)' in exportfs_output.stdout"
           - "'/mnt/results *(rw,sync,no_root_squash)' in exportfs_output.stdout"
-      success_msg: "NFS exports are active."
-      fail_msg: "NFS exports are not active."
+        success_msg: "NFS exports are active."
+        fail_msg: "NFS exports are not active."
 
     # Additional checks can be added here as needed
 
@@ -313,7 +312,7 @@
   tasks:
     # Apply NFS Clients Configuration
     - name: Apply NFS Clients Configuration
-      import_playbook: ../../ansible/playbooks/nfsclients.yml
+      import_tasks: ../../ansible/playbooks/nfsclients.yml
 
     # Assert nfs-utils is installed
     - name: Check if nfs-utils is installed on clients
@@ -344,8 +343,8 @@
       assert:
         that:
           - mount_results.results | selectattr('state', 'equalto', 'mounted') | list | length == 2
-      success_msg: "NFS mounts are mounted correctly."
-      fail_msg: "NFS mounts are not mounted correctly."
+        success_msg: "NFS mounts are mounted correctly."
+        fail_msg: "NFS mounts are not mounted correctly."
 
     # Assert mount points have correct ownership and permissions
     - name: Check ownership and permissions on /mnt/datasets and /mnt/results
@@ -359,14 +358,14 @@
     - name: Assert ownership and permissions on mount points
       assert:
         that:
-          - mount_stat.results[0].stat.pw_name == "almalinux"
-          - mount_stat.results[0].stat.gr_name == "almalinux"
-          - mount_stat.results[0].stat.mode == "0755"
-          - mount_stat.results[1].stat.pw_name == "almalinux"
-          - mount_stat.results[1].stat.gr_name == "almalinux"
-          - mount_stat.results[1].stat.mode == "0755"
-      success_msg: "Mount points have correct ownership and permissions."
-      fail_msg: "Mount points have incorrect ownership or permissions."
+          - mount_stat.results[{{ index }}].stat.pw_name == "almalinux"
+          - mount_stat.results[{{ index }}].stat.gr_name == "almalinux"
+          - mount_stat.results[{{ index }}].stat.mode == "0755"
+        success_msg: "Mount points have correct ownership and permissions."
+        fail_msg: "Mount points have incorrect ownership or permissions."
+      loop: "{{ mount_stat.results }}"
+      loop_control:
+        index_var: index
 
 - name: Test Download and Prepare Datasets Playbook
   hosts: localhost
@@ -377,7 +376,7 @@
   tasks:
     # Apply Download and Prepare Datasets Playbook
     - name: Apply Download and Prepare Datasets Playbook
-      import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
+      import_tasks: ../../ansible/playbooks/download_and_prepare_datasets.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -615,7 +614,7 @@
   tasks:
     # Apply Setup Symlinks Playbook
     - name: Apply Setup Symlinks Playbook
-      import_playbook: ../../ansible/playbooks/setup_symlinks.yml
+      import_tasks: ../../ansible/playbooks/setup_symlinks.yml
 
     # Define expected symlinks and their targets
     - name: Define expected symlinks and targets
@@ -667,7 +666,7 @@
             loop_var: item
             index_var: index
 
-    # Note: The above loop assumes Ansible version supports 'results' and 'index_var'
+      # Note: The above loop assumes Ansible version supports 'results' and 'index_var'
 
 - name: Test Uncompress Files Playbook
   hosts: localhost
@@ -678,7 +677,7 @@
   tasks:
     # Apply Uncompress Files Playbook
     - name: Apply Uncompress Files Playbook
-      import_playbook: ../../ansible/playbooks/uncompress_files.yml
+      import_tasks: ../../ansible/playbooks/uncompress_files.yml
 
     # Define datasets directories
     - name: Define datasets directories
@@ -702,18 +701,17 @@
           loop: "{{ datasets_dirs }}"
           loop_control:
             loop_var: dataset_dir
-            index_var: idx
 
         - name: Assert uncompressed files exist
           assert:
             that:
-              - uncompressed_files.results[idx].matched > 0
+              - uncompressed_files.results[{{ index }}].matched > 0
             success_msg: "Uncompressed files exist in {{ item }}."
             fail_msg: "No uncompressed files found in {{ item }}."
           loop: "{{ datasets_dirs }}"
           loop_control:
             loop_var: item
-            index_var: idx
+            index_var: index
 
     # Optional: Assert that no .gz files remain
     - name: Assert no .gz files remain
@@ -729,18 +727,17 @@
           loop: "{{ datasets_dirs }}"
           loop_control:
             loop_var: dataset_dir
-            index_var: idx
 
         - name: Assert no .gz files are present
           assert:
             that:
-              - remaining_gz_files.results[idx].matched == 0
+              - remaining_gz_files.results[{{ index }}].matched == 0
             success_msg: "No compressed .gz files remain in {{ item }}."
             fail_msg: "There are still compressed .gz files in {{ item }}."
           loop: "{{ datasets_dirs }}"
           loop_control:
             loop_var: item
-            index_var: idx
+            index_var: index
 
 - name: Test Deploy Scripts Playbook
   hosts: localhost
@@ -751,7 +748,7 @@
   tasks:
     # Apply Deploy Scripts Playbook
     - name: Apply Deploy Scripts Playbook
-      import_playbook: ../../ansible/playbooks/deploy_scripts.yml
+      import_tasks: ../../ansible/playbooks/deploy_scripts.yml
 
     # Define pipeline directory and script paths
     - name: Define script paths
@@ -816,7 +813,7 @@
   tasks:
     # Apply Monitoring and Logging Playbook
     - name: Apply Monitoring and Logging Playbook
-      import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
+      import_tasks: ../../ansible/playbooks/monitoring_and_logging.yml
 
     # Assert Installation of EPEL Repository
     - name: Check if EPEL repository is installed
@@ -1062,7 +1059,7 @@
   tasks:
     # Apply Redis Setup Playbook
     - name: Apply Redis Setup Playbook
-      import_playbook: ../../ansible/playbooks/redis_setup.yml
+      import_tasks: ../../ansible/playbooks/redis_setup.yml
 
     # Assert Installation of EPEL Repository
     - name: Check if EPEL repository is installed
@@ -1158,7 +1155,7 @@
   tasks:
     # Apply Celery Setup Playbook
     - name: Apply Celery Setup Playbook
-      import_playbook: ../../ansible/playbooks/celery_setup.yml
+      import_tasks: ../../ansible/playbooks/celery_setup.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -1284,7 +1281,7 @@
   tasks:
     # Apply Setup Webhook Server Playbook
     - name: Apply Setup Webhook Server Playbook
-      import_playbook: ../../ansible/playbooks/setup_webhook_server.yml
+      import_tasks: ../../ansible/playbooks/setup_webhook_server.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -1527,7 +1524,7 @@
   tasks:
     # Apply Distribute and Run Pipeline Playbook
     - name: Apply Distribute and Run Pipeline Playbook
-      import_playbook: ../../ansible/playbooks/distribute_and_run_pipeline.yml
+      import_tasks: ../../ansible/playbooks/distribute_and_run_pipeline.yml
 
     # Define variables for testing
     - name: Define variables for testing
@@ -1557,7 +1554,7 @@
             fail_msg: "Data input directory {{ item.data_input_dir }} does not exist or is not a directory."
       loop: "{{ datasets }}"
       loop_control:
-        label: "{{ item.organism }}"
+        loop_var: item
 
     # Assert results_dir exist
     - name: Assert results_dir exist
@@ -1576,7 +1573,7 @@
             fail_msg: "Results directory {{ item.results_dir }} does not exist or is not a directory."
       loop: "{{ datasets }}"
       loop_control:
-        label: "{{ item.organism }}"
+        loop_var: item
 
     # Assert that .pdb files are found in each data_input_dir
     - name: Assert .pdb files are found in data_input_dir
@@ -1596,7 +1593,7 @@
             fail_msg: "No .pdb files found in {{ item.data_input_dir }}."
       loop: "{{ datasets }}"
       loop_control:
-        label: "{{ item.organism }}"
+        loop_var: item
 
     # Assert that datasets_pdb fact is set correctly
     - name: Assert datasets_pdb fact is set correctly
