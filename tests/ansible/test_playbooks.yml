@@ -441,6 +441,7 @@
       stat:
         path: "{{ human_tarball }}"
       register: human_tarball_stat
+      delegate_to: storage
 
     - name: Assert human_tarball is downloaded
       assert:
@@ -451,11 +452,12 @@
         fail_msg: "Human Proteome tarball download failed."
       delegate_to: storage
 
-
+    # Similarly, ensure that other tarball checks are also delegated appropriately:
     - name: Check if ecoli_tarball is downloaded
       stat:
         path: "{{ ecoli_tarball }}"
       register: ecoli_tarball_stat
+      delegate_to: storage
 
     - name: Assert ecoli_tarball is downloaded
       assert:
@@ -470,6 +472,7 @@
       stat:
         path: "{{ cath_tarball }}"
       register: cath_tarball_stat
+      delegate_to: storage
 
     - name: Assert cath_tarball is downloaded
       assert:
@@ -479,6 +482,7 @@
         success_msg: "CATH Foldclass Database tarball is downloaded successfully."
         fail_msg: "CATH Foldclass Database tarball download failed."
       delegate_to: storage
+
 
     # Assert Datasets are Extracted
     - name: Check if Human Proteome is extracted
