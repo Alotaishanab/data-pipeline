@@ -23,9 +23,9 @@
       become_user: almalinux
       wait_for:
         path: /home/almalinux/data-pipeline/ansible/inventories
-        state: directory
-        delay: 5       # Wait 5 seconds before first check
-        timeout: 120   # Keep checking up to 120 seconds
+        state: present   # <-- Changed from "directory" to "present"
+        delay: 5         # Wait 5 seconds before first check
+        timeout: 120     # Keep checking up to 120 seconds
         msg: "data-pipeline/ansible/inventories folder never appeared on the mgmt node."
 
     - name: Copy updated inventory.json to mgmt node
