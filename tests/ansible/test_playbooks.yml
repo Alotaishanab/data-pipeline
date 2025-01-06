@@ -611,7 +611,6 @@
     datasets_dirs:
       - /mnt/datasets/human_proteome
       - /mnt/datasets/ecoli_proteome
-      - /mnt/datasets/cath_foldclassdb
 
   tasks:
     - name: Find .pdb and .cif files
