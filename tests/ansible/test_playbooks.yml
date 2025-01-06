@@ -611,17 +611,16 @@
       - /mnt/datasets/cath_foldclassdb
   tasks:
     # Assert that .pdb and .cif files are uncompressed
-    - name: Find .pdb and .cif files
-      find:
-        paths: "{{ item }}"
-        patterns:
-          - "*.pdb"
-          - "*.cif"
-        recurse: yes
+    - name: Assert uncompressed files exist
+      assert:
+        that:
+          - uncompressed_files.results[loop.index0].matched > 0
+        success_msg: "Found {{ uncompressed_files.results[loop.index0].matched }} uncompressed files in {{ item }}."
+        fail_msg: "No uncompressed files found in {{ item }}."
       loop: "{{ datasets_dirs }}"
       loop_control:
-        loop_var: dataset_dir
-      register: uncompressed_files
+        loop_var: item
+
 
     - name: Assert uncompressed files exist
       assert:
