@@ -358,9 +358,9 @@
     - name: Assert ownership and permissions on mount points
       assert:
         that:
-          - mount_stat.results[{{ index }}].stat.pw_name == "almalinux"
-          - mount_stat.results[{{ index }}].stat.gr_name == "almalinux"
-          - mount_stat.results[{{ index }}].stat.mode == "0755"
+          - mount_stat.results[index].stat.pw_name == "almalinux"
+          - mount_stat.results[index].stat.gr_name == "almalinux"
+          - mount_stat.results[index].stat.mode == "0755"
         success_msg: "Mount points have correct ownership and permissions."
         fail_msg: "Mount points have incorrect ownership or permissions."
       loop: "{{ mount_stat.results }}"
@@ -639,8 +639,8 @@
         - name: Assert symlink exists and is a link
           assert:
             that:
-              - symlink_stat.results[{{ index }}].stat.exists
-              - symlink_stat.results[{{ index }}].stat.islnk
+              - symlink_stat.results[index].stat.exists
+              - symlink_stat.results[index].stat.islnk
             success_msg: "Symlink {{ item.symlink }} exists and is a symbolic link."
             fail_msg: "Symlink {{ item.symlink }} does not exist or is not a symbolic link."
           loop: "{{ expected_symlinks }}"
@@ -658,7 +658,7 @@
         - name: Assert symlink points to correct target
           assert:
             that:
-              - symlink_target.results[{{ index }}].stdout == item.target
+              - symlink_target.results[index].stdout == item.target
             success_msg: "Symlink {{ item.symlink }} points to the correct target."
             fail_msg: "Symlink {{ item.symlink }} does not point to the correct target."
           loop: "{{ expected_symlinks }}"
@@ -705,7 +705,7 @@
         - name: Assert uncompressed files exist
           assert:
             that:
-              - uncompressed_files.results[{{ index }}].matched > 0
+              - uncompressed_files.results[index].matched > 0
             success_msg: "Uncompressed files exist in {{ item }}."
             fail_msg: "No uncompressed files found in {{ item }}."
           loop: "{{ datasets_dirs }}"
@@ -731,7 +731,7 @@
         - name: Assert no .gz files are present
           assert:
             that:
-              - remaining_gz_files.results[{{ index }}].matched == 0
+              - remaining_gz_files.results[index].matched == 0
             success_msg: "No compressed .gz files remain in {{ item }}."
             fail_msg: "There are still compressed .gz files in {{ item }}."
           loop: "{{ datasets_dirs }}"
