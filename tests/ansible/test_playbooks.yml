@@ -599,6 +599,9 @@
 # Test Uncompress Files Playbook
 - import_playbook: ../../ansible/playbooks/uncompress_files.yml
 
+# Test Uncompress Files Playbook
+- import_playbook: ../../ansible/playbooks/uncompress_files.yml
+
 - name: Assert Uncompress Files Playbook
   hosts: localhost
   connection: local
@@ -609,10 +612,11 @@
       - /mnt/datasets/human_proteome
       - /mnt/datasets/ecoli_proteome
       - /mnt/datasets/cath_foldclassdb
+
   tasks:
     - name: Find .pdb and .cif files
       find:
-        paths: "{{ item }}"
+        paths: "{{ dataset_dir }}"
         patterns:
           - "*.pdb"
           - "*.cif"
@@ -620,21 +624,23 @@
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: dataset_dir
+        index_var: find_index   # We define a custom index for clarity
       register: uncompressed_files
 
     - name: Assert uncompressed files exist
       assert:
         that:
-          - uncompressed_files.results[loop.index0].matched > 0
-        success_msg: "Found {{ uncompressed_files.results[loop.index0].matched }} uncompressed files in {{ item }}."
+          - uncompressed_files.results[find_index].matched > 0
+        success_msg: "Found {{ uncompressed_files.results[find_index].matched }} uncompressed files in {{ item }}."
         fail_msg: "No uncompressed files found in {{ item }}."
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: item
+        index_var: find_index
 
     - name: Find remaining .gz files
       find:
-        paths: "{{ item }}"
+        paths: "{{ dataset_dir }}"
         patterns:
           - "*.pdb.gz"
           - "*.cif.gz"
@@ -642,17 +648,20 @@
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: dataset_dir
+        index_var: gz_index
       register: remaining_gz_files
 
     - name: Assert no .gz files are present
       assert:
         that:
-          - remaining_gz_files.results[loop.index0].matched == 0
+          - remaining_gz_files.results[gz_index].matched == 0
         success_msg: "No compressed .gz files remain in {{ item }}."
         fail_msg: "There are still compressed .gz files in {{ item }}."
       loop: "{{ datasets_dirs }}"
       loop_control:
         loop_var: item
+        index_var: gz_index
+
 
 # Test Deploy Scripts Playbook
 - import_playbook: ../../ansible/playbooks/deploy_scripts.yml
