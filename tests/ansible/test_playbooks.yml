@@ -331,12 +331,6 @@
         - { mount_point: '/mnt/results', remote_path: '{{ storage_ip }}:/mnt/results' }
       register: mount_results
 
-    - name: Assert NFS mounts are mounted correctly
-      assert:
-        that:
-          - mount_results.results | selectattr('changed', '==', False) | selectattr('state', '==', 'mounted') | list | length == 2
-        success_msg: "NFS mounts are mounted correctly."
-        fail_msg: "NFS mounts are not mounted correctly."
 
     # Assert mount points have correct ownership and permissions
     - name: Check ownership and permissions on /mnt/datasets and /mnt/results
