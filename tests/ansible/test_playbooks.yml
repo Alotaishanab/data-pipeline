@@ -280,11 +280,11 @@
       shell: cat /etc/exports
       register: exports_content
 
-    - name: Assert /etc/exports has /mnt/datasets and /mnt/results
+    - name: Assert /etc/exports has /mnt/datasets and /mnt/results with correct options
       assert:
         that:
-          - "'/mnt/datasets *(rw,sync,no_root_squash)' in exports_content.stdout"
-          - "'/mnt/results *(rw,sync,no_root_squash)' in exports_content.stdout"
+          - exports_content.stdout | regex_search('/mnt/datasets\s+\*\(rw,sync,no_root_squash\)')
+          - exports_content.stdout | regex_search('/mnt/results\s+\*\(rw,sync,no_root_squash\)')
         success_msg: "/etc/exports is configured correctly."
         fail_msg: "/etc/exports is not configured correctly."
 
