@@ -145,7 +145,7 @@
     # Additional checks can be added here as needed
 
 # Test NFS Server Playbook
-- import_playbook: ../../ansible/playbooks/nfsserver.yml
+- import_playbook: ../../ansible/playbooks/nfs_server.yml
 
 - name: Assert NFS Server Playbook
   hosts: localhost
@@ -304,7 +304,7 @@
     # Additional checks can be added here as needed
 
 # Test NFS Clients Playbook
-- import_playbook: ../../ansible/playbooks/nfsclients.yml
+- import_playbook: ../../ansible/playbooks/nfs_clients.yml
 
 - name: Assert NFS Clients Playbook
   hosts: localhost
