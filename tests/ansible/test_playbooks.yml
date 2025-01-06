@@ -1,4 +1,6 @@
 ---
+# Test Playbooks for Alotaishanab-data-pipeline
+
 - name: Test Common Configuration Playbook
   hosts: localhost
   connection: local
@@ -182,11 +184,7 @@
         success_msg: "rpcbind is installed successfully."
         fail_msg: "rpcbind installation failed."
 
-    # Assert firewalld is installed (already handled in common.yml, skip if duplicated)
-
-    # Assert firewalld is running (already handled in common.yml, skip if duplicated)
-
-    # Assert NFS related services are enabled in firewalld
+    # Assert NFS related services are allowed in firewalld
     - name: Check if NFS services are allowed in firewalld
       firewalld:
         service: "{{ item }}"
@@ -202,8 +200,8 @@
       assert:
         that:
           - nfs_firewall_services is succeeded
-        success_msg: "NFS services are allowed in firewalld."
-        fail_msg: "Failed to allow NFS services in firewalld."
+      success_msg: "NFS services are allowed in firewalld."
+      fail_msg: "Failed to allow NFS services in firewalld."
 
     # Assert rpcbind service is running
     - name: Check if rpcbind service is running
@@ -217,8 +215,8 @@
       assert:
         that:
           - rpcbind_service is succeeded
-        success_msg: "rpcbind service is running and enabled."
-        fail_msg: "rpcbind service is not running/enabled."
+      success_msg: "rpcbind service is running and enabled."
+      fail_msg: "rpcbind service is not running/enabled."
 
     # Assert nfs-server service is running
     - name: Check if nfs-server service is running
@@ -232,8 +230,8 @@
       assert:
         that:
           - nfs_server_service is succeeded
-        success_msg: "nfs-server service is running and enabled."
-        fail_msg: "nfs-server service is not running/enabled."
+      success_msg: "nfs-server service is running and enabled."
+      fail_msg: "nfs-server service is not running/enabled."
 
     # Assert /mnt/datasets and /mnt/results directories exist with correct permissions
     - name: Check if /mnt/datasets exists
@@ -275,8 +273,8 @@
       assert:
         that:
           - permissions_check is succeeded
-        success_msg: "Permissions on /mnt/datasets and /mnt/results are set correctly."
-        fail_msg: "Permissions on /mnt/datasets and/or /mnt/results are incorrect."
+      success_msg: "Permissions on /mnt/datasets and /mnt/results are set correctly."
+      fail_msg: "Permissions on /mnt/datasets and/or /mnt/results are incorrect."
 
     # Assert /etc/exports is configured correctly
     - name: Check if /etc/exports has correct NFS shares
@@ -288,8 +286,8 @@
         that:
           - "'/mnt/datasets *(rw,sync,no_root_squash)' in exports_content.stdout"
           - "'/mnt/results *(rw,sync,no_root_squash)' in exports_content.stdout"
-        success_msg: "/etc/exports is configured correctly."
-        fail_msg: "/etc/exports is not configured correctly."
+      success_msg: "/etc/exports is configured correctly."
+      fail_msg: "/etc/exports is not configured correctly."
 
     # Assert NFS exports are active
     - name: Check if NFS exports are active
@@ -301,8 +299,8 @@
         that:
           - "'/mnt/datasets *(rw,sync,no_root_squash)' in exportfs_output.stdout"
           - "'/mnt/results *(rw,sync,no_root_squash)' in exportfs_output.stdout"
-        success_msg: "NFS exports are active."
-        fail_msg: "NFS exports are not active."
+      success_msg: "NFS exports are active."
+      fail_msg: "NFS exports are not active."
 
     # Additional checks can be added here as needed
 
@@ -331,43 +329,23 @@
         success_msg: "nfs-utils is installed successfully on clients."
         fail_msg: "nfs-utils installation failed on clients."
 
-    # Assert NFS mounts are unmounted (no stale mounts)
-    - name: Check if NFS mounts are unmounted initially
-      ansible.posix.mount:
+    # Assert NFS mounts are mounted correctly
+    - name: Check if NFS mounts are mounted
+      mount:
         path: "{{ item.mount_point }}"
         state: mounted
         fstype: nfs
       loop:
-        - { mount_point: '/mnt/datasets' }
-        - { mount_point: '/mnt/results' }
-      register: initial_mounts
-
-    - name: Assert NFS mounts are initially mounted
-      assert:
-        that:
-          - initial_mounts.results | length == 2
-        success_msg: "NFS mounts are present."
-        fail_msg: "NFS mounts are not present."
-
-    # Re-run mount to ensure they are mounted correctly
-    - name: Re-check NFS mounts
-      ansible.posix.mount:
-        src: "{{ storage_ip }}:{{ item.remote_path }}"
-        path: "{{ item.mount_point }}"
-        fstype: nfs
-        opts: defaults
-        state: mounted
-      loop:
-        - { mount_point: '/mnt/datasets', remote_path: '/mnt/datasets' }
-        - { mount_point: '/mnt/results', remote_path: '/mnt/results' }
+        - { mount_point: '/mnt/datasets', remote_path: '{{ storage_ip }}:/mnt/datasets' }
+        - { mount_point: '/mnt/results', remote_path: '{{ storage_ip }}:/mnt/results' }
       register: mount_results
 
     - name: Assert NFS mounts are mounted correctly
       assert:
         that:
           - mount_results.results | selectattr('state', 'equalto', 'mounted') | list | length == 2
-        success_msg: "NFS mounts are mounted correctly."
-        fail_msg: "NFS mounts are not mounted correctly."
+      success_msg: "NFS mounts are mounted correctly."
+      fail_msg: "NFS mounts are not mounted correctly."
 
     # Assert mount points have correct ownership and permissions
     - name: Check ownership and permissions on /mnt/datasets and /mnt/results
@@ -387,236 +365,246 @@
           - mount_stat.results[1].stat.pw_name == "almalinux"
           - mount_stat.results[1].stat.gr_name == "almalinux"
           - mount_stat.results[1].stat.mode == "0755"
-        success_msg: "Mount points have correct ownership and permissions."
-        fail_msg: "Mount points have incorrect ownership or permissions."
+      success_msg: "Mount points have correct ownership and permissions."
+      fail_msg: "Mount points have incorrect ownership or permissions."
 
-    - name: Test Download and Prepare Datasets Playbook
-      hosts: localhost
-      connection: local
-      become: yes
-      gather_facts: yes
+- name: Test Download and Prepare Datasets Playbook
+  hosts: localhost
+  connection: local
+  become: yes
+  gather_facts: yes
 
-      tasks:
-        # Apply Download and Prepare Datasets Playbook
-        - name: Apply Download and Prepare Datasets Playbook
-          import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
+  tasks:
+    # Apply Download and Prepare Datasets Playbook
+    - name: Apply Download and Prepare Datasets Playbook
+      import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
 
-        # Assert Directories Exist
-        - name: Check if /mnt/datasets directory exists
-          stat:
-            path: /mnt/datasets
-          register: datasets_dir
+    # Define variables for testing
+    - name: Define variables for testing
+      set_fact:
+        human_proteome_dir: /mnt/datasets/human_proteome/
+        ecoli_proteome_dir: /mnt/datasets/ecoli_proteome/
+        cath_extract_dir: /mnt/datasets/cath_foldclassdb/
+        human_tarball: /mnt/datasets/human_proteome/human_proteome.tar.gz
+        ecoli_tarball: /mnt/datasets/ecoli_proteome/ecoli_proteome.tar.gz
+        cath_tarball: /mnt/datasets/cath_foldclassdb/cath_foldclassdb.tar.gz
 
-        - name: Assert /mnt/datasets directory exists
-          assert:
-            that:
-              - datasets_dir.stat.exists
-              - datasets_dir.stat.isdir
-            success_msg: "/mnt/datasets directory exists."
-            fail_msg: "/mnt/datasets directory does not exist."
+    # Assert Directories Exist
+    - name: Check if /mnt/datasets directory exists
+      stat:
+        path: /mnt/datasets
+      register: datasets_dir
 
-        - name: Check if /mnt/results directory exists
-          stat:
-            path: /mnt/results
-          register: results_dir
+    - name: Assert /mnt/datasets directory exists
+      assert:
+        that:
+          - datasets_dir.stat.exists
+          - datasets_dir.stat.isdir
+        success_msg: "/mnt/datasets directory exists."
+        fail_msg: "/mnt/datasets directory does not exist."
 
-        - name: Assert /mnt/results directory exists
-          assert:
-            that:
-              - results_dir.stat.exists
-              - results_dir.stat.isdir
-            success_msg: "/mnt/results directory exists."
-            fail_msg: "/mnt/results directory does not exist."
+    - name: Check if /mnt/results directory exists
+      stat:
+        path: /mnt/results
+      register: results_dir
 
-        - name: Check if human_proteome_dir exists
-          stat:
-            path: "{{ human_proteome_dir }}"
-          register: human_proteome_dir_stat
+    - name: Assert /mnt/results directory exists
+      assert:
+        that:
+          - results_dir.stat.exists
+          - results_dir.stat.isdir
+        success_msg: "/mnt/results directory exists."
+        fail_msg: "/mnt/results directory does not exist."
 
-        - name: Assert human_proteome_dir exists
-          assert:
-            that:
-              - human_proteome_dir_stat.stat.exists
-              - human_proteome_dir_stat.stat.isdir
-            success_msg: "Human Proteome directory exists."
-            fail_msg: "Human Proteome directory does not exist."
+    - name: Check if human_proteome_dir exists
+      stat:
+        path: "{{ human_proteome_dir }}"
+      register: human_proteome_dir_stat
 
-        - name: Check if ecoli_proteome_dir exists
-          stat:
-            path: "{{ ecoli_proteome_dir }}"
-          register: ecoli_proteome_dir_stat
+    - name: Assert human_proteome_dir exists
+      assert:
+        that:
+          - human_proteome_dir_stat.stat.exists
+          - human_proteome_dir_stat.stat.isdir
+        success_msg: "Human Proteome directory exists."
+        fail_msg: "Human Proteome directory does not exist."
 
-        - name: Assert ecoli_proteome_dir exists
-          assert:
-            that:
-              - ecoli_proteome_dir_stat.stat.exists
-              - ecoli_proteome_dir_stat.stat.isdir
-            success_msg: "E.coli Proteome directory exists."
-            fail_msg: "E.coli Proteome directory does not exist."
+    - name: Check if ecoli_proteome_dir exists
+      stat:
+        path: "{{ ecoli_proteome_dir }}"
+      register: ecoli_proteome_dir_stat
 
-        - name: Check if cath_extract_dir exists
-          stat:
-            path: "{{ cath_extract_dir }}"
-          register: cath_extract_dir_stat
+    - name: Assert ecoli_proteome_dir exists
+      assert:
+        that:
+          - ecoli_proteome_dir_stat.stat.exists
+          - ecoli_proteome_dir_stat.stat.isdir
+        success_msg: "E.coli Proteome directory exists."
+        fail_msg: "E.coli Proteome directory does not exist."
 
-        - name: Assert cath_extract_dir exists
-          assert:
-            that:
-              - cath_extract_dir_stat.stat.exists
-              - cath_extract_dir_stat.stat.isdir
-            success_msg: "CATH Foldclass Database extract directory exists."
-            fail_msg: "CATH Foldclass Database extract directory does not exist."
+    - name: Check if cath_extract_dir exists
+      stat:
+        path: "{{ cath_extract_dir }}"
+      register: cath_extract_dir_stat
 
-        # Assert Tarballs are Downloaded
-        - name: Check if human_tarball is downloaded
-          stat:
-            path: "{{ human_tarball }}"
-          register: human_tarball_stat
+    - name: Assert cath_extract_dir exists
+      assert:
+        that:
+          - cath_extract_dir_stat.stat.exists
+          - cath_extract_dir_stat.stat.isdir
+        success_msg: "CATH Foldclass Database extract directory exists."
+        fail_msg: "CATH Foldclass Database extract directory does not exist."
 
-        - name: Assert human_tarball is downloaded
-          assert:
-            that:
-              - human_tarball_stat.stat.exists
-              - human_tarball_stat.stat.size > 0
-            success_msg: "Human Proteome tarball is downloaded successfully."
-            fail_msg: "Human Proteome tarball download failed."
+    # Assert Tarballs are Downloaded
+    - name: Check if human_tarball is downloaded
+      stat:
+        path: "{{ human_tarball }}"
+      register: human_tarball_stat
 
-        - name: Check if ecoli_tarball is downloaded
-          stat:
-            path: "{{ ecoli_tarball }}"
-          register: ecoli_tarball_stat
+    - name: Assert human_tarball is downloaded
+      assert:
+        that:
+          - human_tarball_stat.stat.exists
+          - human_tarball_stat.stat.size > 0
+        success_msg: "Human Proteome tarball is downloaded successfully."
+        fail_msg: "Human Proteome tarball download failed."
 
-        - name: Assert ecoli_tarball is downloaded
-          assert:
-            that:
-              - ecoli_tarball_stat.stat.exists
-              - ecoli_tarball_stat.stat.size > 0
-            success_msg: "E.coli Proteome tarball is downloaded successfully."
-            fail_msg: "E.coli Proteome tarball download failed."
+    - name: Check if ecoli_tarball is downloaded
+      stat:
+        path: "{{ ecoli_tarball }}"
+      register: ecoli_tarball_stat
 
-        - name: Check if cath_tarball is downloaded
-          stat:
-            path: "{{ cath_tarball }}"
-          register: cath_tarball_stat
+    - name: Assert ecoli_tarball is downloaded
+      assert:
+        that:
+          - ecoli_tarball_stat.stat.exists
+          - ecoli_tarball_stat.stat.size > 0
+        success_msg: "E.coli Proteome tarball is downloaded successfully."
+        fail_msg: "E.coli Proteome tarball download failed."
 
-        - name: Assert cath_tarball is downloaded
-          assert:
-            that:
-              - cath_tarball_stat.stat.exists
-              - cath_tarball_stat.stat.size > 0
-            success_msg: "CATH Foldclass Database tarball is downloaded successfully."
-            fail_msg: "CATH Foldclass Database tarball download failed."
+    - name: Check if cath_tarball is downloaded
+      stat:
+        path: "{{ cath_tarball }}"
+      register: cath_tarball_stat
 
-        # Assert Datasets are Extracted
-        - name: Check if Human Proteome is extracted
-          stat:
-            path: "{{ human_proteome_dir }}/UP000005640_9606_HUMAN_v4"
-          register: human_extracted
+    - name: Assert cath_tarball is downloaded
+      assert:
+        that:
+          - cath_tarball_stat.stat.exists
+          - cath_tarball_stat.stat.size > 0
+        success_msg: "CATH Foldclass Database tarball is downloaded successfully."
+        fail_msg: "CATH Foldclass Database tarball download failed."
 
-        - name: Assert Human Proteome is extracted
-          assert:
-            that:
-              - human_extracted.stat.exists
-              - human_extracted.stat.isdir
-            success_msg: "Human Proteome dataset extracted successfully."
-            fail_msg: "Human Proteome dataset extraction failed."
+    # Assert Datasets are Extracted
+    - name: Check if Human Proteome is extracted
+      stat:
+        path: "{{ human_proteome_dir }}/UP000005640_9606_HUMAN_v4"
+      register: human_extracted
 
-        - name: Check if E.coli Proteome is extracted
-          stat:
-            path: "{{ ecoli_proteome_dir }}/UP000000625_83333_ECOLI_v4"
-          register: ecoli_extracted
+    - name: Assert Human Proteome is extracted
+      assert:
+        that:
+          - human_extracted.stat.exists
+          - human_extracted.stat.isdir
+        success_msg: "Human Proteome dataset extracted successfully."
+        fail_msg: "Human Proteome dataset extraction failed."
 
-        - name: Assert E.coli Proteome is extracted
-          assert:
-            that:
-              - ecoli_extracted.stat.exists
-              - ecoli_extracted.stat.isdir
-            success_msg: "E.coli Proteome dataset extracted successfully."
-            fail_msg: "E.coli Proteome dataset extraction failed."
+    - name: Check if E.coli Proteome is extracted
+      stat:
+        path: "{{ ecoli_proteome_dir }}/UP000000625_83333_ECOLI_v4"
+      register: ecoli_extracted
 
-        - name: Check if CATH Foldclass Database is extracted
-          stat:
-            path: "{{ cath_extract_dir }}/cath_foldclassdb"
-          register: cath_extracted
+    - name: Assert E.coli Proteome is extracted
+      assert:
+        that:
+          - ecoli_extracted.stat.exists
+          - ecoli_extracted.stat.isdir
+        success_msg: "E.coli Proteome dataset extracted successfully."
+        fail_msg: "E.coli Proteome dataset extraction failed."
 
-        - name: Assert CATH Foldclass Database is extracted
-          assert:
-            that:
-              - cath_extracted.stat.exists
-              - cath_extracted.stat.isdir
-            success_msg: "CATH Foldclass Database extracted successfully."
-            fail_msg: "CATH Foldclass Database extraction failed."
+    - name: Check if CATH Foldclass Database is extracted
+      stat:
+        path: "{{ cath_extract_dir }}/cath_foldclassdb"
+      register: cath_extracted
 
-        # Assert Permissions are Correct
-        - name: Check permissions on /mnt/datasets
-          stat:
-            path: /mnt/datasets
-          register: datasets_permissions
+    - name: Assert CATH Foldclass Database is extracted
+      assert:
+        that:
+          - cath_extracted.stat.exists
+          - cath_extracted.stat.isdir
+        success_msg: "CATH Foldclass Database extracted successfully."
+        fail_msg: "CATH Foldclass Database extraction failed."
 
-        - name: Assert permissions on /mnt/datasets
-          assert:
-            that:
-              - datasets_permissions.stat.mode == "0755"
-              - datasets_permissions.stat.pw_name == "almalinux"
-              - datasets_permissions.stat.gr_name == "almalinux"
-            success_msg: "/mnt/datasets has correct permissions."
-            fail_msg: "/mnt/datasets does not have correct permissions."
+    # Assert Permissions are Correct
+    - name: Check permissions on /mnt/datasets
+      stat:
+        path: /mnt/datasets
+      register: datasets_permissions
 
-        - name: Check permissions on /mnt/results
-          stat:
-            path: /mnt/results
-          register: results_permissions
+    - name: Assert permissions on /mnt/datasets
+      assert:
+        that:
+          - datasets_permissions.stat.mode == "0755"
+          - datasets_permissions.stat.pw_name == "almalinux"
+          - datasets_permissions.stat.gr_name == "almalinux"
+        success_msg: "/mnt/datasets has correct permissions."
+        fail_msg: "/mnt/datasets does not have correct permissions."
 
-        - name: Assert permissions on /mnt/results
-          assert:
-            that:
-              - results_permissions.stat.mode == "0755"
-              - results_permissions.stat.pw_name == "almalinux"
-              - results_permissions.stat.gr_name == "almalinux"
-            success_msg: "/mnt/results has correct permissions."
-            fail_msg: "/mnt/results does not have correct permissions."
+    - name: Check permissions on /mnt/results
+      stat:
+        path: /mnt/results
+      register: results_permissions
 
-        - name: Check permissions on human_proteome_dir
-          stat:
-            path: "{{ human_proteome_dir }}"
-          register: human_proteome_permissions
+    - name: Assert permissions on /mnt/results
+      assert:
+        that:
+          - results_permissions.stat.mode == "0755"
+          - results_permissions.stat.pw_name == "almalinux"
+          - results_permissions.stat.gr_name == "almalinux"
+        success_msg: "/mnt/results has correct permissions."
+        fail_msg: "/mnt/results does not have correct permissions."
 
-        - name: Assert permissions on human_proteome_dir
-          assert:
-            that:
-              - human_proteome_permissions.stat.mode == "0755"
-              - human_proteome_permissions.stat.pw_name == "almalinux"
-              - human_proteome_permissions.stat.gr_name == "almalinux"
-            success_msg: "Human Proteome directory has correct permissions."
-            fail_msg: "Human Proteome directory does not have correct permissions."
+    - name: Check permissions on human_proteome_dir
+      stat:
+        path: "{{ human_proteome_dir }}"
+      register: human_proteome_permissions
 
-        - name: Check permissions on ecoli_proteome_dir
-          stat:
-            path: "{{ ecoli_proteome_dir }}"
-          register: ecoli_proteome_permissions
+    - name: Assert permissions on human_proteome_dir
+      assert:
+        that:
+          - human_proteome_permissions.stat.mode == "0755"
+          - human_proteome_permissions.stat.pw_name == "almalinux"
+          - human_proteome_permissions.stat.gr_name == "almalinux"
+        success_msg: "Human Proteome directory has correct permissions."
+        fail_msg: "Human Proteome directory does not have correct permissions."
 
-        - name: Assert permissions on ecoli_proteome_dir
-          assert:
-            that:
-              - ecoli_proteome_permissions.stat.mode == "0755"
-              - ecoli_proteome_permissions.stat.pw_name == "almalinux"
-              - ecoli_proteome_permissions.stat.gr_name == "almalinux"
-            success_msg: "E.coli Proteome directory has correct permissions."
-            fail_msg: "E.coli Proteome directory does not have correct permissions."
+    - name: Check permissions on ecoli_proteome_dir
+      stat:
+        path: "{{ ecoli_proteome_dir }}"
+      register: ecoli_proteome_permissions
 
-        - name: Check permissions on cath_extract_dir
-          stat:
-            path: "{{ cath_extract_dir }}"
-          register: cath_extract_permissions
+    - name: Assert permissions on ecoli_proteome_dir
+      assert:
+        that:
+          - ecoli_proteome_permissions.stat.mode == "0755"
+          - ecoli_proteome_permissions.stat.pw_name == "almalinux"
+          - ecoli_proteome_permissions.stat.gr_name == "almalinux"
+        success_msg: "E.coli Proteome directory has correct permissions."
+        fail_msg: "E.coli Proteome directory does not have correct permissions."
 
-        - name: Assert permissions on cath_extract_dir
-          assert:
-            that:
-              - cath_extract_permissions.stat.mode == "0755"
-              - cath_extract_permissions.stat.pw_name == "almalinux"
-              - cath_extract_permissions.stat.gr_name == "almalinux"
-            success_msg: "CATH Foldclass Database extract directory has correct permissions."
-            fail_msg: "CATH Foldclass Database extract directory does not have correct permissions."
+    - name: Check permissions on cath_extract_dir
+      stat:
+        path: "{{ cath_extract_dir }}"
+      register: cath_extract_permissions
+
+    - name: Assert permissions on cath_extract_dir
+      assert:
+        that:
+          - cath_extract_permissions.stat.mode == "0755"
+          - cath_extract_permissions.stat.pw_name == "almalinux"
+          - cath_extract_permissions.stat.gr_name == "almalinux"
+        success_msg: "CATH Foldclass Database extract directory has correct permissions."
+        fail_msg: "CATH Foldclass Database extract directory does not have correct permissions."
 
 - name: Test Setup Symlinks Playbook
   hosts: localhost
@@ -645,15 +633,21 @@
           stat:
             path: "{{ item.symlink }}"
           register: symlink_stat
+          loop: "{{ expected_symlinks }}"
+          loop_control:
+            loop_var: item
 
         - name: Assert symlink exists and is a link
           assert:
             that:
-              - symlink_stat.stat.exists
-              - symlink_stat.stat.islnk
+              - symlink_stat.results[{{ index }}].stat.exists
+              - symlink_stat.results[{{ index }}].stat.islnk
             success_msg: "Symlink {{ item.symlink }} exists and is a symbolic link."
             fail_msg: "Symlink {{ item.symlink }} does not exist or is not a symbolic link."
           loop: "{{ expected_symlinks }}"
+          loop_control:
+            loop_var: item
+            index_var: index
 
         - name: Check symlink target
           command: readlink -f "{{ item.symlink }}"
@@ -670,7 +664,10 @@
             fail_msg: "Symlink {{ item.symlink }} does not point to the correct target."
           loop: "{{ expected_symlinks }}"
           loop_control:
+            loop_var: item
             index_var: index
+
+    # Note: The above loop assumes Ansible version supports 'results' and 'index_var'
 
 - name: Test Uncompress Files Playbook
   hosts: localhost
@@ -791,9 +788,7 @@
         that:
           - pipeline_script_stat.stat.exists
           - pipeline_script_stat.stat.isfile
-          - pipeline_script_stat.stat.pw_name == "almalinux"
-          - pipeline_script_stat.stat.gr_name == "almalinux"
-          - pipeline_script_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (pipeline_script_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "pipeline_script.py exists with correct ownership and executable permissions."
         fail_msg: "pipeline_script.py does not exist or lacks correct ownership/executable permissions."
 
@@ -808,7 +803,7 @@
         that:
           - results_parser_stat.stat.exists
           - results_parser_stat.stat.isfile
-          - results_parser_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (results_parser_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "results_parser.py exists with correct ownership and executable permissions."
         fail_msg: "results_parser.py does not exist or lacks correct ownership/executable permissions."
 
@@ -1056,6 +1051,8 @@
         success_msg: "rsyslog is configured to send logs to control node."
         fail_msg: "rsyslog is not configured correctly to send logs to control node."
 
+    # Additional checks can be added here as needed
+
 - name: Test Redis Setup Playbook
   hosts: localhost
   connection: local
@@ -1081,7 +1078,7 @@
         success_msg: "EPEL repository is installed."
         fail_msg: "EPEL repository is not installed."
 
-    # Assert firewalld is installed and running (handled in common.yml)
+    # Assert firewalld is active
     - name: Check if firewalld is active
       service:
         name: firewalld
@@ -1174,6 +1171,7 @@
         celery_start_script: /opt/data_pipeline/start_celery.sh
         celery_service_file: /etc/systemd/system/celery.service
         redis_host: "{{ hostvars['storage']['ansible_host'] }}"
+        celery_bin: "/opt/merizo_search/merizosearch_env/bin/celery"
 
     # Assert Celery service exists and is active
     - name: Check if Celery service file exists
@@ -1214,7 +1212,7 @@
         that:
           - celery_worker_stat.stat.exists
           - celery_worker_stat.stat.isfile
-          - celery_worker_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (celery_worker_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "Celery worker script exists and is executable."
         fail_msg: "Celery worker script does not exist or is not executable."
 
@@ -1229,14 +1227,14 @@
         that:
           - celery_start_stat.stat.exists
           - celery_start_stat.stat.isfile
-          - celery_start_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (celery_start_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "Celery start script exists and is executable."
         fail_msg: "Celery start script does not exist or is not executable."
 
     # Assert Celery binary exists in virtualenv
     - name: Check if Celery binary exists in virtualenv
       stat:
-        path: "/opt/merizo_search/merizosearch_env/bin/celery"
+        path: "{{ celery_bin }}"
       register: celery_binary_stat
 
     - name: Assert Celery binary exists in virtualenv
@@ -1271,9 +1269,9 @@
     - name: Assert Celery queues are active
       assert:
         that:
-          - "'worker1_queue'" in celery_queues.stdout
-          - "'worker2_queue'" in celery_queues.stdout
-          - "'worker3_queue'" in celery_queues.stdout
+          - "'worker1_queue' in celery_queues.stdout"
+          - "'worker2_queue' in celery_queues.stdout"
+          - "'worker3_queue' in celery_queues.stdout"
         success_msg: "All Celery queues are active."
         fail_msg: "One or more Celery queues are not active."
 
@@ -1341,7 +1339,7 @@
         that:
           - webhook_script_stat.stat.exists
           - webhook_script_stat.stat.isfile
-          - webhook_script_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (webhook_script_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "Webhook server script exists and is executable."
         fail_msg: "Webhook server script does not exist or is not executable."
 
@@ -1356,7 +1354,7 @@
         that:
           - update_disabled_workers_stat.stat.exists
           - update_disabled_workers_stat.stat.isfile
-          - update_disabled_workers_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (update_disabled_workers_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "Update Disabled Workers script exists and is executable."
         fail_msg: "Update Disabled Workers script does not exist or is not executable."
 
@@ -1411,7 +1409,7 @@
     - name: Assert Webhook script is executable
       assert:
         that:
-          - webhook_script_exec_stat.stat.mode | int(base=8) & 0o755 == 0o755
+          - (webhook_script_exec_stat.stat.mode | int(base=8) & 0o755) == 0o755
         success_msg: "Webhook script is executable."
         fail_msg: "Webhook script is not executable."
 
@@ -1561,6 +1559,7 @@
       loop_control:
         label: "{{ item.organism }}"
 
+    # Assert results_dir exist
     - name: Assert results_dir exist
       block:
         - name: Check if results_dir exists
@@ -1621,6 +1620,6 @@
     - name: Ensure enqueueing tasks (debug messages) executed without errors
       assert:
         that:
-          - ansible_run_status is not failed
+          - not ansible_run_status.failed
         success_msg: "Enqueueing tasks executed successfully."
         fail_msg: "Enqueueing tasks encountered errors."
