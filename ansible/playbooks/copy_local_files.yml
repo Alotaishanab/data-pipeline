@@ -19,20 +19,14 @@
         group: almalinux
         mode: '0600'
 
-    - name: Check if data-pipeline repo has finished downloading
+    - name: Wait until the inventories directory is present
       become_user: almalinux
-      ansible.builtin.stat:
+      wait_for:
         path: /home/almalinux/data-pipeline/ansible/inventories
-      register: repo_folder
-
-    - name: Wait for data-pipeline directory to appear (retry a few times)
-      become_user: almalinux
-      pause:
-        seconds: 5
-      until: repo_folder.stat.exists
-      retries: 10
-      delay: 5
-      fail_msg: "data-pipeline/ansible/inventories folder never appeared on the mgmt node."
+        state: directory
+        delay: 5       # Wait 5 seconds before first check
+        timeout: 120   # Keep checking up to 120 seconds
+        msg: "data-pipeline/ansible/inventories folder never appeared on the mgmt node."
 
     - name: Copy updated inventory.json to mgmt node
       ansible.builtin.copy:
