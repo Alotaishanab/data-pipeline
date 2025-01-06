@@ -19,7 +19,7 @@
         group: almalinux
         mode: '0600'
 
-    - name: Copy inventory.json to /tmp on mgmt node
+    - name: Copy new inventory.json to /tmp on mgmt node
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
         dest: /tmp/inventory.json
@@ -29,5 +29,3 @@
     - name: Move inventory.json into final location under almalinux
       become_user: almalinux
       shell: "mv /tmp/inventory.json /home/almalinux/data-pipeline/ansible/inventories/inventory.json"
-      args:
-        warn: false
