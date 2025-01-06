@@ -19,13 +19,25 @@
         group: almalinux
         mode: '0600'
 
-    - name: Copy new inventory.json to /tmp on mgmt node
+    - name: Check if data-pipeline repo has finished downloading
+      become_user: almalinux
+      ansible.builtin.stat:
+        path: /home/almalinux/data-pipeline/ansible/inventories
+      register: repo_folder
+
+    - name: Wait for data-pipeline directory to appear (retry a few times)
+      become_user: almalinux
+      pause:
+        seconds: 5
+      until: repo_folder.stat.exists
+      retries: 10
+      delay: 5
+      fail_msg: "data-pipeline/ansible/inventories folder never appeared on the mgmt node."
+
+    - name: Copy updated inventory.json to mgmt node
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
-        dest: /tmp/inventory.json
+        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
+        owner: almalinux
+        group: almalinux
         mode: '0644'
-        force: yes
-
-    - name: Move inventory.json into final location under almalinux
-      become_user: almalinux
-      shell: "mv /tmp/inventory.json /home/almalinux/data-pipeline/ansible/inventories/inventory.json"
