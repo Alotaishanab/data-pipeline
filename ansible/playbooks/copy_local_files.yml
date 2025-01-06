@@ -1,4 +1,4 @@
-- name: Manage data pipeline and copy files to mgmt node
+- name: Update mgmt node inventory
   hosts: mgmtnode
   gather_facts: false
   become: yes
@@ -11,40 +11,23 @@
       shell: "truncate -s 0 ~/.ssh/known_hosts"
       become: false
 
-    - name: Move data-pipeline from /root to /home/almalinux (if present in /root)
-      shell: >
-        if [ -d /root/data-pipeline ]; then
-          mv /root/data-pipeline /home/almalinux/
-        fi
-      ignore_errors: true
-
-    - name: Fix ownership of /home/almalinux/data-pipeline
-      command: chown -R almalinux:almalinux /home/almalinux/data-pipeline
-      ignore_errors: true
-
-    - name: Ensure /home/almalinux/data-pipeline/ansible/inventories exists
-      become_user: almalinux
-      file:
-        path: /home/almalinux/data-pipeline/ansible/inventories
-        state: directory
-        mode: '0755'
-
     - name: Copy private key from LOCAL to mgmt node
-      become_user: almalinux
       ansible.builtin.copy:
         src: "{{ lookup('env','HOME') }}/.ssh/ansible_ed25519"
         dest: /home/almalinux/.ssh/ansible_ed25519
         owner: almalinux
         group: almalinux
         mode: '0600'
-        force: yes
 
-    - name: Overwrite existing inventory.json on mgmt node
-      become_user: almalinux
+    - name: Copy inventory.json to /tmp on mgmt node
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ansible/inventories/inventory.json"
-        dest: /home/almalinux/data-pipeline/ansible/inventories/inventory.json
-        owner: almalinux
-        group: almalinux
+        dest: /tmp/inventory.json
         mode: '0644'
         force: yes
+
+    - name: Move inventory.json into final location under almalinux
+      become_user: almalinux
+      shell: "mv /tmp/inventory.json /home/almalinux/data-pipeline/ansible/inventories/inventory.json"
+      args:
+        warn: false
