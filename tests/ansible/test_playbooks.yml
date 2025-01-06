@@ -1,16 +1,16 @@
 # Test Playbooks for Alotaishanab-data-pipeline
 
-- name: Test Common Configuration Playbook
+# Test Common Configuration Playbook
+- import_playbook: ../../ansible/playbooks/common.yml
+
+- name: Assert Common Configuration Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    storage_ip: "127.0.0.1"  # Define storage_ip appropriately
   tasks:
-    # Apply Common Configuration
-    - name: Apply Common Configuration
-      import_playbook: ../../ansible/playbooks/common.yml
-
     # Assert that essential packages are installed
     - name: Check if git is installed
       package:
@@ -144,17 +144,15 @@
 
     # Additional checks can be added here as needed
 
-- name: Test NFS Server Playbook
+# Test NFS Server Playbook
+- import_playbook: ../../ansible/playbooks/nfsserver.yml
+
+- name: Assert NFS Server Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
   tasks:
-    # Apply NFS Server Configuration
-    - name: Apply NFS Server Configuration
-      import_playbook: ../../ansible/playbooks/nfsserver.yml
-
     # Assert nfs-utils is installed
     - name: Check if nfs-utils is installed
       package:
@@ -198,7 +196,7 @@
     - name: Assert NFS services are allowed in firewalld
       assert:
         that:
-          - nfs_firewall_services is succeeded
+          - nfs_firewall_services.results | selectattr('failed', 'equalto', False) | list | length == 3
         success_msg: "NFS services are allowed in firewalld."
         fail_msg: "Failed to allow NFS services in firewalld."
 
@@ -260,9 +258,8 @@
         fail_msg: "/mnt/results directory does not exist."
 
     - name: Check permissions on /mnt/datasets and /mnt/results
-      file:
+      stat:
         path: "{{ item }}"
-        mode: '0777'
       loop:
         - /mnt/datasets
         - /mnt/results
@@ -271,9 +268,12 @@
     - name: Assert permissions on /mnt/datasets and /mnt/results
       assert:
         that:
-          - permissions_check is succeeded
-        success_msg: "Permissions on /mnt/datasets and /mnt/results are set correctly."
-        fail_msg: "Permissions on /mnt/datasets and/or /mnt/results are incorrect."
+          - permissions_check.results[index].stat.mode == "0777"
+        success_msg: "Permissions on {{ item }} are set correctly."
+        fail_msg: "Permissions on {{ item }} are incorrect."
+      loop: "{{ permissions_check.results }}"
+      loop_control:
+        index_var: index
 
     # Assert /etc/exports is configured correctly
     - name: Check if /etc/exports has correct NFS shares
@@ -303,17 +303,24 @@
 
     # Additional checks can be added here as needed
 
-- name: Test NFS Clients Playbook
+# Test NFS Clients Playbook
+- import_playbook: ../../ansible/playbooks/nfsclients.yml
+
+- name: Assert NFS Clients Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    storage_ip: "127.0.0.1"  # Define storage_ip appropriately
+    datasets:
+      - organism: "human"
+        data_input_dir: "/mnt/datasets/human_proteome/"
+        results_dir: "/mnt/results/human/"
+      - organism: "ecoli"
+        data_input_dir: "/mnt/datasets/ecoli_proteome/"
+        results_dir: "/mnt/results/ecoli/"
   tasks:
-    # Apply NFS Clients Configuration
-    - name: Apply NFS Clients Configuration
-      import_playbook: ../../ansible/playbooks/nfsclients.yml
-
     # Assert nfs-utils is installed
     - name: Check if nfs-utils is installed on clients
       package:
@@ -334,6 +341,7 @@
         path: "{{ item.mount_point }}"
         state: mounted
         fstype: nfs
+        src: "{{ item.remote_path }}"
       loop:
         - { mount_point: '/mnt/datasets', remote_path: '{{ storage_ip }}:/mnt/datasets' }
         - { mount_point: '/mnt/results', remote_path: '{{ storage_ip }}:/mnt/results' }
@@ -342,7 +350,7 @@
     - name: Assert NFS mounts are mounted correctly
       assert:
         that:
-          - mount_results.results | selectattr('state', 'equalto', 'mounted') | list | length == 2
+          - mount_results.results | selectattr('changed', '==', False) | selectattr('state', '==', 'mounted') | list | length == 2
         success_msg: "NFS mounts are mounted correctly."
         fail_msg: "NFS mounts are not mounted correctly."
 
@@ -361,33 +369,28 @@
           - mount_stat.results[index].stat.pw_name == "almalinux"
           - mount_stat.results[index].stat.gr_name == "almalinux"
           - mount_stat.results[index].stat.mode == "0755"
-        success_msg: "Mount points have correct ownership and permissions."
-        fail_msg: "Mount points have incorrect ownership or permissions."
+        success_msg: "Mount point {{ item.mount_point }} has correct ownership and permissions."
+        fail_msg: "Mount point {{ item.mount_point }} has incorrect ownership or permissions."
       loop: "{{ mount_stat.results }}"
       loop_control:
         index_var: index
 
-- name: Test Download and Prepare Datasets Playbook
+# Test Download and Prepare Datasets Playbook
+- import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
+
+- name: Assert Download and Prepare Datasets Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    human_proteome_dir: /mnt/datasets/human_proteome/
+    ecoli_proteome_dir: /mnt/datasets/ecoli_proteome/
+    cath_extract_dir: /mnt/datasets/cath_foldclassdb/
+    human_tarball: /mnt/datasets/human_proteome/human_proteome.tar.gz
+    ecoli_tarball: /mnt/datasets/ecoli_proteome/ecoli_proteome.tar.gz
+    cath_tarball: /mnt/datasets/cath_foldclassdb/cath_foldclassdb.tar.gz
   tasks:
-    # Apply Download and Prepare Datasets Playbook
-    - name: Apply Download and Prepare Datasets Playbook
-      import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
-
-    # Define variables for testing
-    - name: Define variables for testing
-      set_fact:
-        human_proteome_dir: /mnt/datasets/human_proteome/
-        ecoli_proteome_dir: /mnt/datasets/ecoli_proteome/
-        cath_extract_dir: /mnt/datasets/cath_foldclassdb/
-        human_tarball: /mnt/datasets/human_proteome/human_proteome.tar.gz
-        ecoli_tarball: /mnt/datasets/ecoli_proteome/ecoli_proteome.tar.gz
-        cath_tarball: /mnt/datasets/cath_foldclassdb/cath_foldclassdb.tar.gz
-
     # Assert Directories Exist
     - name: Check if /mnt/datasets directory exists
       stat:
@@ -605,158 +608,135 @@
         success_msg: "CATH Foldclass Database extract directory has correct permissions."
         fail_msg: "CATH Foldclass Database extract directory does not have correct permissions."
 
-- name: Test Setup Symlinks Playbook
+# Test Setup Symlinks Playbook
+- import_playbook: ../../ansible/playbooks/setup_symlinks.yml
+
+- name: Assert Setup Symlinks Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    expected_symlinks:
+      - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt }
+      - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index }
+      - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata }
+      - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata.index, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata.index }
   tasks:
-    # Apply Setup Symlinks Playbook
-    - name: Apply Setup Symlinks Playbook
-      import_playbook: ../../ansible/playbooks/setup_symlinks.yml
-
-    # Define expected symlinks and their targets
-    - name: Define expected symlinks and targets
-      set_fact:
-        expected_symlinks:
-          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt }
-          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index }
-          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata }
-          - { symlink: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.metadata.index, target: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata.index }
-
     # Assert that each symlink exists and points to the correct target
-    - name: Check and assert symbolic links
-      block:
-        - name: Check if symlink exists
-          stat:
-            path: "{{ item.symlink }}"
-          register: symlink_stat
-          loop: "{{ expected_symlinks }}"
-          loop_control:
-            loop_var: item
+    - name: Check if symlink exists
+      stat:
+        path: "{{ item.symlink }}"
+      loop: "{{ expected_symlinks }}"
+      loop_control:
+        loop_var: item
+      register: symlink_stat
 
-        - name: Assert symlink exists and is a link
-          assert:
-            that:
-              - symlink_stat.results[index].stat.exists
-              - symlink_stat.results[index].stat.islnk
-            success_msg: "Symlink {{ item.symlink }} exists and is a symbolic link."
-            fail_msg: "Symlink {{ item.symlink }} does not exist or is not a symbolic link."
-          loop: "{{ expected_symlinks }}"
-          loop_control:
-            loop_var: item
-            index_var: index
+    - name: Assert symlink exists and is a link
+      assert:
+        that:
+          - symlink_stat.results[index].stat.exists
+          - symlink_stat.results[index].stat.islnk
+        success_msg: "Symlink {{ item.symlink }} exists and is a symbolic link."
+        fail_msg: "Symlink {{ item.symlink }} does not exist or is not a symbolic link."
+      loop: "{{ expected_symlinks }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
-        - name: Check symlink target
-          command: readlink -f "{{ item.symlink }}"
-          register: symlink_target
-          loop: "{{ expected_symlinks }}"
-          changed_when: false
-          failed_when: false
+    - name: Check symlink target
+      command: readlink -f "{{ item.symlink }}"
+      loop: "{{ expected_symlinks }}"
+      register: symlink_target
+      changed_when: false
+      failed_when: false
 
-        - name: Assert symlink points to correct target
-          assert:
-            that:
-              - symlink_target.results[index].stdout == item.target
-            success_msg: "Symlink {{ item.symlink }} points to the correct target."
-            fail_msg: "Symlink {{ item.symlink }} does not point to the correct target."
-          loop: "{{ expected_symlinks }}"
-          loop_control:
-            loop_var: item
-            index_var: index
+    - name: Assert symlink points to correct target
+      assert:
+        that:
+          - symlink_target.results[index].stdout == item.target
+        success_msg: "Symlink {{ item.symlink }} points to the correct target."
+        fail_msg: "Symlink {{ item.symlink }} does not point to the correct target."
+      loop: "{{ expected_symlinks }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
-      # Note: The above loop assumes Ansible version supports 'results' and 'index_var'
+# Test Uncompress Files Playbook
+- import_playbook: ../../ansible/playbooks/uncompress_files.yml
 
-- name: Test Uncompress Files Playbook
+- name: Assert Uncompress Files Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    datasets_dirs:
+      - /mnt/datasets/human_proteome
+      - /mnt/datasets/ecoli_proteome
+      - /mnt/datasets/cath_foldclassdb
   tasks:
-    # Apply Uncompress Files Playbook
-    - name: Apply Uncompress Files Playbook
-      import_playbook: ../../ansible/playbooks/uncompress_files.yml
-
-    # Define datasets directories
-    - name: Define datasets directories
-      set_fact:
-        datasets_dirs:
-          - /mnt/datasets/human_proteome
-          - /mnt/datasets/ecoli_proteome
-          - /mnt/datasets/cath_foldclassdb
-
     # Assert that .pdb and .cif files are uncompressed
-    - name: Assert .pdb and .cif files are uncompressed
-      block:
-        - name: Find .pdb and .cif files
-          find:
-            paths: "{{ item }}"
-            patterns:
-              - "*.pdb"
-              - "*.cif"
-            recurse: yes
-          register: uncompressed_files
-          loop: "{{ datasets_dirs }}"
-          loop_control:
-            loop_var: dataset_dir
+    - name: Find .pdb and .cif files
+      find:
+        paths: "{{ item }}"
+        patterns:
+          - "*.pdb"
+          - "*.cif"
+        recurse: yes
+      loop: "{{ datasets_dirs }}"
+      loop_control:
+        loop_var: dataset_dir
+      register: uncompressed_files
 
-        - name: Assert uncompressed files exist
-          assert:
-            that:
-              - uncompressed_files.results[index].matched > 0
-            success_msg: "Uncompressed files exist in {{ item }}."
-            fail_msg: "No uncompressed files found in {{ item }}."
-          loop: "{{ datasets_dirs }}"
-          loop_control:
-            loop_var: item
-            index_var: index
+    - name: Assert uncompressed files exist
+      assert:
+        that:
+          - uncompressed_files.results[index].matched > 0
+        success_msg: "Found {{ uncompressed_files.results[index].matched }} uncompressed files in {{ item }}."
+        fail_msg: "No uncompressed files found in {{ item }}."
+      loop: "{{ datasets_dirs }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
     # Optional: Assert that no .gz files remain
-    - name: Assert no .gz files remain
-      block:
-        - name: Find remaining .gz files
-          find:
-            paths: "{{ item }}"
-            patterns:
-              - "*.pdb.gz"
-              - "*.cif.gz"
-            recurse: yes
-          register: remaining_gz_files
-          loop: "{{ datasets_dirs }}"
-          loop_control:
-            loop_var: dataset_dir
+    - name: Find remaining .gz files
+      find:
+        paths: "{{ item }}"
+        patterns:
+          - "*.pdb.gz"
+          - "*.cif.gz"
+        recurse: yes
+      loop: "{{ datasets_dirs }}"
+      loop_control:
+        loop_var: dataset_dir
+      register: remaining_gz_files
 
-        - name: Assert no .gz files are present
-          assert:
-            that:
-              - remaining_gz_files.results[index].matched == 0
-            success_msg: "No compressed .gz files remain in {{ item }}."
-            fail_msg: "There are still compressed .gz files in {{ item }}."
-          loop: "{{ datasets_dirs }}"
-          loop_control:
-            loop_var: item
-            index_var: index
+    - name: Assert no .gz files are present
+      assert:
+        that:
+          - remaining_gz_files.results[index].matched == 0
+        success_msg: "No compressed .gz files remain in {{ item }}."
+        fail_msg: "There are still compressed .gz files in {{ item }}."
+      loop: "{{ datasets_dirs }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
-- name: Test Deploy Scripts Playbook
+# Test Deploy Scripts Playbook
+- import_playbook: ../../ansible/playbooks/deploy_scripts.yml
+
+- name: Assert Deploy Scripts Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    pipeline_dir: /opt/data_pipeline
+    pipeline_script: /opt/data_pipeline/pipeline_script.py
+    results_parser: /opt/data_pipeline/results_parser.py
   tasks:
-    # Apply Deploy Scripts Playbook
-    - name: Apply Deploy Scripts Playbook
-      import_playbook: ../../ansible/playbooks/deploy_scripts.yml
-
-    # Define pipeline directory and script paths
-    - name: Define script paths
-      set_fact:
-        pipeline_dir: /opt/data_pipeline
-        pipeline_script: /opt/data_pipeline/pipeline_script.py
-        results_parser: /opt/data_pipeline/results_parser.py
-
     # Assert pipeline directory exists with correct permissions
     - name: Check if pipeline directory exists
       stat:
@@ -804,17 +784,17 @@
         success_msg: "results_parser.py exists with correct ownership and executable permissions."
         fail_msg: "results_parser.py does not exist or lacks correct ownership/executable permissions."
 
-- name: Test Monitoring and Logging Playbook
+# Test Monitoring and Logging Playbook
+- import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
+
+- name: Assert Monitoring and Logging Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    control_node_ip: "127.0.0.1"  # Define control_node_ip appropriately
   tasks:
-    # Apply Monitoring and Logging Playbook
-    - name: Apply Monitoring and Logging Playbook
-      import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
-
     # Assert Installation of EPEL Repository
     - name: Check if EPEL repository is installed
       yum_repository:
@@ -1036,7 +1016,7 @@
         fail_msg: "rsyslog service is not running or not enabled."
 
     - name: Check rsyslog configuration for sending logs to control node
-      shell: grep "@@{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}:514" /etc/rsyslog.conf
+      shell: grep "@@{{ control_node_ip }}:514" /etc/rsyslog.conf
       register: rsyslog_config
       changed_when: false
       failed_when: false
@@ -1050,17 +1030,17 @@
 
     # Additional checks can be added here as needed
 
-- name: Test Redis Setup Playbook
+# Test Redis Setup Playbook
+- import_playbook: ../../ansible/playbooks/redis_setup.yml
+
+- name: Assert Redis Setup Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    storage_ip: "127.0.0.1"  # Define storage_ip appropriately
   tasks:
-    # Apply Redis Setup Playbook
-    - name: Apply Redis Setup Playbook
-      import_playbook: ../../ansible/playbooks/redis_setup.yml
-
     # Assert Installation of EPEL Repository
     - name: Check if EPEL repository is installed
       yum_repository:
@@ -1146,30 +1126,25 @@
         success_msg: "Redis port 6379/tcp is open in firewalld."
         fail_msg: "Redis port 6379/tcp is not open in firewalld."
 
-- name: Test Celery Setup Playbook
+# Test Celery Setup Playbook
+- import_playbook: ../../ansible/playbooks/celery_setup.yml
+
+- name: Assert Celery Setup Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    celery_service: celery
+    celery_user: almalinux
+    celery_group: almalinux
+    celery_directory: /opt/data_pipeline
+    celery_worker_script: /opt/data_pipeline/celery_worker.py
+    celery_start_script: /opt/data_pipeline/start_celery.sh
+    celery_service_file: /etc/systemd/system/celery.service
+    redis_host: "{{ storage_ip }}"
+    celery_bin: "/opt/merizo_search/merizosearch_env/bin/celery"
   tasks:
-    # Apply Celery Setup Playbook
-    - name: Apply Celery Setup Playbook
-      import_playbook: ../../ansible/playbooks/celery_setup.yml
-
-    # Define variables for testing
-    - name: Define variables for testing
-      set_fact:
-        celery_service: celery
-        celery_user: almalinux
-        celery_group: almalinux
-        celery_directory: /opt/data_pipeline
-        celery_worker_script: /opt/data_pipeline/celery_worker.py
-        celery_start_script: /opt/data_pipeline/start_celery.sh
-        celery_service_file: /etc/systemd/system/celery.service
-        redis_host: "{{ hostvars['storage']['ansible_host'] }}"
-        celery_bin: "/opt/merizo_search/merizosearch_env/bin/celery"
-
     # Assert Celery service exists and is active
     - name: Check if Celery service file exists
       stat:
@@ -1272,31 +1247,29 @@
         success_msg: "All Celery queues are active."
         fail_msg: "One or more Celery queues are not active."
 
-- name: Test Setup Webhook Server Playbook
+# Test Setup Webhook Server Playbook
+- import_playbook: ../../ansible/playbooks/setup_webhook_server.yml
+
+- name: Assert Setup Webhook Server Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    webhook_service: webhook_server
+    httpd_service: httpd
+    webhook_script: /opt/data_pipeline/webhook_server.py
+    update_disabled_workers_script: /opt/data_pipeline/update_disabled_workers.py
+    dispatch_script: /opt/data_pipeline/dispatch_tasks.py
+    dispatch_service_human: dispatch_tasks_human.service
+    dispatch_service_ecoli: dispatch_tasks_ecoli.service
+    flask_app_port: 8080
+    results_symlink: /var/www/html/results
+    custom_index_html: /var/www/html/index.html
+    datasets:
+      - organism: "human"
+      - organism: "ecoli"
   tasks:
-    # Apply Setup Webhook Server Playbook
-    - name: Apply Setup Webhook Server Playbook
-      import_playbook: ../../ansible/playbooks/setup_webhook_server.yml
-
-    # Define variables for testing
-    - name: Define variables for testing
-      set_fact:
-        webhook_service: webhook_server
-        httpd_service: httpd
-        webhook_script: /opt/data_pipeline/webhook_server.py
-        update_disabled_workers_script: /opt/data_pipeline/update_disabled_workers.py
-        dispatch_script: /opt/data_pipeline/dispatch_tasks.py
-        dispatch_service_human: dispatch_tasks_human.service
-        dispatch_service_ecoli: dispatch_tasks_ecoli.service
-        flask_app_port: 8080
-        results_symlink: /var/www/html/results
-        custom_index_html: /var/www/html/index.html
-
     # Assert Webhook service exists and is active
     - name: Check if Webhook service file exists
       stat:
@@ -1515,85 +1488,99 @@
         success_msg: "Flask app is accessible."
         fail_msg: "Flask app is not accessible."
 
-- name: Test Distribute and Run Data Analysis Pipeline Playbook
+# Test Distribute and Run Data Analysis Pipeline Playbook
+- import_playbook: ../../ansible/playbooks/distribute_and_run_pipeline.yml
+
+- name: Assert Distribute and Run Data Analysis Pipeline Playbook
   hosts: localhost
   connection: local
   become: yes
   gather_facts: yes
-
+  vars:
+    datasets:
+      - organism: "human"
+        data_input_dir: "/mnt/datasets/human_proteome/"
+        results_dir: "/mnt/results/human/"
+      - organism: "ecoli"
+        data_input_dir: "/mnt/datasets/ecoli_proteome/"
+        results_dir: "/mnt/results/ecoli/"
+    datasets_pdb:
+      - organism: "human"
+        data_input_dir: "/mnt/datasets/human_proteome/"
+        results_dir: "/mnt/results/human/"
+        files:
+          - "file1.pdb"
+          - "file2.pdb"
+      - organism: "ecoli"
+        data_input_dir: "/mnt/datasets/ecoli_proteome/"
+        results_dir: "/mnt/results/ecoli/"
+        files:
+          - "file3.pdb"
+          - "file4.pdb"
   tasks:
-    # Apply Distribute and Run Pipeline Playbook
-    - name: Apply Distribute and Run Pipeline Playbook
-      import_playbook: ../../ansible/playbooks/distribute_and_run_pipeline.yml
-
-    # Define variables for testing
-    - name: Define variables for testing
-      set_fact:
-        datasets:
-          - organism: "human"
-            data_input_dir: "/mnt/datasets/human_proteome/"
-            results_dir: "/mnt/results/human/"
-          - organism: "ecoli"
-            data_input_dir: "/mnt/datasets/ecoli_proteome/"
-            results_dir: "/mnt/results/ecoli/"
-
     # Assert that data_input_dir and results_dir exist for each dataset
-    - name: Assert data_input_dir and results_dir exist
-      block:
-        - name: Check if data_input_dir exists
-          stat:
-            path: "{{ item.data_input_dir }}"
-          register: data_dir_stat
-
-        - name: Assert data_input_dir exists and is a directory
-          assert:
-            that:
-              - data_dir_stat.stat.exists
-              - data_dir_stat.stat.isdir
-            success_msg: "Data input directory {{ item.data_input_dir }} exists and is a directory."
-            fail_msg: "Data input directory {{ item.data_input_dir }} does not exist or is not a directory."
+    - name: Check if data_input_dir exists
+      stat:
+        path: "{{ item.data_input_dir }}"
       loop: "{{ datasets }}"
       loop_control:
         loop_var: item
+      register: data_dir_stat
+
+    - name: Assert data_input_dir exists and is a directory
+      assert:
+        that:
+          - data_dir_stat.results[index].stat.exists
+          - data_dir_stat.results[index].stat.isdir
+        success_msg: "Data input directory {{ item.data_input_dir }} exists and is a directory."
+        fail_msg: "Data input directory {{ item.data_input_dir }} does not exist or is not a directory."
+      loop: "{{ datasets }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
     # Assert results_dir exist
-    - name: Assert results_dir exist
-      block:
-        - name: Check if results_dir exists
-          stat:
-            path: "{{ item.results_dir }}"
-          register: results_dir_stat
-
-        - name: Assert results_dir exists and is a directory
-          assert:
-            that:
-              - results_dir_stat.stat.exists
-              - results_dir_stat.stat.isdir
-            success_msg: "Results directory {{ item.results_dir }} exists and is a directory."
-            fail_msg: "Results directory {{ item.results_dir }} does not exist or is not a directory."
+    - name: Check if results_dir exists
+      stat:
+        path: "{{ item.results_dir }}"
       loop: "{{ datasets }}"
       loop_control:
         loop_var: item
+      register: results_dir_stat
+
+    - name: Assert results_dir exists and is a directory
+      assert:
+        that:
+          - results_dir_stat.results[index].stat.exists
+          - results_dir_stat.results[index].stat.isdir
+        success_msg: "Results directory {{ item.results_dir }} exists and is a directory."
+        fail_msg: "Results directory {{ item.results_dir }} does not exist or is not a directory."
+      loop: "{{ datasets }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
     # Assert that .pdb files are found in each data_input_dir
-    - name: Assert .pdb files are found in data_input_dir
-      block:
-        - name: Find .pdb files
-          find:
-            paths: "{{ item.data_input_dir }}"
-            patterns: "*.pdb"
-            recurse: yes
-          register: pdb_files_found
-
-        - name: Assert at least one .pdb file is found
-          assert:
-            that:
-              - pdb_files_found.files | length > 0
-            success_msg: "Found {{ pdb_files_found.files | length }} .pdb files in {{ item.data_input_dir }}."
-            fail_msg: "No .pdb files found in {{ item.data_input_dir }}."
+    - name: Find .pdb files in data_input_dir
+      find:
+        paths: "{{ item.data_input_dir }}"
+        patterns: "*.pdb"
+        recurse: yes
       loop: "{{ datasets }}"
       loop_control:
         loop_var: item
+      register: pdb_files_found
+
+    - name: Assert at least one .pdb file is found
+      assert:
+        that:
+          - pdb_files_found.results[index].matched > 0
+        success_msg: "Found {{ pdb_files_found.results[index].matched }} .pdb files in {{ item.data_input_dir }}."
+        fail_msg: "No .pdb files found in {{ item.data_input_dir }}."
+      loop: "{{ datasets }}"
+      loop_control:
+        loop_var: item
+        index_var: index
 
     # Assert that datasets_pdb fact is set correctly
     - name: Assert datasets_pdb fact is set correctly
