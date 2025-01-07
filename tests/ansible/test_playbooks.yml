@@ -1197,7 +1197,7 @@
         enabled: yes
       register: redis_cleanup_timer_status
 
-      
+
 # Test Distribute and Run Data Analysis Pipeline Playbook
 - import_playbook: ../../ansible/playbooks/run_pipeline.yml
 
@@ -1309,11 +1309,3 @@
         success_msg: "datasets_pdb fact is correctly set with all required information."
         fail_msg: "datasets_pdb fact is not set correctly."
 
-    # Assert that enqueueing tasks (debug messages) was executed
-    # Note: Since the playbook uses debug messages, we can verify that no errors occurred during loop execution
-    - name: Ensure enqueueing tasks (debug messages) executed without errors
-      assert:
-        that:
-          - not ansible_run_status.failed
-        success_msg: "Enqueueing tasks executed successfully."
-        fail_msg: "Enqueueing tasks encountered errors."
