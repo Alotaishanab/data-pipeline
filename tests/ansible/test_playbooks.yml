@@ -1028,9 +1028,10 @@
     - name: Assert Celery service is active and enabled
       assert:
         that:
-          - celery_service_status is succeeded
+          - not celery_service_status.failed
         success_msg: "Celery service is running and enabled."
         fail_msg: "Celery service is not running or not enabled."
+
 
     # Assert Celery worker script exists and is executable
     - name: Check if Celery worker script exists
