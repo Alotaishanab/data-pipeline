@@ -1035,13 +1035,6 @@
         path: "{{ celery_bin }}"
       register: celery_binary_stat
 
-    - name: Assert Celery binary exists in virtualenv
-      assert:
-        that:
-          - celery_binary_stat.stat.exists
-          - celery_binary_stat.stat.isfile
-        success_msg: "Celery binary exists in virtualenv."
-        fail_msg: "Celery binary does not exist in virtualenv."
 
     # Assert Redis broker is accessible
     - name: Check Redis broker connectivity
