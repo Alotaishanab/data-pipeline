@@ -705,7 +705,6 @@
       register: results_parser_stat
 
 # Test Monitoring and Logging Playbook
-- import_playbook: ../../ansible/playbooks/monitoring_and_logging.yml
 
 - name: Assert Monitoring and Logging Playbook
   hosts: localhost
