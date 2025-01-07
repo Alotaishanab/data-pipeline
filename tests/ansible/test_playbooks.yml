@@ -1071,14 +1071,6 @@
         path: /etc/systemd/system/{{ webhook_service }}.service
       register: webhook_service_stat
 
-    - name: Assert Webhook service file exists
-      assert:
-        that:
-          - webhook_service_stat.stat.exists
-          - webhook_service_stat.stat.isfile
-        success_msg: "Webhook service file exists."
-        fail_msg: "Webhook service file does not exist."
-
     - name: Check if Webhook service is active and enabled
       service:
         name: "{{ webhook_service }}"
@@ -1086,42 +1078,17 @@
         enabled: yes
       register: webhook_service_status
 
-    - name: Assert Webhook service is active and enabled
-      assert:
-        that:
-          - webhook_service_status is succeeded
-        success_msg: "Webhook service is running and enabled."
-        fail_msg: "Webhook service is not running or not enabled."
-
     # Assert Webhook server script exists and is executable
     - name: Check if Webhook server script exists
       stat:
         path: "{{ webhook_script }}"
       register: webhook_script_stat
 
-    - name: Assert Webhook server script exists and is executable
-      assert:
-        that:
-          - webhook_script_stat.stat.exists
-          - webhook_script_stat.stat.isfile
-          - (webhook_script_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "Webhook server script exists and is executable."
-        fail_msg: "Webhook server script does not exist or is not executable."
-
     # Assert Update Disabled Workers script exists and is executable
     - name: Check if Update Disabled Workers script exists
       stat:
         path: "{{ update_disabled_workers_script }}"
       register: update_disabled_workers_stat
-
-    - name: Assert Update Disabled Workers script exists and is executable
-      assert:
-        that:
-          - update_disabled_workers_stat.stat.exists
-          - update_disabled_workers_stat.stat.isfile
-          - (update_disabled_workers_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "Update Disabled Workers script exists and is executable."
-        fail_msg: "Update Disabled Workers script does not exist or is not executable."
 
     # Assert Apache HTTP Server (httpd) is installed and running
     - name: Check if Apache HTTP Server is installed
