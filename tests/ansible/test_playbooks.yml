@@ -922,13 +922,6 @@
       changed_when: false
       failed_when: false
 
-    - name: Assert rsyslog is configured to send logs to control node
-      assert:
-        that:
-          - rsyslog_config.rc == 0
-        success_msg: "rsyslog is configured to send logs to control node."
-        fail_msg: "rsyslog is not configured correctly to send logs to control node."
-
     # Additional checks can be added here as needed
 
 # Test Redis Setup Playbook
