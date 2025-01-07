@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
 import sys
+import os
 import csv
 import json
-from collections import defaultdict
+import logging
 import statistics
-import os
+from collections import defaultdict
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python3 results_parser.py <OUTPUT_DIR> <SEARCH_FILE_PATH>")
+        logging.error("Usage: python3 results_parser.py <OUTPUT_DIR> <SEARCH_FILE_PATH>")
         sys.exit(1)
 
     output_dir = sys.argv[1]
     search_file_path = sys.argv[2]
 
     if not os.path.isfile(search_file_path):
-        print(f"Error: File {search_file_path} not found.")
+        logging.error(f"Error: File {search_file_path} not found.")
         sys.exit(1)
 
     # Extract the filename from the search file path
@@ -29,37 +39,35 @@ def main():
 
     try:
         with open(search_file_path, "r") as fhIn:
-            lines = fhIn.readlines()
-            if len(lines) <= 1:
-                print(f"No data found in {search_file_path}. Skipping parsing.")
+            reader = csv.reader(fhIn, delimiter='\t')
+            header = next(reader, None)  # Skip header
+            if header is None:
+                logging.warning(f"No header found in {search_file_path}. Skipping parsing.")
                 sys.exit(0)
-            fhIn.seek(0)
-            next(fhIn)  # Skip header
-            msreader = csv.reader(fhIn, delimiter='\t')
-            tot_entries = 0
+
             cath_ids = defaultdict(int)
             plDDT_values = []
+            line_number = 1  # Starting after header
 
-            for i, row in enumerate(msreader):
+            for row in reader:
+                line_number += 1
                 if len(row) < 16:
-                    print(f"Warning: Row {i+2} has insufficient columns.")
+                    logging.warning(f"Warning: Row {line_number} has insufficient columns.")
                     continue
-                tot_entries = i + 1
                 try:
                     plDDT = float(row[3])
                     plDDT_values.append(plDDT)
                 except ValueError:
-                    print(f"Warning: Invalid plDDT value on row {i+2}.")
+                    logging.warning(f"Warning: Invalid plDDT value on row {line_number}.")
                     continue
                 try:
                     meta = row[15]
                     data = json.loads(meta)
-                    # Debug print if needed: print(f"Row {i+2} metadata: {data}")
                     cath_id = data.get("cath", "Unknown")
                     cath_ids[cath_id] += 1
                 except (IndexError, json.JSONDecodeError):
-                    print(f"Warning: Invalid metadata on row {i+2}. Content: {row[15] if len(row) > 15 else 'N/A'}")
-                    print(f"Row content: {row}")
+                    logging.warning(f"Warning: Invalid metadata on row {line_number}. Content: {row[15] if len(row) > 15 else 'N/A'}")
+                    logging.debug(f"Row content: {row}")
                     continue
 
         # Define the parsed file name
@@ -73,16 +81,16 @@ def main():
             else:
                 fhOut.write(f"#{search_filename} Results. mean plddt: 0\n")
             fhOut.write("cath_id,count\n")
-            for cath, count in cath_ids.items():
+            for cath, count in sorted(cath_ids.items()):
                 fhOut.write(f"{cath},{count}\n")
 
-        print(f"Successfully parsed {search_filename} to {parsed_filename}")
+        logging.info(f"Successfully parsed {search_filename} to {parsed_filename}")
 
     except FileNotFoundError:
-        print(f"Error: File {search_file_path} not found.")
+        logging.error(f"Error: File {search_file_path} not found.")
         sys.exit(1)
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logging.error(f"An error occurred while parsing {search_file_path}: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
