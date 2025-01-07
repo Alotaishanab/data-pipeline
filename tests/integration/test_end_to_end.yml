@@ -17,9 +17,9 @@
         mode: '0755'
 
     - name: Move test.pdb to /mnt/datasets/test/
-      ansible.builtin.command: mv /opt/data_pipeline/test.pdb /mnt/datasets/test/test.pdb
+      ansible.builtin.command: mv /data-pipeline/test.pdb /mnt/datasets/test/test.pdb
       args:
-        removes: /opt/data_pipeline/test.pdb
+        removes: /root/test.pdb
         creates: /mnt/datasets/test/test.pdb
 
     - name: Verify that test.pdb has been moved
