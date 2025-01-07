@@ -23,8 +23,7 @@
         state: started
         enabled: yes
 
-    # Add firewall services for NFS
-    # NFS usually needs rpc-bind, nfs, and mountd services allowed
+
     - name: Allow NFS related services in firewall
       firewalld:
         service: "{{ item }}"
@@ -48,7 +47,6 @@
         state: started
         enabled: yes
 
-    # Your existing tasks for partitioning, mounting, and exporting NFS directories
     - name: Create partition on data disk
       community.general.parted:
         device: /dev/vdb

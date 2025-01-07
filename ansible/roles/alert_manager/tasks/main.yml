@@ -1,4 +1,3 @@
----
 - name: Download Alertmanager binary
   get_url:
     url: "{{ alertmanager_url }}"
@@ -11,7 +10,7 @@
     src: "/tmp/{{ alertmanager_tarball }}"
     dest: "/opt/"
     remote_src: yes
-    extra_opts: []  # Remove '--strip-components=1'
+    extra_opts: []  
 
 - name: Remove existing /opt/alertmanager if it exists
   file:

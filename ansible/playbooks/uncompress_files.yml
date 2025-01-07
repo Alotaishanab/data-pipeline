@@ -5,7 +5,7 @@
     datasets_dirs:
       - /mnt/datasets/human_proteome
       - /mnt/datasets/ecoli_proteome
-    parallel_jobs: 4  # Adjust based on CPU cores
+    parallel_jobs: 4  
 
   tasks:
     - name: Find compressed files first

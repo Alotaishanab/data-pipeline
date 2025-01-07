@@ -69,7 +69,6 @@
         msg: "Symbolic link for CATH Foldclass Database (.index) points to an incorrect target. Expected: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index, Got: {{ symlink_index_target.stdout }}"
       when: symlink_index_target.stdout != '/mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index'
 
-    # New Tasks for Metadata Files
     - name: Create symbolic link for CATH Foldclass Database (.metadata)
       file:
         src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.metadata

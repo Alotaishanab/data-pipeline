@@ -18,7 +18,7 @@ import redis
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 
 # Redis configuration
-REDIS_HOST = 'localhost'  # Update if different
+REDIS_HOST = 'localhost'  
 REDIS_PORT = 6379
 REDIS_DB = 0
 
