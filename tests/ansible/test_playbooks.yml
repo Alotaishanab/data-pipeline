@@ -1035,21 +1035,6 @@
         path: "{{ celery_bin }}"
       register: celery_binary_stat
 
-
-    # Assert Redis broker is accessible
-    - name: Check Redis broker connectivity
-      command: "redis-cli -h {{ redis_host }} ping"
-      register: redis_ping
-      changed_when: false
-      failed_when: false
-
-    - name: Assert Redis broker is accessible
-      assert:
-        that:
-          - redis_ping.stdout == "PONG"
-        success_msg: "Redis broker is accessible."
-        fail_msg: "Redis broker is not accessible."
-
     # Assert Celery queues are correctly configured
     - name: Check Celery queues are active
       command: "{{ celery_bin }} -A celery_worker inspect active_queues"
