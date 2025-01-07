@@ -714,19 +714,17 @@
   vars:
     control_node_ip: "127.0.0.1"  # Define control_node_ip appropriately
   tasks:
-    # Assert Installation of EPEL Repository
-    - name: Check if EPEL repository is installed
-      yum_repository:
-        name: epel
-        state: present
-      register: epel_repo
+    - name: Check if epel-release package is installed
+      package_facts:
+        manager: auto
 
-    - name: Assert EPEL repository is installed
+    - name: Assert epel-release package is installed
       assert:
         that:
-          - epel_repo.state == "present"
-        success_msg: "EPEL repository is installed."
-        fail_msg: "EPEL repository is not installed."
+          - "'epel-release' in ansible_facts.packages"
+        fail_msg: "EPEL repository is not installed. The 'epel-release' package is missing."
+        success_msg: "EPEL repository is installed successfully."
+
 
     # Assert Installation of firewalld, python3-pip, python3-firewall, lsof
     - name: Check if firewalld is installed
