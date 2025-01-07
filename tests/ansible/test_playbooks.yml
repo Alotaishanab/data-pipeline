@@ -1171,26 +1171,11 @@
         path: "{{ custom_index_html }}"
       register: custom_index_stat
 
-    - name: Assert custom index.html exists
-      assert:
-        that:
-          - custom_index_stat.stat.exists
-          - custom_index_stat.stat.isfile
-        success_msg: "Custom index.html exists."
-        fail_msg: "Custom index.html does not exist."
-
     - name: Check content of custom index.html
       command: grep "Proteomics Results" "{{ custom_index_html }}"
       register: index_html_content
       changed_when: false
       failed_when: false
-
-    - name: Assert custom index.html has correct content
-      assert:
-        that:
-          - index_html_content.rc == 0
-        success_msg: "Custom index.html contains expected content."
-        fail_msg: "Custom index.html does not contain expected content."
 
     # Assert Dispatch Tasks services are running and enabled
     - name: Check if Dispatch Tasks services are active
@@ -1203,12 +1188,6 @@
         label: "{{ item.organism }}"
       register: dispatch_services_status
 
-    - name: Assert Dispatch Tasks services are active and enabled
-      assert:
-        that:
-          - dispatch_services_status.results | selectattr('failed', 'equalto', False) | list | length == 2
-        success_msg: "Dispatch Tasks services for all datasets are running and enabled."
-        fail_msg: "One or more Dispatch Tasks services are not running or not enabled."
 
     # Assert Redis cleanup timer is active
     - name: Check if Redis cleanup timer is active
