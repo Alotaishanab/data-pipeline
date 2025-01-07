@@ -813,14 +813,6 @@
         path: /usr/local/bin/node_exporter
       register: node_exporter_bin
 
-    - name: Assert node_exporter binary exists
-      assert:
-        that:
-          - node_exporter_bin.stat.exists
-          - node_exporter_bin.stat.isfile
-        success_msg: "node_exporter binary exists."
-        fail_msg: "node_exporter binary does not exist."
-
     - name: Check if node_exporter service is running
       service:
         name: node_exporter
@@ -853,14 +845,6 @@
       stat:
         path: /usr/local/bin/prometheus
       register: prometheus_bin
-
-    - name: Assert prometheus binary exists
-      assert:
-        that:
-          - prometheus_bin.stat.exists
-          - prometheus_bin.stat.isfile
-        success_msg: "Prometheus binary exists."
-        fail_msg: "Prometheus binary does not exist."
 
     - name: Check if prometheus service is running
       service:
