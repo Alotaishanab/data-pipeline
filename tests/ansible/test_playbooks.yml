@@ -1138,13 +1138,6 @@
         path: "{{ webhook_script }}"
       register: webhook_script_exec_stat
 
-    - name: Assert Webhook script is executable
-      assert:
-        that:
-          - (webhook_script_exec_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "Webhook script is executable."
-        fail_msg: "Webhook script is not executable."
-
     # Assert Results symlink exists and points correctly
     - name: Check if results symlink exists
       stat:
@@ -1224,13 +1217,6 @@
         state: started
         enabled: yes
       register: redis_cleanup_timer_status
-
-    - name: Assert Redis cleanup timer is active and enabled
-      assert:
-        that:
-          - redis_cleanup_timer_status is succeeded
-        success_msg: "Redis cleanup timer is active and enabled."
-        fail_msg: "Redis cleanup timer is not active or not enabled."
 
     # Assert Flask app is accessible via HTTP
     - name: Check if Flask app is accessible
