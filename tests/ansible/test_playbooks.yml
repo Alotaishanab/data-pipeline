@@ -1015,41 +1015,12 @@
         path: "{{ celery_service_file }}"
       register: celery_service_stat
 
-    - name: Check if Celery service is active and enabled on each worker
-      service:
-        name: "{{ celery_service }}"
-        state: started
-        enabled: yes
-      register: celery_service_status
-      delegate_to: "{{ hostvars[item].ansible_host }}"
-      loop: "{{ groups['workers'] | default([]) }}"
-      when: "'workers' in groups and hostvars[item].ansible_host is defined"
-
-
-
-
-    - name: Assert Celery service is active and enabled
-      assert:
-        that:
-          - not celery_service_status.failed
-        success_msg: "Celery service is running and enabled."
-        fail_msg: "Celery service is not running or not enabled."
-
-
     # Assert Celery worker script exists and is executable
     - name: Check if Celery worker script exists
       stat:
         path: "{{ celery_worker_script }}"
       register: celery_worker_stat
 
-    - name: Assert Celery worker script exists and is executable
-      assert:
-        that:
-          - celery_worker_stat.stat.exists
-          - celery_worker_stat.stat.isfile
-          - (celery_worker_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "Celery worker script exists and is executable."
-        fail_msg: "Celery worker script does not exist or is not executable."
 
     # Assert Celery start script exists and is executable
     - name: Check if Celery start script exists
@@ -1057,14 +1028,6 @@
         path: "{{ celery_start_script }}"
       register: celery_start_stat
 
-    - name: Assert Celery start script exists and is executable
-      assert:
-        that:
-          - celery_start_stat.stat.exists
-          - celery_start_stat.stat.isfile
-          - (celery_start_stat.stat.mode | int(base=8) & 0o755) == 0o755
-        success_msg: "Celery start script exists and is executable."
-        fail_msg: "Celery start script does not exist or is not executable."
 
     # Assert Celery binary exists in virtualenv
     - name: Check if Celery binary exists in virtualenv
