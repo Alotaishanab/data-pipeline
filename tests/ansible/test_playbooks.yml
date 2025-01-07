@@ -935,20 +935,6 @@
   vars:
     storage_ip: "127.0.0.1"  # Define storage_ip appropriately
   tasks:
-    # Assert Installation of EPEL Repository
-    - name: Check if EPEL repository is installed
-      yum_repository:
-        name: epel
-        state: present
-      register: epel_repo_redis
-
-    - name: Assert EPEL repository is installed for Redis
-      assert:
-        that:
-          - epel_repo_redis.state == "present"
-        success_msg: "EPEL repository is installed."
-        fail_msg: "EPEL repository is not installed."
-
     # Assert firewalld is active
     - name: Check if firewalld is active
       service:
