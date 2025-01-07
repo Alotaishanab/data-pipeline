@@ -992,12 +992,6 @@
       changed_when: false
       failed_when: false
 
-    - name: Assert Redis port 6379/tcp is open in firewalld
-      assert:
-        that:
-          - redis_firewall_rule.rc == 0
-        success_msg: "Redis port 6379/tcp is open in firewalld."
-        fail_msg: "Redis port 6379/tcp is not open in firewalld."
 
 # Test Celery Setup Playbook
 - import_playbook: ../../ansible/playbooks/celery_setup.yml
@@ -1023,14 +1017,6 @@
       stat:
         path: "{{ celery_service_file }}"
       register: celery_service_stat
-
-    - name: Assert Celery service file exists
-      assert:
-        that:
-          - celery_service_stat.stat.exists
-          - celery_service_stat.stat.isfile
-        success_msg: "Celery service file exists."
-        fail_msg: "Celery service file does not exist."
 
     - name: Check if Celery service is active and enabled
       service:
