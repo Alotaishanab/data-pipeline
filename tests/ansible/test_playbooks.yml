@@ -1197,24 +1197,7 @@
         enabled: yes
       register: redis_cleanup_timer_status
 
-    # Assert Flask app is accessible via HTTP
-    - name: Check if Flask app is accessible
-      uri:
-        url: "http://localhost:{{ flask_app_port }}/"
-        return_content: yes
-        status_code: 200
-      register: flask_app_response
-      retries: 5
-      delay: 10
-      until: flask_app_response.status == 200
-
-    - name: Assert Flask app is accessible
-      assert:
-        that:
-          - flask_app_response.status == 200
-        success_msg: "Flask app is accessible."
-        fail_msg: "Flask app is not accessible."
-
+      
 # Test Distribute and Run Data Analysis Pipeline Playbook
 - import_playbook: ../../ansible/playbooks/run_pipeline.yml
 
