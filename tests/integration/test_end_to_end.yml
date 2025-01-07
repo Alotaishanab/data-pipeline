@@ -1,11 +1,40 @@
 - name: End-to-End Pipeline Test
-  hosts: host  
+  hosts: worker1   
   gather_facts: false
   become: yes
 
   tasks:
-    - name: Run pipeline_script on a sample PDB
-      command: python3 /opt/data_pipeline/pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
+    - name: Ensure /mnt/datasets/test directory exists
+      ansible.builtin.file:
+        path: /mnt/datasets/test
+        state: directory
+        mode: '0755'
+
+    - name: Ensure /mnt/results/test directory exists
+      ansible.builtin.file:
+        path: /mnt/results/test
+        state: directory
+        mode: '0755'
+
+    - name: Move test.pdb to /mnt/datasets/test/
+      ansible.builtin.command: mv /opt/data_pipeline/test.pdb /mnt/datasets/test/test.pdb
+      args:
+        removes: /opt/data_pipeline/test.pdb
+        creates: /mnt/datasets/test/test.pdb
+
+    - name: Verify that test.pdb has been moved
+      ansible.builtin.stat:
+        path: /mnt/datasets/test/test.pdb
+      register: pdb_stat
+
+    - name: Fail if test.pdb was not moved successfully
+      ansible.builtin.fail:
+        msg: "test.pdb was not found in /mnt/datasets/test/"
+      when: not pdb_stat.stat.exists
+
+    - name: Run pipeline_script on the sample PDB
+      ansible.builtin.command: >
+        python3 /opt/data_pipeline/pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
       register: pipeline_run
       changed_when: false
 
@@ -17,7 +46,7 @@
         fail_msg: "pipeline_script.py failed with an error."
 
     - name: Check for parsed results in /mnt/results/test
-      find:
+      ansible.builtin.find:
         paths: /mnt/results/test
         patterns: "*parsed"
       register: parsed_files
