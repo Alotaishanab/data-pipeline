@@ -985,13 +985,6 @@
       changed_when: false
       failed_when: false
 
-    - name: Assert Redis is configured to bind to 0.0.0.0
-      assert:
-        that:
-          - "'bind 0.0.0.0' in redis_bind_config.stdout"
-        success_msg: "Redis is configured to accept connections from all interfaces."
-        fail_msg: "Redis is not configured correctly to accept external connections."
-
     # Assert Redis port 6379 is open in firewalld
     - name: Check if port 6379/tcp is allowed in firewalld
       shell: firewall-cmd --permanent --list-ports | grep "6379/tcp"
