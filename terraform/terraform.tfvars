@@ -47,7 +47,7 @@ mgmt_vm_tags = {
 
 # Instance Tags for Worker and Storage VMs
 worker_storage_vm_tags = {
-  "condenser_ingress_node_hostname" = "-node"
+  "condenser_ingress_node_hostname" = "--node"
   "condenser_ingress_node_port"     = "9100"
   "condenser_ingress_isAllowed"     = "true"
   "condenser_ingress_isEnabled"     = "true"

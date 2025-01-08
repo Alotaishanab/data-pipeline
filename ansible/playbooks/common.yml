@@ -62,6 +62,16 @@
         enabled: yes
       when: ansible_os_family == "RedHat"
 
+    - name: Allow HTTP and HTTPS in firewall
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+      loop:
+        - http
+        - https
+      notify: reload firewalld
+
     - name: Ensure Nginx is installed on all machines
       package:
         name: nginx
