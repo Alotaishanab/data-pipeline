@@ -62,6 +62,7 @@
         enabled: yes
       when: ansible_os_family == "RedHat"
 
+    # **Add the following tasks to allow HTTP and HTTPS traffic**
     - name: Allow HTTP and HTTPS in firewall
       firewalld:
         service: "{{ item }}"
@@ -84,3 +85,9 @@
           - python3-certbot-nginx
         state: present
       when: ansible_os_family == "RedHat"
+
+  handlers:
+    - name: reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
