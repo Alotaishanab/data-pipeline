@@ -7,6 +7,31 @@
         name: epel-release
         state: present
 
+
+    - name: Ensure firewalld is installed on RedHat-based systems
+      package:
+        name: firewalld
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure firewalld is running and enabled on RedHat-based systems
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+
+    # **Add the following tasks to allow HTTP and HTTPS traffic**
+    - name: Allow HTTP and HTTPS in firewall
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+      loop:
+        - http
+        - https
+      notify: reload firewalld
+
     
     - name: Ensure firewalld is running and enabled
       systemd:
@@ -110,6 +135,12 @@
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
+  handlers:
+    - name: reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
 
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
