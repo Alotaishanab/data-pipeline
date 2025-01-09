@@ -49,6 +49,29 @@
         executable: pip3
         state: latest
 
+    - name: Ensure firewalld is installed on RedHat-based systems
+      package:
+        name: firewalld
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure firewalld is running and enabled on RedHat-based systems
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Allow HTTP and HTTPS in firewall
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+      loop:
+        - http
+        - https
+      notify: reload firewalld
+
     - name: Ensure Nginx is installed on all machines
       package:
         name: nginx
@@ -61,5 +84,11 @@
           - python3-certbot-nginx
         state: present
       when: ansible_os_family == "RedHat"
+  
+  handlers:
+    - name: reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
 
   

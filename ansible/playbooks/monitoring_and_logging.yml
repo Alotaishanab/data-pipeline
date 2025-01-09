@@ -1,5 +1,14 @@
+- name: Gather facts for all hosts
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Ensure facts are gathered
+      debug:
+        msg: "Facts gathered for all hosts."
+
 - name: Setup Monitoring and Logging on All Hosts
   hosts: all
+  gather_facts: false
   become: yes
   tasks:
     - name: Install EPEL repository
@@ -7,32 +16,6 @@
         name: epel-release
         state: present
 
-
-    - name: Ensure firewalld is installed on RedHat-based systems
-      package:
-        name: firewalld
-        state: present
-      when: ansible_os_family == "RedHat"
-
-    - name: Ensure firewalld is running and enabled on RedHat-based systems
-      systemd:
-        name: firewalld
-        state: started
-        enabled: yes
-      when: ansible_os_family == "RedHat"
-
-    # **Add the following tasks to allow HTTP and HTTPS traffic**
-    - name: Allow HTTP and HTTPS in firewall
-      firewalld:
-        service: "{{ item }}"
-        state: enabled
-        permanent: yes
-      loop:
-        - http
-        - https
-      notify: reload firewalld
-
-    
     - name: Ensure firewalld is running and enabled
       systemd:
         name: firewalld
@@ -52,7 +35,7 @@
             url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
             dest: "/tmp/node_exporter.tar.gz"
             mode: '0644'
-            force: yes  
+            force: yes
 
         - name: Extract Node Exporter
           unarchive:
@@ -136,14 +119,9 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-  handlers:
-    - name: reload firewalld
-      systemd:
-        name: firewalld
-        state: reloaded
-
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
+  gather_facts: true
   become: yes
   tasks:
     - name: Create Prometheus user and group
@@ -258,7 +236,9 @@
               static_configs:
                 - targets:
                     {% for host in groups['all'] %}
-                      - '{{ hostvars[host].ansible_default_ipv4.address }}:9100'
+                    {% if hostvars[host].ansible_facts.get('default_ipv4', {}).get('address') is defined %}
+                      - '{{ hostvars[host].ansible_facts.default_ipv4.address }}:9100'
+                    {% endif %}
                     {% endfor %}
         owner: prometheus
         group: prometheus
@@ -326,6 +306,7 @@
 
 - name: Install and Configure Grafana on Control Node
   hosts: localhost
+  gather_facts: yes
   become: yes
   tasks:
     - name: Add Grafana repository
@@ -454,11 +435,11 @@
       systemd:
         name: grafana-server
         state: restarted
-      when: ansible_os_family == "RedHat"  
-
+      when: ansible_os_family == "RedHat"
 
 - name: Configure Logging on All Hosts
   hosts: all
+  gather_facts: false
   become: yes
   tasks:
     - name: Install rsyslog
