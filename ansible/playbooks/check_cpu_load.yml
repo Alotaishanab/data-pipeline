@@ -23,7 +23,7 @@
       shell: awk '{print $1}' /proc/loadavg
       register: current_load
       changed_when: false
-      until: current_load.stdout | float < cpu_load_threshold
+      until: (current_load.stdout | float) < (cpu_load_threshold | float)
       retries: "{{ cpu_load_retries }}"
       delay: "{{ cpu_load_delay }}"
 
@@ -34,4 +34,4 @@
     - name: Fail if CPU load remains too high after retries
       fail:
         msg: "CPU load is too high ({{ current_load.stdout }}) on {{ inventory_hostname }}. Aborting playbook."
-      when: current_load.stdout | float >= cpu_load_threshold
+      when: (current_load.stdout | float) >= (cpu_load_threshold | float)
