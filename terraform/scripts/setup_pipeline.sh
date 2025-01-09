@@ -108,12 +108,22 @@ print_ssh_instructions() {
 
     echo "You can SSH into your VMs using the following commands:"
     echo ""
-    echo "$SSH_CONFIG" | awk '/^Host / {host=$2} /^    HostName / {print "ssh -J condenser-proxy almalinux@"$2" # "host}'
+
+    echo "$SSH_CONFIG" | awk '/^Host / {host=$2} /^    HostName / {print "ssh -i /home/almalinux/.ssh/ansible_ed25519" (ENVIRON["ON_CONDENSER"] == "true" ? "" : " -J condenser-proxy") " almalinux@"$2" # "host}'
+    echo ""
+    echo "You can also use your marker private key by replacing the path to the SSH key."
+    echo ""
+    echo "=============================================="
+    
+    echo "Note:"
+    echo "- If you are on the condenser host, you do not need to use the '-J condenser-proxy' option."
+    echo "- If you are not on the condenser host, include the '-J condenser-proxy' option to proxy your SSH connection."
     echo ""
     echo "Ensure that your SSH keys are correctly set up."
     echo ""
     echo "=============================================="
 }
+
 
 # Main script execution
 install_packages        # <--- This now installs ansible as well
