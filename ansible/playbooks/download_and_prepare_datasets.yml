@@ -19,7 +19,7 @@
         - "{{ human_proteome_dir }}"
         - "{{ ecoli_proteome_dir }}"
         - "{{ cath_extract_dir }}"
-    
+
     - name: Download Human Proteome Dataset
       get_url:
         url: https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/UP000005640_9606_HUMAN_v4.tar
@@ -28,7 +28,7 @@
       register: download_human
       retries: 5
       delay: 30
-      until: download_human.status == 200
+      until: download_human is succeeded
 
     - name: Extract Human Proteome Dataset
       unarchive:
@@ -45,7 +45,7 @@
       register: download_ecoli
       retries: 5
       delay: 30
-      until: download_ecoli.status == 200
+      until: download_ecoli is succeeded
 
     - name: Extract E.coli Proteome Dataset
       unarchive:
@@ -62,7 +62,7 @@
       register: download_cathdb
       retries: 5
       delay: 30
-      until: download_cathdb.status == 200
+      until: download_cathdb is succeeded
 
     - name: Extract CATH Foldclass Database
       unarchive:
@@ -70,7 +70,7 @@
         dest: "{{ cath_extract_dir }}"
         remote_src: yes
       when: download_cathdb.changed
-    
+
     - name: Set permissions on datasets directories
       file:
         path: "{{ item }}"
