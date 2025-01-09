@@ -28,23 +28,6 @@
       loop_control:
         label: "{{ item.organism }}"
 
-    - name: Initialize datasets_pdb as an empty list
-      set_fact:
-        datasets_pdb: []
-      run_once: true
-
-    - name: Set fact for datasets and their PDB files
-      set_fact:
-        datasets_pdb: "{{ datasets_pdb + [ {
-          'organism': item.item.organism,
-          'results_dir': item.item.results_dir,
-          'data_input_dir': item.item.data_input_dir,
-          'files': (item.files | default([])) | map(attribute='path') | list
-        } ] }}"
-      loop: "{{ pdb_files.results }}"
-      loop_control:
-        label: "{{ item.item.organism }}"
-
     - name: Deploy Updated Dispatch Tasks Script on host
       copy:
         dest: /opt/data_pipeline/dispatch_tasks.py
@@ -250,9 +233,14 @@
         state: started
         enabled: yes
 
+    # Removed the problematic Set fact and associated debug task
+
     - name: Enqueue pipeline tasks for each dataset
       debug:
         msg: "Dispatching tasks for organism: {{ item.organism }}"
       loop: "{{ datasets_pdb }}"
       loop_control:
         label: "{{ item.organism }}"
+      when: datasets_pdb is defined and datasets_pdb | length > 0
+
+
