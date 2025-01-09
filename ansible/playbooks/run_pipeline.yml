@@ -28,19 +28,22 @@
       loop_control:
         label: "{{ item.organism }}"
 
+    - name: Initialize datasets_pdb as an empty list
+      set_fact:
+        datasets_pdb: []
+      run_once: true
+
     - name: Set fact for datasets and their PDB files
       set_fact:
-        datasets_pdb: "{{ datasets_pdb | default([]) + [ {
+        datasets_pdb: "{{ datasets_pdb + [ {
           'organism': item.item.organism,
           'results_dir': item.item.results_dir,
           'data_input_dir': item.item.data_input_dir,
-          'files': item.files | map(attribute='path') | list
+          'files': (item.files | default([])) | map(attribute='path') | list
         } ] }}"
       loop: "{{ pdb_files.results }}"
       loop_control:
         label: "{{ item.item.organism }}"
-
-    # **Moved Dispatch and Cleanup Tasks Start Here**
 
     - name: Deploy Updated Dispatch Tasks Script on host
       copy:
@@ -201,7 +204,7 @@
           REDIS_PORT = 6379
           REDIS_DB   = 0
 
-          r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=redis_DB)
+          r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
           r.delete('dispatched_tasks:human')
           r.delete('dispatched_tasks:ecoli')
 
