@@ -10,6 +10,22 @@
         data_input_dir: "/mnt/datasets/ecoli_proteome/"
         results_dir: "/mnt/results/ecoli/"
   tasks:
+    - name: Verify data input directories exist
+      stat:
+        path: "{{ item.data_input_dir }}"
+      register: input_dir_check
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+
+    - name: Fail if data input directory is not found
+      fail:
+        msg: "Data input directory {{ item.data_input_dir }} for {{ item.organism }} does not exist."
+      when: not input_dir_check.results[item | index].stat.exists
+      loop: "{{ datasets }}"
+      loop_control:
+        label: "{{ item.organism }}"
+
     - name: Find all .pdb files for each dataset
       find:
         paths: "{{ item.data_input_dir }}"
@@ -18,6 +34,13 @@
       loop: "{{ datasets }}"
       loop_control:
         label: "{{ item.organism }}"
+      retries: 3
+      delay: 10
+      until: pdb_files is succeeded
+
+    - name: Debug pdb_files output
+      debug:
+        var: pdb_files
 
     - name: Set fact for datasets and their PDB files
       set_fact:
@@ -31,10 +54,13 @@
       loop_control:
         label: "{{ item.item.organism }}"
       register: set_fact_result
-      until: set_fact_result is succeeded
       retries: 5
       delay: 10
+      until: set_fact_result is succeeded or set_fact_result.failed is not defined
 
+    - name: Debug datasets_pdb fact
+      debug:
+        var: datasets_pdb
 
     - name: Enqueue pipeline tasks for each dataset
       debug:
