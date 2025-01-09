@@ -1,3 +1,4 @@
+- import_playbook: check_cpu_load.yml
 - import_playbook: common.yml
 - import_playbook: install_dependencies.yml
 - import_playbook: nfs_server.yml

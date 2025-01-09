@@ -1,0 +1,62 @@
+- name: Check CPU Load and Pause if Necessary
+  hosts: all
+  gather_facts: false
+  vars:
+    cpu_load_percentage_threshold: 95    # Percentage threshold
+    cpu_load_retries: 5                   # Number of retries before failing
+    cpu_load_delay: 60                    # Delay in seconds between retries
+  tasks:
+    - name: Get number of CPU cores
+      shell: nproc
+      register: cpu_cores
+      changed_when: false
+
+    - name: Calculate CPU load threshold based on 95% of CPU cores
+      set_fact:
+        cpu_load_threshold: "{{ (cpu_cores.stdout | int * cpu_load_percentage_threshold / 100) | float }}"
+
+    - name: Debug CPU load threshold
+      debug:
+        msg: "CPU load threshold for {{ inventory_hostname }} is {{ cpu_load_threshold }}"
+
+    - name: Retrieve current 1-minute CPU load
+      shell: awk '{print $1}' /proc/loadavg
+      register: current_load
+      changed_when: false
+
+    - name: Debug current CPU load
+      debug:
+        msg: "Current CPU load on {{ inventory_hostname }}: {{ current_load.stdout }}"
+
+    - name: Check if CPU load is below threshold
+      set_fact:
+        cpu_load_ok: "{{ current_load.stdout | float < cpu_load_threshold }}"
+
+    - name: Wait until CPU load is below threshold
+      block:
+        - name: Pause execution
+          pause:
+            seconds: "{{ cpu_load_delay }}"
+          when: not cpu_load_ok
+
+        - name: Retry retrieving CPU load
+          shell: awk '{print $1}' /proc/loadavg
+          register: current_load
+          changed_when: false
+
+        - name: Debug current CPU load after pause
+          debug:
+            msg: "Current CPU load on {{ inventory_hostname }} after pause: {{ current_load.stdout }}"
+
+        - name: Update CPU load status
+          set_fact:
+            cpu_load_ok: "{{ current_load.stdout | float < cpu_load_threshold }}"
+      when: not cpu_load_ok
+      until: cpu_load_ok
+      retries: "{{ cpu_load_retries }}"
+      delay: "{{ cpu_load_delay }}"
+
+    - name: Fail if CPU load remains too high after retries
+      fail:
+        msg: "CPU load is too high ({{ current_load.stdout }}) on {{ inventory_hostname }}. Aborting playbook."
+      when: not cpu_load_ok
