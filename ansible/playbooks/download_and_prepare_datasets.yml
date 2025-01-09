@@ -26,8 +26,8 @@
         dest: "{{ human_tarball }}"
         mode: '0644'
       register: download_human
-      retries: 5
-      delay: 30
+      retries: 20
+      delay: 2
       until: download_human is succeeded
 
     - name: Extract Human Proteome Dataset
@@ -43,8 +43,8 @@
         dest: "{{ ecoli_tarball }}"
         mode: '0644'
       register: download_ecoli
-      retries: 5
-      delay: 30
+      retries: 20
+      delay: 2
       until: download_ecoli is succeeded
 
     - name: Extract E.coli Proteome Dataset
@@ -60,8 +60,8 @@
         dest: "{{ cath_tarball }}"
         mode: '0644'
       register: download_cathdb
-      retries: 5
-      delay: 30
+      retries: 20
+      delay: 2
       until: download_cathdb is succeeded
 
     - name: Extract CATH Foldclass Database
