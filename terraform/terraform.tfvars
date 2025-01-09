@@ -34,20 +34,20 @@ storage_extra_disk_size = "200Gi"
 
 # Instance Tags for Management VM
 mgmt_vm_tags = {
-  "condenser_ingress_prometheus_hostname"   = "prometheus"
+  "condenser_ingress_prometheus_hostname"   = "-prometh"
   "condenser_ingress_prometheus_port"       = "9090"
-  "condenser_ingress_grafana_hostname"      = "grafana"
+  "condenser_ingress_grafana_hostname"      = "-grafan"
   "condenser_ingress_grafana_port"          = "3000"
-  "condenser_ingress_nodeexporter_hostname" = "nodeexporter"
+  "condenser_ingress_nodeexporter_hostname" = "-nodeexport"
   "condenser_ingress_nodeexporter_port"     = "9100"
-  "condenser_ingress_webserver_hostname"    = "webserver"
+  "condenser_ingress_webserver_hostname"    = "-webserv"
   "condenser_ingress_isAllowed"             = "true"
   "condenser_ingress_isEnabled"             = "true"
 }
 
 # Instance Tags for Worker and Storage VMs
 worker_storage_vm_tags = {
-  "condenser_ingress_node_hostname" = "nodeexporter"
+  "condenser_ingress_node_hostname" = "-nodeexport"
   "condenser_ingress_node_port"     = "9100"
   "condenser_ingress_isAllowed"     = "true"
   "condenser_ingress_isEnabled"     = "true"
