@@ -21,10 +21,12 @@
     - name: Fail if data input directory is not found
       fail:
         msg: "Data input directory {{ item.data_input_dir }} for {{ item.organism }} does not exist."
-      when: not input_dir_check.results[item | index].stat.exists
+      when: not input_dir_check.results[idx].stat.exists
       loop: "{{ datasets }}"
       loop_control:
+        index_var: idx
         label: "{{ item.organism }}"
+
 
     - name: Find all .pdb files for each dataset
       find:
