@@ -2,28 +2,30 @@
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Prerequisites](#prerequisites)
-3. [Setup Instructions](#setup-instructions)
-    - [1. Install Git](#1-install-git)
-    - [2. Clone the Repository](#2-clone-the-repository)
-    - [3. Configure Terraform Variables](#3-configure-terraform-variables)
-    - [4. Deploy the Pipeline Setup Script](#4-deploy-the-pipeline-setup-script)
-4. [Ansible Inventory Configuration](#ansible-inventory-configuration)
-5. [Deploying with Ansible](#deploying-with-ansible)
-    - [1. SSH into the Host Node](#1-ssh-into-the-host-node)
-    - [2. Run the Ansible Playbook](#2-run-the-ansible-playbook)
-6. [Accessing Monitoring Services](#accessing-monitoring-services)
-    - [Prometheus](#prometheus)
-    - [Grafana](#grafana)
-    - [Node Exporter](#node-exporter)
-    - [Web Server](#web-server)
-7. [Grafana Credentials](#grafana-credentials)
-8. [Ansible Inventory Details](#ansible-inventory-details)
-9. [Testing the Pipeline](#testing-the-pipeline)
-    - [1. Test Ansible Playbooks](#1-test-ansible-playbooks)
-    - [2. Test End-to-End Integration](#2-test-end-to-end-integration)
-    - [3. Test Python Scripts](#3-test-python-scripts)
+1. [Introduction](#introduction)  
+2. [Prerequisites](#prerequisites)  
+3. [Setup Instructions](#setup-instructions)  
+    - [1. Install Git](#1-install-git)  
+    - [2. Clone the Repository](#2-clone-the-repository)  
+    - [3. Configure Terraform Variables](#3-configure-terraform-variables)  
+    - [4. Deploy the Pipeline Setup Script](#4-deploy-the-pipeline-setup-script)  
+4. [Ansible Inventory Configuration](#ansible-inventory-configuration)  
+5. [Deploying with Ansible](#deploying-with-ansible)  
+    - [1. SSH into the Host Node](#1-ssh-into-the-host-node)  
+    - [2. Run the Ansible Playbook](#2-run-the-ansible-playbook)  
+6. [Accessing Monitoring Services](#accessing-monitoring-services)  
+    - [Prometheus](#prometheus)  
+    - [Grafana](#grafana)  
+    - [Node Exporter](#node-exporter)  
+    - [Web Server](#web-server)  
+7. [Grafana Credentials](#grafana-credentials)  
+8. [Ansible Inventory Details](#ansible-inventory-details)  
+9. [Testing the Pipeline](#testing-the-pipeline)  
+    - [1. Test Ansible Playbooks](#1-test-ansible-playbooks)  
+    - [2. Test End-to-End Integration](#2-test-end-to-end-integration)  
+    - [3. Test Python Scripts](#3-test-python-scripts)  
+10. [Additional Configuration Steps](#additional-configuration-steps)  
+11. [Directory Structure](#directory-structure)  
 
 ---
 
@@ -35,23 +37,23 @@ This guide provides step-by-step instructions to set up and deploy the **Data Pi
 
 ### Local Machine
 
-- **Operating System:** Linux-based OS
-- **SSH Access:** Ensure you have SSH access with the necessary private keys.
-- **Terraform:** Installed on your local machine.
-- **Ansible:** Installed on the host node.
-- **Python 3:** Installed on all relevant machines.
+- **Operating System:** Linux-based OS  
+- **SSH Access:** Ensure you have SSH access with the necessary private keys.  
+- **Terraform:** Installed on your local machine.  
+- **Ansible:** Installed on the host node.  
+- **Python 3:** Installed on all relevant machines.  
 - **Necessary Permissions:** Ensure you have the required permissions to execute scripts and manage services on the target machines.
 
 ### Remote Machines
 
-- **SSH Keys:** Ensure that the `ansible_ed25519` key is installed on the VM you're using.
+- **SSH Keys:** Ensure that the `ansible_ed25519` key is installed on the VM you're using.  
 - **Network Access:** Ensure that all machines can communicate with each other and with the Redis broker.
 
 ## Setup Instructions
 
 ### 1. Install Git
 
-Begin by installing Git on your local machine to clone the repository.
+Begin by installing Git on your local machine to clone the repository:
 
 ```bash
 sudo dnf install git -y
@@ -116,7 +118,7 @@ The Ansible inventory has been updated with the new IPs of the freshly provision
 
 ### 1. SSH into the Host Node
 
-Use your marker’s private key or the `ansible_ed25519` key installed on the VM you are using to SSH into the host node:
+Use your marker’s private key or the `ansible_ed25519` key generated on the VM you are using to SSH into the host node:
 
 ```bash
 ssh -i ~/.ssh/ansible_ed25519 almalinux@<HOST_IP_ADDRESS>
@@ -145,21 +147,21 @@ ansible-playbook -i /home/almalinux/data-pipeline/ansible/inventories/inventory.
 
 After deployment, you can access the monitoring services using the following URLs. Replace `<USERNAME>` with your specific username:
 
-- **Prometheus:** https://<USERNAME>-promethh.comp0235.condenser.arc.ucl.ac.uk/
-- **Grafana:** https://<USERNAME>-grafann.comp0235.condenser.arc.ucl.ac.uk/
-- **Node Exporter:** https://<USERNAME>-nodeexportt.comp0235.condenser.arc.ucl.ac.uk/
-- **Web Server:** https://<USERNAME>-webserv.comp0235.condenser.arc.ucl.ac.uk/
+- **Prometheus:** https://<USERNAME>-pr.comp0235.condenser.arc.ucl.ac.uk/
+- **Grafana:** https://<USERNAME>-gr.comp0235.condenser.arc.ucl.ac.uk/
+- **Node Exporter:** https://<USERNAME>-no.comp0235.condenser.arc.ucl.ac.uk/
+- **Web Server:** https://<USERNAME>-we.comp0235.condenser.arc.ucl.ac.uk/
 
 ## Grafana Credentials
 
-- **Username:** `admin`
-- **Password:** `admin`
+- **Username:** admin  
+- **Password:** admin  
 
 **Security Note:** It is highly recommended to change the default Grafana credentials after the initial setup to secure your monitoring dashboards.
 
 ## Ansible Inventory Details
 
-Below is the structure of your Ansible inventory. Ensure that the IP addresses and hostnames match your current environment:
+Below is the structure of your Ansible inventory. 
 
 ```json
 {
@@ -173,34 +175,34 @@ Below is the structure of your Ansible inventory. Ensure that the IP addresses a
     "mgmtnode": {
         "hosts": {
             "host": {
-                "ansible_host": "10.134.12.255"
+                "ansible_host": "xx.xxx.xx.xxx"
             }
         }
     },
     "workers": {
         "hosts": {
             "worker1": {
-                "ansible_host": "10.134.13.5"
+                "ansible_host": "xx.xxx.xx.xxx"
             },
             "worker2": {
-                "ansible_host": "10.134.12.252"
+                "ansible_host": "xx.xxx.xx.xxx"
             },
             "worker3": {
-                "ansible_host": "10.134.12.189"
+                "ansible_host": "xx.xxx.xx.xxx"
             }
         }
     },
     "storagegroup": {
         "hosts": {
             "storage": {
-                "ansible_host": "10.134.12.215"
+                "ansible_host": "xx.xxx.xx.xxx"
             }
         }
     }
 }
 ```
 
-**Note:** Update the `inventory.json` file with the IP addresses of your machines as needed.
+**Note:** The `inventory.json` file will contain the IP addresses of your machines as needed.
 
 ## Testing the Pipeline
 
@@ -227,37 +229,97 @@ ansible-playbook -i ../../ansible/inventories/inventory.json test_end_to_end.yml
 To test the Python scripts involved in the pipeline, use the following command to count the number of `.parsed` files in the results directory:
 
 ```bash
+cd data-pipeline
+pip install requirements.txt
 cd /data-pipeline/tests/python
-find /mnt/results -type f -name "*.parsed" | wc -l
 ```
 
-## Additional Configuration Steps
 
-### Steps to Configure and Provision Machines
+## Directory Structure
 
-#### Update Terraform Variables
+Below is the `Data-pipeline` repository structure, along with a brief description of each main directory and its contents:
 
-Navigate to the file located at `/data-pipeline/terraform/terraform.tfvars` and add the following details:
-
-- `provider_token`
-- `provider_namespace`
-- `username`
-- `network_name`
-
-#### Configure Cloud Settings
-
-Open the template file at `/data-pipeline/terraform/templates/cloud-config.yaml` and insert your specific token in the designated section.
-
-#### Provision the Machines
-
-After completing the above configurations, proceed to provision the machines using your Terraform setup.
-
-### Summary
-
-**File Paths to Edit:**
-
-- `/data-pipeline/terraform/terraform.tfvars`: Add `provider_token`, `provider_namespace`, `username`, and `network_name`.
-- `/data-pipeline/terraform/templates/cloud-config.yaml`: Insert your token.
-
-Ensure all necessary information is correctly added to these files before initiating the provisioning process to successfully set up your machines.
-
+```plaintext
+Alotaishanab-data-pipeline/
+├── ansible/
+│   ├── ansible.cfg
+│   ├── dashboard/
+│   │   └── cw.json
+│   ├── datasource/
+│   │   └── prometheus.yml
+│   ├── files/
+│   │   ├── pipeline_script.py
+│   │   └── results_parser.py
+│   ├── inventories/
+│   │   └── inventory.json
+│   ├── playbooks/
+│   │   ├── celery_setup.yml
+│   │   ├── check_cpu_load.yml
+│   │   ├── cleanup_disk_space.yml
+│   │   ├── common.yml
+│   │   ├── copy_local_files.yml
+│   │   ├── deploy_scripts.yml
+│   │   ├── download_and_prepare_datasets.yml
+│   │   ├── install_dependencies.yml
+│   │   ├── master_pipeline.yml
+│   │   ├── monitoring_and_logging.yml
+│   │   ├── nfs_clients.yml
+│   │   ├── nfs_server.yml
+│   │   ├── redis_setup.yml
+│   │   ├── run_pipeline.yml
+│   │   ├── setup_symlinks.yml
+│   │   ├── setup_webhook_server.yml
+│   │   └── uncompress_files.yml
+│   └── roles/
+│       ├── alert_manager/
+│       │   ├── handlers/
+│       │   │   └── main.yml
+│       │   ├── tasks/
+│       │   │   └── main.yml
+│       │   ├── templates/
+│       │   │   ├── alertmanager.service.j2
+│       │   │   ├── alertmanager.yml.j2
+│       │   │   └── update_disabled_workers.py.j2
+│       │   └── vars/
+│       │       └── main.yml
+│       ├── cleanup_role/
+│       │   └── tasks/
+│       │       └── main.yml
+│       └── prometheus_alerts/
+│           ├── handlers/
+│           │   └── main.yml
+│           ├── tasks/
+│           │   └── main.yml
+│           └── templates/
+│               ├── cpu_load_alerts.yml.j2
+│               └── disk_usage_alerts.yml.j2
+├── docs/
+│   └── README.md
+├── keys/
+│   ├── id_rsa.pub
+│   └── lecturer_key.pub
+├── scripts/
+│   └── webhook_server.py
+├── terraform/
+│   ├── kubeconfig.yaml   # Add your token here 
+│   ├── main.tf
+│   ├── outputs.tf
+│   ├── provider.tf
+│   ├── terraform.tfvars  # Add your credentials here
+│   ├── variables.tf
+│   ├── scripts/
+│   │   ├── generate_inventory.py
+│   │   ├── setup_pipeline.sh
+│   │   └── verify_marker_key.sh
+│   └── templates/
+│       └── cloud-config.yaml
+└── tests/
+    ├── README.md
+    ├── ansible/
+    │   └── test_playbooks.yml
+    ├── integration/
+    │   └── test_end_to_end.yml
+    └── python/
+        ├── test_pipeline_scripts.py
+        └── test_results_parser.py
+```
