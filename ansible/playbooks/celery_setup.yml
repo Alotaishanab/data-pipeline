@@ -410,13 +410,12 @@
         mode: '0644'
         content: |
           [Unit]
-          Description=Runs aggregator every 6 hours
+          Description=Runs aggregator every midnight
           After=multi-user.target
 
           [Timer]
-          # This runs the aggregator at 6-hour intervals. 
-          # e.g. 0,6,12,18 -> four times a day, on the hour.
-          OnCalendar=*-*-* 00,06,12,18:00:00
+          # This runs the aggregator at midnight. 
+          OnCalendar=*-*-* 00:00:00
           Persistent=true
           Unit=final_aggregator.service
 
