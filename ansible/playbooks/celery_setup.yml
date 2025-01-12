@@ -95,7 +95,7 @@
         content: |
           #!/bin/bash
           source {{ virtualenv_path }}/bin/activate
-          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=4 --queues={{ worker_queues[worker_name] }} -n {{ worker_name }}
+          exec {{ celery_bin }} -A celery_worker worker --loglevel=info --concurrency=3 --queues={{ worker_queues[worker_name] }} -n {{ worker_name }}
 
     - name: Deploy Celery Worker systemd Service File
       copy:

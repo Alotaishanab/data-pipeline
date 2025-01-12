@@ -38,16 +38,10 @@ This guide provides step-by-step instructions to set up and deploy the **Data Pi
 ### Local Machine
 
 - **Operating System:** Linux-based OS  
-- **SSH Access:** Ensure you have SSH access with the necessary private keys.  
-- **Terraform:** Installed on your local machine.  
-- **Ansible:** Installed on the host node.  
-- **Python 3:** Installed on all relevant machines.  
-- **Necessary Permissions:** Ensure you have the required permissions to execute scripts and manage services on the target machines.
+- **SSH Access:** Ensure you have SSH access with the necessary marker private keys.  
 
-### Remote Machines
 
-- **SSH Keys:** Ensure that the `ansible_ed25519` key is installed on the VM you're using.  
-- **Network Access:** Ensure that all machines can communicate with each other and with the Redis broker.
+
 
 ## Setup Instructions
 
@@ -65,7 +59,7 @@ Clone the Data Pipeline repository from GitHub:
 
 ```bash
 git clone https://github.com/Alotaishanab/data-pipeline.git
-cd data-pipeline/terraform/scripts
+cd data-pipeline/terraform/
 ```
 
 ### 3. Configure Terraform Variables
@@ -106,13 +100,14 @@ Insert your token in the designated section as per the template's instructions.
 Make the `setup_pipeline.sh` script executable and run it to provision the machines:
 
 ```bash
+cd data-pipeline/terraform/scripts
 sudo chmod +x setup_pipeline.sh
 ./setup_pipeline.sh
 ```
 
 ## Ansible Inventory Configuration
 
-The Ansible inventory has been updated with the new IPs of the freshly provisioned machines. Ensure that the SSH keys are correctly set up to allow Ansible to communicate with these hosts.
+The Ansible inventory will be updated with the new IPs of the freshly provisioned machines. Ensure that the SSH keys are correctly set up to allow Ansible to communicate with these hosts.
 
 ## Deploying with Ansible
 
