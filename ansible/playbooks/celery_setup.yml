@@ -383,3 +383,51 @@
         name: redis_task_cleanup.timer
         state: started
         enabled: yes
+
+    - name: Deploy final_aggregator.service
+      copy:
+        dest: /etc/systemd/system/final_aggregator.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Periodic aggregator for updated .parsed files (every 6 hours)
+          After=network.target
+
+          [Service]
+          Type=oneshot
+          # We run aggregator for each organism. If you have multiple, place them one after another.
+          ExecStart={{ virtualenv_path }}/bin/python3 {{ pipeline_script_path }} --aggregate-only /mnt/results/human/ human
+          ExecStart={{ virtualenv_path }}/bin/python3 {{ pipeline_script_path }} --aggregate-only /mnt/results/ecoli/ ecoli
+
+    - name: Deploy final_aggregator.timer
+      copy:
+        dest: /etc/systemd/system/final_aggregator.timer
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Runs aggregator every 6 hours
+          After=multi-user.target
+
+          [Timer]
+          # This runs the aggregator at 6-hour intervals. 
+          # e.g. 0,6,12,18 -> four times a day, on the hour.
+          OnCalendar=*-*-* 00,06,12,18:00:00
+          Persistent=true
+          Unit=final_aggregator.service
+
+          [Install]
+          WantedBy=timers.target
+
+    - name: Reload systemd daemon (for aggregator)
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start final_aggregator.timer
+      systemd:
+        name: final_aggregator.timer
+        state: started
+        enabled: yes
