@@ -144,6 +144,7 @@
     celery_group: "almalinux"
     virtualenv_path: "/opt/merizo_search/merizosearch_env"
     dispatch_script: "/opt/data_pipeline/dispatch_tasks.py"
+    pipeline_script_path: "/opt/data_pipeline/pipeline_script.py"
     worker_queues:
       worker1: "worker1_queue"
       worker2: "worker2_queue"
