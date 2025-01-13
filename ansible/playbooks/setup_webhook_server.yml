@@ -7,11 +7,6 @@
     results_path: /mnt/results
 
   tasks:
-
-    ########################################################################
-    # 1) Install Flask & Ensure Pipeline Directory
-    ########################################################################
-
     - name: Install Flask (for the Webhook server)
       pip:
         name: flask
@@ -24,10 +19,6 @@
         owner: almalinux
         group: almalinux
         mode: '0755'
-
-    ########################################################################
-    # 2) Deploy & Manage the Webhook Server (Python/Flask)
-    ########################################################################
 
     - name: Copy webhook_server.py
       copy:
@@ -89,10 +80,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    ########################################################################
-    # 3) Install and Configure Apache (httpd)
-    ########################################################################
-
     - name: Install Apache httpd
       yum:
         name: httpd
@@ -103,10 +90,6 @@
         name: httpd
         state: started
         enabled: yes
-
-    ########################################################################
-    # 4) Symlink /mnt/results → /var/www/html/results
-    ########################################################################
 
     - name: Link /mnt/results to /var/www/html/results
       file:
@@ -148,13 +131,6 @@
         - ansible_selinux.status == 'enabled'
 
 
-
-
-
-    ########################################################################
-    # 5) Enable Directory Listing & FancyIndexing
-    ########################################################################
-
     - name: Create /etc/httpd/conf.d/results.conf (directory listing)
       copy:
         dest: /etc/httpd/conf.d/results.conf
@@ -188,9 +164,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    ########################################################################
-    # 6) Deploy Custom index.html with a More Professional Design
-    ########################################################################
 
     - name: Deploy custom index.html
       copy:

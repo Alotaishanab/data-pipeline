@@ -1,4 +1,3 @@
----
 - name: Setup Celery Workers (including aggregator on one worker)
   hosts: workers
   become: yes

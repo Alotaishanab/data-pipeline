@@ -108,9 +108,9 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         tmp_dir,
         '--output_headers',
         '-d', 'cpu',
-        '--threads', '1',
-        '-k', '20'
+        '--threads', '1'
     ]
+    
     if use_iterate:
         cmd.append('--iterate')
         logging.warning(f"{pdb_file}: {res_count} residues => using --iterate.")
