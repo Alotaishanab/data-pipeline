@@ -11,17 +11,22 @@ from subprocess import Popen, PIPE
 from collections import defaultdict
 
 """
-    Usage: python3 pipeline_script.py [PDB_FILE] [OUTPUT_DIR] [ORGANISM]
-    Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
+    Usage:
+      python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM> [AGGREGATE_MODE]
+
+    Where:
+      - PDB_FILE is the path to the .pdb file
+      - OUTPUT_DIR is where results are written
+      - ORGANISM is one of {human, ecoli, test}
+      - AGGREGATE_MODE is optional, either "run" or "skip"
+        (default: "skip" => do NOT aggregate)
+        (use "run" => DO call aggregate_results() at the end)
 """
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
@@ -29,7 +34,7 @@ VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 # Redis configuration
 REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
-REDIS_DB = 0
+REDIS_DB   = 0
 
 def run_parser(search_file, output_dir):
     logging.info(f"Search File: {search_file}")
@@ -82,7 +87,7 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
         old_search = os.path.join(output_dir, "_search.tsv")
         new_search = os.path.join(output_dir, f"{id}_search.tsv")
 
-        # If _search.tsv not created => no hits
+        # If _search.tsv is not created => no hits
         if not os.path.isfile(old_search):
             logging.warning(f"No hits found for {pdb_file}. Skipping parsing.")
             redis_conn.sadd(dispatched_set_key, pdb_file)
@@ -92,7 +97,7 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
         os.rename(old_search, new_search)
         logging.info(f"Renamed '_search.tsv' to '{new_search}'")
 
-        # Check if the search file has data beyond header
+        # Check if the search file has data beyond the header
         with open(new_search, 'r') as f:
             lines = f.readlines()
             if len(lines) <= 1:
@@ -117,9 +122,8 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
 def aggregate_plddt(output_dir, organism):
     logging.info(f"Aggregating plDDT values for {organism}...")
     plDDT_values = []
-
-    # Gather all .parsed files in the output_dir for the specified organism
     parsed_files = glob.glob(os.path.join(output_dir, "*.parsed"))
+
     for parsed_file in parsed_files:
         try:
             with open(parsed_file, "r") as pf:
@@ -136,23 +140,20 @@ def aggregate_plddt(output_dir, organism):
             logging.error(f"Error processing {parsed_file}: {e}")
             continue
 
-    # Calculate overall mean and standard deviation
     if plDDT_values:
         overall_mean_plDDT = statistics.mean(plDDT_values)
-        overall_std_dev_plDDT = statistics.stdev(plDDT_values) if len(plDDT_values) > 1 else 0.0
+        overall_std_dev_plDDT = (statistics.stdev(plDDT_values)
+                                 if len(plDDT_values) > 1 else 0.0)
     else:
         overall_mean_plDDT, overall_std_dev_plDDT = 0.0, 0.0
 
     logging.info(f"Organism: {organism.capitalize()}, Mean plDDT: {overall_mean_plDDT}, Std Dev plDDT: {overall_std_dev_plDDT}")
 
-    # Update /mnt/results/plDDT_means.csv with mean & std dev for this organism
     results_dir = "/mnt/results"
     os.makedirs(results_dir, exist_ok=True)
-
     plddt_means_file = os.path.join(results_dir, "plDDT_means.csv")
     existing_data = {}
 
-    # Read existing data if the file exists
     if os.path.isfile(plddt_means_file):
         try:
             with open(plddt_means_file, "r", newline='', encoding="utf-8") as pmf:
@@ -164,16 +165,13 @@ def aggregate_plddt(output_dir, organism):
                     }
         except Exception as e:
             logging.error(f"Error reading existing {plddt_means_file}: {e}")
-            # If there's an error reading, we can choose to overwrite or handle differently
             existing_data = {}
 
-    # Update the organism's data
     existing_data[organism] = {
         "Mean_plDDT": overall_mean_plDDT,
         "StdDev_plDDT": overall_std_dev_plDDT
     }
 
-    # Write back all data to plDDT_means.csv
     try:
         with open(plddt_means_file, "w", newline='', encoding="utf-8") as pmf:
             writer = csv.DictWriter(pmf, fieldnames=["Organism", "Mean_plDDT", "StdDev_plDDT"])
@@ -191,17 +189,14 @@ def aggregate_plddt(output_dir, organism):
 def aggregate_cath_counts(output_dir, organism):
     logging.info(f"Aggregating CATH counts for {organism}...")
     cath_counts = defaultdict(int)
-
-    # Gather all .parsed files for the organism
     parsed_files = glob.glob(os.path.join(output_dir, "*.parsed"))
+
     for parsed_file in parsed_files:
         try:
             with open(parsed_file, "r") as pf:
                 reader = csv.reader(pf)
-                # Skip the comment line
-                next(reader, None)
-                # Skip the header
-                next(reader, None)
+                next(reader, None)  # skip comment line
+                next(reader, None)  # skip header
                 for row in reader:
                     if len(row) != 2:
                         logging.warning(f"Invalid row format in {parsed_file}: {row}")
@@ -216,7 +211,6 @@ def aggregate_cath_counts(output_dir, organism):
             logging.error(f"Error processing {parsed_file}: {e}")
             continue
 
-    # Write to the summary CSV
     summary_file = os.path.join("/mnt/results", f"{organism}_cath_summary.csv")
     try:
         with open(summary_file, "w", newline='', encoding="utf-8") as sf:
@@ -228,8 +222,13 @@ def aggregate_cath_counts(output_dir, organism):
     except Exception as e:
         logging.error(f"Error writing to {summary_file}: {e}")
 
+def aggregate_results(output_dir, organism):
+    # Aggregates plDDT + CATH in one go
+    aggregate_plddt(output_dir, organism)
+    aggregate_cath_counts(output_dir, organism)
+
 def pipeline(pdb_file, output_dir, organism):
-    # Initialize Redis connection
+    # Connect to Redis
     try:
         redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
         dispatched_set_key = f"dispatched_tasks:{organism}"
@@ -245,40 +244,37 @@ def pipeline(pdb_file, output_dir, organism):
         dispatched_set_key=dispatched_set_key
     )
 
-    # If no valid search_file or no data => skip parser
     if search_file:
         run_parser(search_file, output_dir)
     else:
         logging.info(f"No search results to parse for {pdb_file}.")
-        # Remove the .pdb so it won't get redispatched
         try:
-            os.remove(pdb_file)
-            logging.info(f"Removed {pdb_file} from input directory to avoid future dispatch.")
+            os.remove(pdb_file)  # remove so it won't get redispatched
+            logging.info(f"Removed {pdb_file}")
         except OSError as e:
             logging.error(f"Error removing {pdb_file}: {e}")
 
-    # Clean up tmp dir
+    # Remove from Redis to keep set small
+    try:
+        redis_conn.srem(dispatched_set_key, pdb_file)  # <--- NEW: keeps set from growing forever
+        logging.info(f"Removed {pdb_file} from Redis set '{dispatched_set_key}'")
+    except Exception as e:
+        logging.warning(f"Could not remove {pdb_file} from Redis set: {e}")
+
+    # Clean up tmp
     tmp_dir = os.path.join(output_dir, "tmp")
     if os.path.exists(tmp_dir):
         try:
             shutil.rmtree(tmp_dir)
-            logging.info(f"Temporary directory '{tmp_dir}' has been removed.")
+            logging.info(f"Temporary directory '{tmp_dir}' removed.")
         except Exception as e:
-            logging.error(f"Error removing temporary directory '{tmp_dir}': {e}")
+            logging.error(f"Error removing tmp dir '{tmp_dir}': {e}")
     else:
-        logging.info(f"Temporary directory '{tmp_dir}' does not exist. No cleanup needed.")
-
-def aggregate_results(output_dir, organism):
-    # Aggregate plDDT values
-    aggregate_plddt(output_dir, organism)
-
-    # Aggregate CATH counts
-    aggregate_cath_counts(output_dir, organism)
+        logging.info(f"No temporary dir '{tmp_dir}' to remove.")
 
 def main():
-    if len(sys.argv) != 4:
-        logging.error("Usage: python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM>")
-        logging.error("Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test")
+    if len(sys.argv) < 4:
+        logging.error("Usage: python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM> [AGGREGATE_MODE]")
         sys.exit(1)
 
     pdb_file = sys.argv[1]
@@ -289,23 +285,26 @@ def main():
         logging.error("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
         sys.exit(1)
 
-    if not os.path.isfile(pdb_file):
-        logging.error(f"No PDB file found: {pdb_file}")
-        sys.exit(1)
+    # Default to skip aggregator if not passed
+    aggregate_mode = "skip"
+    if len(sys.argv) >= 5:
+        aggregate_mode = sys.argv[4].lower()
 
-    # Run pipeline (merizo + parser if data)
+    # Run pipeline (merizo + parser)
     try:
         pipeline(pdb_file, output_dir, organism)
     except Exception as e:
         logging.error(f"Pipeline execution failed: {e}")
         sys.exit(1)
 
-    # Then aggregate results for that organism
-    try:
-        aggregate_results(output_dir, organism)
-    except Exception as e:
-        logging.error(f"Aggregation failed: {e}")
-        sys.exit(1)
+    # Only run aggregator if AGGREGATE_MODE = "run"
+    if aggregate_mode == "run":
+        logging.info(f"AGGREGATE_MODE='run' => running aggregator for {organism} ...")
+        try:
+            aggregate_results(output_dir, organism)
+        except Exception as e:
+            logging.error(f"Aggregation failed: {e}")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
