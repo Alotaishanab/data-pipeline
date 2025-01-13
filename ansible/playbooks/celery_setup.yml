@@ -147,6 +147,8 @@
           import subprocess
           import logging
           import sys
+          import os
+          import glob
 
           LOGFILE = "/opt/data_pipeline/aggregator_after_all.log"
           logging.basicConfig(
@@ -157,6 +159,8 @@
 
           PYTHON_BIN = "/opt/merizo_search/merizosearch_env/bin/python3"
           PIPELINE_SCRIPT = "/opt/data_pipeline/pipeline_script.py"
+
+          ORGANISMS = ['human', 'ecoli']  # List of organisms to handle
 
           def celery_has_active_tasks() -> bool:
               try:
@@ -173,11 +177,11 @@
                   logging.error(f"Failed to inspect Celery tasks: {e}")
                   return True
 
-          def run_aggregator(output_dir, organism):
+          def run_aggregator(pdb_file, output_dir, organism):
               cmd = [
                   PYTHON_BIN,
                   PIPELINE_SCRIPT,
-                  "/fake/DUMMY.pdb",
+                  pdb_file,
                   output_dir,
                   organism,
                   "run"
@@ -189,6 +193,8 @@
                   logging.info(f"Aggregator STDERR:\n{process.stderr}")
               except subprocess.CalledProcessError as e:
                   logging.error(f"Aggregator encountered an error:\n{e.stderr}")
+              except Exception as e:
+                  logging.error(f"Unexpected error during aggregator execution: {e}")
 
           def main():
               if len(sys.argv) != 3:
@@ -197,17 +203,41 @@
 
               output_dir = sys.argv[1]
               organism = sys.argv[2].lower()
+
+              if organism not in ORGANISMS:
+                  logging.error(f"Unsupported organism: {organism}. Supported organisms: {ORGANISMS}")
+                  sys.exit(1)
+
               logging.info(f"Aggregator check started for {organism}...")
 
               if celery_has_active_tasks():
                   logging.info("Celery tasks are still active. Skipping aggregator this hour.")
               else:
                   logging.info("No active tasks found. Running aggregator now.")
-                  run_aggregator(output_dir, organism)
+
+                  # Define input directory based on organism
+                  input_dir = ""
+                  if organism == 'human':
+                      input_dir = "/mnt/datasets/human_proteome/"
+                  elif organism == 'ecoli':
+                      input_dir = "/mnt/datasets/ecoli_proteome/"
+
+                  # Find all unprocessed PDB files
+                  pdb_files = glob.glob(os.path.join(input_dir, "*.pdb"))
+                  for pdb_file in pdb_files:
+                      # Check if the corresponding .parsed file exists in the output directory
+                      parsed_file = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(pdb_file))[0]}.parsed")
+                      if not os.path.exists(parsed_file):
+                          logging.info(f"Processing {pdb_file}")
+                          run_aggregator(pdb_file, output_dir, organism)
+                      else:
+                          logging.info(f"Already processed {pdb_file}. Skipping.")
+
                   logging.info("Aggregator finished.")
 
           if __name__ == "__main__":
               main()
+
 
     - name: Deploy aggregator_after_all.service
       when: "'worker1' in inventory_hostname"
