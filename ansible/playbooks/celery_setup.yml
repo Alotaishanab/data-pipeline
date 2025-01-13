@@ -39,35 +39,32 @@
           from celery import Celery
           import subprocess
           import os
-          import shlex
 
+          # Configure logging
           logging.basicConfig(
               filename='/opt/data_pipeline/celery_worker.log',
               level=logging.INFO,
               format='%(asctime)s - %(levelname)s - %(message)s'
           )
 
+          # Define the Redis broker URL
           app = Celery('celery_worker', broker='redis://{{ redis_host }}:6379/0')
 
           @app.task
-          def run_pipeline(pdb_files, output_dir, organism):
+          def run_pipeline(pdb_file, output_dir, organism):
               """
-              Celery task to run the pipeline_script.py on multiple PDB files in one go.
-              pdb_files is expected to be a list of paths.
+              Celery task to run the data pipeline on a specified PDB file.
               """
-              if isinstance(pdb_files, str):
-                  # For safety, if you still pass a single file as a string, convert to list
-                  pdb_files = [pdb_files]
-
-              # Construct the command:
-              # python3 pipeline_script.py <file1> <file2> ... <output_dir> <organism>
+              print(f"Received PDB File: {pdb_file}")
               pipeline_script = "/opt/data_pipeline/pipeline_script.py"
               cmd = [
                   "/opt/merizo_search/merizosearch_env/bin/python3",
-                  pipeline_script
-              ] + pdb_files + [output_dir, organism]
-
-              logging.info(f"Running pipeline script: {shlex.join(cmd)}")
+                  pipeline_script,
+                  pdb_file,
+                  output_dir,
+                  organism
+              ]
+              logging.info(f"Running pipeline script: {' '.join(cmd)}")
               try:
                   process = subprocess.run(cmd, capture_output=True, text=True, check=True)
                   logging.info(f"Pipeline STDOUT: {process.stdout}")
@@ -147,7 +144,6 @@
     celery_group: "almalinux"
     virtualenv_path: "/opt/merizo_search/merizosearch_env"
     dispatch_script: "/opt/data_pipeline/dispatch_tasks.py"
-    pipeline_script_path: "/opt/data_pipeline/pipeline_script.py"
     worker_queues:
       worker1: "worker1_queue"
       worker2: "worker2_queue"
@@ -197,6 +193,7 @@
           import os
           import logging
 
+          # Configure logging
           logging.basicConfig(
               filename='/opt/data_pipeline/dispatch_tasks.log',
               level=logging.DEBUG,
@@ -207,6 +204,7 @@
           redis_port = 6379
           redis_db = 0
 
+          # Define worker queues with actual worker names
           WORKER_QUEUES = {
           {% for w, q in worker_queues.items() %}
               "{{ w }}": "{{ q }}"{% if not loop.last %},{% endif %}
@@ -229,6 +227,7 @@
                   print("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
                   sys.exit(1)
 
+              # Initialize Redis connection
               r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
               dispatched_set_key = f"dispatched_tasks:{organism}"
 
@@ -243,7 +242,7 @@
                       f for f in pdb_files
                       if not os.path.exists(os.path.join(output_dir, f"{os.path.splitext(os.path.basename(f))[0]}.parsed"))
                       and not r.sismember(dispatched_set_key, f)
-                  ][:500]  # we can still do up to 500 in total
+                  ][:100]  # Batch size of 100
 
                   if not pdb_files_to_process:
                       print(f"No new .pdb files to process for {organism}.")
@@ -253,24 +252,16 @@
                   worker_count = len(worker_list)
                   task_index = 0
 
-                  # ---- BATCH SUBDIVISION: group 10 PDBs per Celery task ----
-                  batch_size = 20
-                  for i in range(0, len(pdb_files_to_process), batch_size):
-                      batch = pdb_files_to_process[i : i + batch_size]
-
-                      # pick a worker in round-robin
+                  for pdb_file in pdb_files_to_process:
                       worker, queue = worker_list[task_index % worker_count]
-                      logging.info(f"Dispatching batch {batch} to {worker}:{queue}")
-                      print(f"Dispatching batch to {worker}:{queue}, files={batch}")
-
                       result = app.send_task(
                           'celery_worker.run_pipeline',
-                          args=[batch, output_dir, organism],  # pass the entire list
+                          args=[pdb_file, output_dir, organism],
                           queue=queue
                       )
-                      for pdb_file in batch:
-                          r.sadd(dispatched_set_key, pdb_file)
-
+                      logging.info(f"Task {result.id} dispatched for {pdb_file} to '{queue}' queue.")
+                      print(f"Task {result.id} dispatched for {pdb_file} to '{queue}' queue.")
+                      r.sadd(dispatched_set_key, pdb_file)
                       task_index += 1
 
           if __name__ == "__main__":
@@ -281,7 +272,6 @@
               output_dir = sys.argv[2]
               organism = sys.argv[3].lower()
               main(input_dir, output_dir, organism)
-
 
     - name: Create dispatch_tasks.sh Wrapper Script
       copy:
@@ -393,4 +383,3 @@
         name: redis_task_cleanup.timer
         state: started
         enabled: yes
-

@@ -11,20 +11,17 @@ from subprocess import Popen, PIPE
 from collections import defaultdict
 
 """
-    Usage:
-      1) Single-file mode (unchanged):
-         python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM>
-
-      2) Multi-file mode:
-         python3 pipeline_script.py <PDB_FILE_1> <PDB_FILE_2> ... <OUTPUT_DIR> <ORGANISM>
-         e.g. python3 pipeline_script.py file1.pdb file2.pdb file3.pdb /mnt/results/human/ human
+    Usage: python3 pipeline_script.py [PDB_FILE] [OUTPUT_DIR] [ORGANISM]
+    Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test
 """
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
@@ -55,10 +52,6 @@ def run_parser(search_file, output_dir):
         raise
 
 def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispatched_set_key):
-    """
-    Single-file logic is unchanged. If you prefer a multi-file approach in the same function,
-    you'd pass a list of files. For clarity, this stays per-file.
-    """
     logging.info(f"Checking if VIRTUALENV_PYTHON exists: {os.path.exists(VIRTUALENV_PYTHON)}")
     logging.info(f"VIRTUALENV_PYTHON is executable: {os.access(VIRTUALENV_PYTHON, os.X_OK)}")
     os.makedirs(output_dir, exist_ok=True)
@@ -71,7 +64,7 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
     cmd = [
         VIRTUALENV_PYTHON, merizo_script, 'easy-search',
         pdb_file, database_path, output_dir, tmp_dir,
-        '--iterate', '--output_headers', '-d', 'cpu', '--threads', '2'
+        '--iterate', '--output_headers', '-d', 'cpu', '--threads', '1'
     ]
     logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
 
@@ -89,14 +82,17 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
         old_search = os.path.join(output_dir, "_search.tsv")
         new_search = os.path.join(output_dir, f"{id}_search.tsv")
 
+        # If _search.tsv not created => no hits
         if not os.path.isfile(old_search):
             logging.warning(f"No hits found for {pdb_file}. Skipping parsing.")
             redis_conn.sadd(dispatched_set_key, pdb_file)
             return None
 
+        # If _search.tsv is found, rename it
         os.rename(old_search, new_search)
         logging.info(f"Renamed '_search.tsv' to '{new_search}'")
 
+        # Check if the search file has data beyond header
         with open(new_search, 'r') as f:
             lines = f.readlines()
             if len(lines) <= 1:
@@ -233,10 +229,7 @@ def aggregate_cath_counts(output_dir, organism):
         logging.error(f"Error writing to {summary_file}: {e}")
 
 def pipeline(pdb_file, output_dir, organism):
-    """
-    Single-file pipeline logic.
-    """
-    # Connect to Redis
+    # Initialize Redis connection
     try:
         redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
         dispatched_set_key = f"dispatched_tasks:{organism}"
@@ -252,68 +245,62 @@ def pipeline(pdb_file, output_dir, organism):
         dispatched_set_key=dispatched_set_key
     )
 
+    # If no valid search_file or no data => skip parser
     if search_file:
         run_parser(search_file, output_dir)
     else:
         logging.info(f"No search results to parse for {pdb_file}.")
+        # Remove the .pdb so it won't get redispatched
         try:
-            os.remove(pdb_file)  # remove so it won't get redispatched
-            logging.info(f"Removed {pdb_file}.")
+            os.remove(pdb_file)
+            logging.info(f"Removed {pdb_file} from input directory to avoid future dispatch.")
         except OSError as e:
             logging.error(f"Error removing {pdb_file}: {e}")
 
-    # Clean up
+    # Clean up tmp dir
     tmp_dir = os.path.join(output_dir, "tmp")
     if os.path.exists(tmp_dir):
         try:
             shutil.rmtree(tmp_dir)
-            logging.info(f"Temporary directory '{tmp_dir}' removed.")
+            logging.info(f"Temporary directory '{tmp_dir}' has been removed.")
         except Exception as e:
-            logging.error(f"Error removing tmp dir '{tmp_dir}': {e}")
+            logging.error(f"Error removing temporary directory '{tmp_dir}': {e}")
     else:
-        logging.info(f"No tmp dir '{tmp_dir}' to remove.")
+        logging.info(f"Temporary directory '{tmp_dir}' does not exist. No cleanup needed.")
 
 def aggregate_results(output_dir, organism):
-    # aggregator for plDDT + CATH
+    # Aggregate plDDT values
     aggregate_plddt(output_dir, organism)
+
+    # Aggregate CATH counts
     aggregate_cath_counts(output_dir, organism)
 
 def main():
-    """
-    If multiple PDB files are provided, we run the pipeline for each in a loop,
-    then do aggregator at the end once for that organism.
-    """
-    if len(sys.argv) < 4:
-        logging.error("Usage:")
-        logging.error("  Single-file: python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM>")
-        logging.error("  Multi-file:  python3 pipeline_script.py <PDB_FILE1> <PDB_FILE2> ... <OUTPUT_DIR> <ORGANISM>")
+    if len(sys.argv) != 4:
+        logging.error("Usage: python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM>")
+        logging.error("Example: python3 pipeline_script.py /mnt/datasets/test/test.pdb /mnt/results/test/ test")
         sys.exit(1)
 
-    # Separate out last two args as output_dir & organism
-    organism = sys.argv[-1].lower()
-    output_dir = sys.argv[-2]
-    pdb_files = sys.argv[1:-2]  # everything before the last two
+    pdb_file = sys.argv[1]
+    output_dir = sys.argv[2]
+    organism = sys.argv[3].lower()
 
-    # quick validation
     if organism not in ["human", "ecoli", "test"]:
-        logging.error("Error: ORGANISM must be 'human', 'ecoli', or 'test'")
+        logging.error("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
         sys.exit(1)
 
-    if not pdb_files:
-        logging.error("No PDB files provided.")
+    if not os.path.isfile(pdb_file):
+        logging.error(f"No PDB file found: {pdb_file}")
         sys.exit(1)
 
-    # run pipeline for each file
-    for pdb_file in pdb_files:
-        if not os.path.isfile(pdb_file):
-            logging.error(f"No PDB file found: {pdb_file}")
-            continue
-        try:
-            pipeline(pdb_file, output_dir, organism)
-        except Exception as e:
-            logging.error(f"Pipeline execution failed on {pdb_file}: {e}")
+    # Run pipeline (merizo + parser if data)
+    try:
+        pipeline(pdb_file, output_dir, organism)
+    except Exception as e:
+        logging.error(f"Pipeline execution failed: {e}")
+        sys.exit(1)
 
-    # aggregator once after all
+    # Then aggregate results for that organism
     try:
         aggregate_results(output_dir, organism)
     except Exception as e:
