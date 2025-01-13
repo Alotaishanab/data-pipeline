@@ -218,9 +218,9 @@
                   # Define input directory based on organism
                   input_dir = ""
                   if organism == 'human':
-                      input_dir = "/mnt/datasets/human_proteome/"
+                      input_dir = "/mnt/datasets/human/"
                   elif organism == 'ecoli':
-                      input_dir = "/mnt/datasets/ecoli_proteome/"
+                      input_dir = "/mnt/datasets/ecoli/"
 
                   # Find all unprocessed PDB files
                   pdb_files = glob.glob(os.path.join(input_dir, "*.pdb"))
