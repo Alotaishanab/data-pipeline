@@ -20,7 +20,7 @@ Usage:
 - AGGREGATE_MODE (optional): "run" => aggregator runs, otherwise "skip"
 """
 
-# 1) Reduce logging overhead: set level to WARNING
+# 1) Reduce logging overhead to WARNING
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -29,20 +29,15 @@ logging.basicConfig(
 
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 
-# Redis configuration
+# Redis config
 REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
 REDIS_DB   = 0
 
 ################################################################
-# Optional helper: Get approximate residue count for skipping
-# or enabling --iterate. Called before run_merizo_search().
+# Optional helper: read the ATOM lines to decide if we skip --iterate
 ################################################################
 def get_residue_count(pdb_path):
-    """
-    Returns a quick estimate of residue count by parsing ATOM lines.
-    Typically good enough to decide if we want --iterate.
-    """
     if not os.path.isfile(pdb_path):
         return 0
     residues = set()
@@ -51,8 +46,6 @@ def get_residue_count(pdb_path):
             for line in fh:
                 if line.startswith("ATOM "):
                     parts = line.split()
-                    # Usually residue index is in parts[5], but we
-                    # do a small check in case the line doesn't match
                     if len(parts) > 5:
                         try:
                             resnum = int(parts[5])
@@ -64,10 +57,7 @@ def get_residue_count(pdb_path):
     return len(residues)
 
 def run_parser(search_file, output_dir):
-    """
-    Spawns a new process to parse the Merizo results.
-    """
-    logging.warning(f"STEP 2: Parsing {search_file} ...")
+    logging.warning(f"STEP 2: Parsing {search_file}...")
     parser_script = '/opt/data_pipeline/results_parser.py'
     cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file]
 
@@ -76,21 +66,36 @@ def run_parser(search_file, output_dir):
         out, err = p.communicate()
         if p.returncode != 0:
             raise RuntimeError(f"Parser error:\n{err.decode('utf-8')}")
-        logging.warning(f"Parser completed successfully for {search_file}.")
+        logging.warning(f"Parser completed for {search_file}.")
     except Exception as e:
         logging.error(f"Parser failed on {search_file}: {e}")
         raise
 
+################################################################
+# Batching processed files before removing from Redis
+################################################################
+processed_files = []  # store processed filenames in memory
+BATCH_SIZE      = 50  # flush every 50 processed files
+
+def flush_redis_batch(redis_conn, dispatched_key):
+    """
+    Removes items from 'processed_files' in a single pipeline call, then clears it.
+    """
+    global processed_files
+    if not processed_files:
+        return
+    pipe = redis_conn.pipeline()
+    for pdb_f in processed_files:
+        pipe.srem(dispatched_key, pdb_f)
+    pipe.execute()
+    logging.warning(f"Flushed {len(processed_files)} items from Redis in a pipeline call.")
+    processed_files.clear()
+
 def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, dispatched_set_key):
-    """
-    Runs Merizo-search with threads=1, skipping --iterate if <800 residues
-    to speed up smaller structures. Uses 'easy-search' for combined segment+search.
-    """
-    logging.warning(f"STEP 1: Deciding Merizo mode for {pdb_file} ...")
+    logging.warning(f"STEP 1: Running Merizo on {pdb_file} with --threads=1 ...")
     tmp_dir = os.path.join(output_dir, "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
 
-    # 2) Decide on --iterate if ~800+ residues
     res_count = get_residue_count(pdb_file)
     use_iterate = (res_count >= 800)
 
@@ -104,10 +109,9 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         tmp_dir,
         '--output_headers',
         '-d', 'cpu',
-        '--threads', '1'  # keep threads=1
-        # We do NOT add any extra flags like --save_pdb, --save_pdf, etc.
+        '--threads', '1',
+        '-k', '30'  # can adjust k lower/higher
     ]
-
     if use_iterate:
         cmd.append('--iterate')
         logging.warning(f"{pdb_file}: {res_count} residues => using --iterate.")
@@ -119,25 +123,19 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         out, err = p.communicate()
         if p.returncode != 0:
             raise RuntimeError(f"Merizo error:\n{err.decode('utf-8')}")
-
         old_search = os.path.join(output_dir, "_search.tsv")
         new_search = os.path.join(output_dir, f"{file_id}_search.tsv")
 
-        # If no _search.tsv => no hits
         if not os.path.isfile(old_search):
-            logging.warning(f"No hits found for {pdb_file}. Skipping parse.")
-            redis_conn.sadd(dispatched_set_key, pdb_file)
-            return None
+            logging.warning(f"No hits found for {pdb_file}.")
+            return None  # skip parse
 
-        # rename _search.tsv => <id>_search.tsv
         os.rename(old_search, new_search)
 
-        # quick check of search file
         with open(new_search, 'r') as f:
             lines = f.readlines()
             if len(lines) <= 1:
                 logging.warning(f"No hits in {new_search}, skipping parse.")
-                redis_conn.sadd(dispatched_set_key, pdb_file)
                 return None
 
         old_segment = os.path.join(output_dir, "_segment.tsv")
@@ -150,18 +148,13 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         return new_search
 
     except Exception as e:
-        logging.error(f"Merizo search failed for {pdb_file}: {e}")
+        logging.error(f"Merizo search failed: {e}")
         raise
 
 def aggregate_plddt(output_dir, organism):
-    """
-    Gathers all .parsed files to compute plDDT stats, then updates plDDT_means.csv
-    """
-    logging.warning(f"Aggregating plDDT for {organism}...")
+    logging.warning(f"Aggregating plDDT for {organism} ...")
     plDDT_values = []
-    parsed_files = glob.glob(os.path.join(output_dir, "*.parsed"))
-
-    for parsed_file in parsed_files:
+    for parsed_file in glob.glob(os.path.join(output_dir, "*.parsed")):
         try:
             with open(parsed_file, "r") as pf:
                 first_line = pf.readline().strip()
@@ -169,28 +162,27 @@ def aggregate_plddt(output_dir, organism):
                     parts = first_line.split("mean plddt:")
                     if len(parts) == 2:
                         try:
-                            mean_plddt = float(parts[1])
-                            plDDT_values.append(mean_plddt)
+                            val = float(parts[1])
+                            plDDT_values.append(val)
                         except ValueError:
                             logging.warning(f"Invalid plDDT in {parsed_file}")
         except Exception as e:
-            logging.error(f"Error in {parsed_file}: {e}")
-            continue
+            logging.error(f"Error reading {parsed_file}: {e}")
 
     if plDDT_values:
         overall_mean = statistics.mean(plDDT_values)
-        overall_std = statistics.stdev(plDDT_values) if len(plDDT_values) > 1 else 0.0
+        overall_std  = statistics.stdev(plDDT_values) if len(plDDT_values) > 1 else 0.0
     else:
         overall_mean, overall_std = 0.0, 0.0
 
-    results_dir = "/mnt/results"
-    os.makedirs(results_dir, exist_ok=True)
-    plddt_means_file = os.path.join(results_dir, "plDDT_means.csv")
+    res_dir = "/mnt/results"
+    os.makedirs(res_dir, exist_ok=True)
+    plddt_means_file = os.path.join(res_dir, "plDDT_means.csv")
 
     existing_data = {}
     if os.path.isfile(plddt_means_file):
         try:
-            with open(plddt_means_file, "r", newline='', encoding="utf-8") as fh:
+            with open(plddt_means_file, "r", encoding="utf-8") as fh:
                 reader = csv.DictReader(fh)
                 for row in reader:
                     existing_data[row['Organism'].lower()] = {
@@ -205,10 +197,9 @@ def aggregate_plddt(output_dir, organism):
         "Mean_plDDT": overall_mean,
         "StdDev_plDDT": overall_std
     }
-
     try:
-        with open(plddt_means_file, "w", newline='', encoding="utf-8") as fh:
-            writer = csv.DictWriter(fh, fieldnames=["Organism", "Mean_plDDT", "StdDev_plDDT"])
+        with open(plddt_means_file, "w", encoding="utf-8", newline='') as fh:
+            writer = csv.DictWriter(fh, fieldnames=["Organism","Mean_plDDT","StdDev_plDDT"])
             writer.writeheader()
             for org, stats in sorted(existing_data.items()):
                 writer.writerow({
@@ -216,19 +207,14 @@ def aggregate_plddt(output_dir, organism):
                     "Mean_plDDT": f"{stats['Mean_plDDT']:.4f}",
                     "StdDev_plDDT": f"{stats['StdDev_plDDT']:.4f}"
                 })
-        logging.warning(f"Updated {plddt_means_file} for {organism.capitalize()}: mean={overall_mean:.2f}, std={overall_std:.2f}")
+        logging.warning(f"Updated {plddt_means_file} with {organism.capitalize()} results.")
     except Exception as e:
         logging.error(f"Error writing {plddt_means_file}: {e}")
 
 def aggregate_cath_counts(output_dir, organism):
-    """
-    Collects CATH IDs from all .parsed files and writes a summary CSV
-    """
-    logging.warning(f"Aggregating CATH for {organism}...")
+    logging.warning(f"Aggregating CATH for {organism} ...")
     cath_counts = defaultdict(int)
-    parsed_files = glob.glob(os.path.join(output_dir, "*.parsed"))
-
-    for parsed_file in parsed_files:
+    for parsed_file in glob.glob(os.path.join(output_dir, "*.parsed")):
         try:
             with open(parsed_file, "r") as pf:
                 reader = csv.reader(pf)
@@ -236,24 +222,22 @@ def aggregate_cath_counts(output_dir, organism):
                 next(reader, None)  # skip header
                 for row in reader:
                     if len(row) != 2:
-                        logging.warning(f"Invalid row in {parsed_file}: {row}")
                         continue
                     c_id, c_val = row
                     try:
                         cath_counts[c_id] += int(c_val)
                     except ValueError:
-                        logging.warning(f"Bad integer {c_val} in {parsed_file}")
+                        pass
         except Exception as e:
             logging.error(f"Error reading {parsed_file}: {e}")
-            continue
 
     summary_file = os.path.join("/mnt/results", f"{organism}_cath_summary.csv")
     try:
-        with open(summary_file, "w", newline='', encoding="utf-8") as sf:
+        with open(summary_file, "w", encoding="utf-8", newline='') as sf:
             writer = csv.DictWriter(sf, fieldnames=["cath_id", "count"])
             writer.writeheader()
-            for c_id, cnt in sorted(cath_counts.items()):
-                writer.writerow({"cath_id": c_id, "count": cnt})
+            for c_id, val in sorted(cath_counts.items()):
+                writer.writerow({"cath_id": c_id, "count": val})
         logging.warning(f"Wrote CATH summary => {summary_file}")
     except Exception as e:
         logging.error(f"Failed writing {summary_file}: {e}")
@@ -264,11 +248,13 @@ def aggregate_results(output_dir, organism):
 
 def pipeline(pdb_file, output_dir, organism):
     """
-    Main pipeline logic: run Merizo => run parser => remove from Redis => cleanup tmp
+    Main pipeline logic: run Merizo => run parser => batch srem => aggregator
     """
     try:
         redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
         dispatched_key = f"dispatched_tasks:{organism}"
+
+       
     except Exception as e:
         logging.error(f"Redis connection failed: {e}")
         sys.exit(1)
@@ -276,66 +262,64 @@ def pipeline(pdb_file, output_dir, organism):
     file_id = os.path.splitext(os.path.basename(pdb_file))[0]
     database_path = '/home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb'
 
-    # 1) Run Merizo easy-search, conditionally skipping --iterate
+    # run merizo
     search_file = run_merizo_search(
         pdb_file, output_dir, file_id,
         database_path, redis_conn, dispatched_key
     )
 
-    # 2) If we have a valid .tsv => parse
+    # parse if we got a valid tsv
     if search_file:
         run_parser(search_file, output_dir)
     else:
-        logging.warning(f"No valid search file for {pdb_file}. Removing file.")
+        logging.warning(f"No valid search file for {pdb_file} => removing .pdb.")
         try:
             os.remove(pdb_file)
         except OSError as e:
-            logging.error(f"File remove error {pdb_file}: {e}")
+            logging.error(f"Error removing {pdb_file}: {e}")
 
-    # 3) Remove from Redis
-    try:
-        redis_conn.srem(dispatched_key, pdb_file)
-    except Exception as e:
-        logging.warning(f"Redis srem failed for {pdb_file}: {e}")
+    # add file to batch for removal
+    from __main__ import processed_files, flush_redis_batch, BATCH_SIZE
+    processed_files.append(pdb_file)
 
-    # 4) Cleanup tmp directory
-    tmp_path = os.path.join(output_dir, "tmp")
-    if os.path.exists(tmp_path):
+    # cleanup tmp
+    tmp_dir = os.path.join(output_dir, "tmp")
+    if os.path.exists(tmp_dir):
         try:
-            shutil.rmtree(tmp_path)
+            shutil.rmtree(tmp_dir)
         except Exception as e:
-            logging.error(f"Failed removing {tmp_path}: {e}")
+            logging.error(f"Error removing tmp {tmp_dir}: {e}")
+
+    # flush if we reached batch size
+    if len(processed_files) >= BATCH_SIZE:
+        flush_redis_batch(redis_conn, dispatched_key)
 
 def main():
     if len(sys.argv) < 4:
         logging.error("Usage: python3 pipeline_script.py <PDB_FILE> <OUTPUT_DIR> <ORGANISM> [AGGREGATE_MODE]")
         sys.exit(1)
 
-    pdb_file = sys.argv[1]
-    output_dir = sys.argv[2]
-    organism = sys.argv[3].lower()
-    if organism not in ["human", "ecoli", "test"]:
-        logging.error("Invalid organism specified.")
-        sys.exit(1)
-
-    # aggregator mode default = skip
-    agg_mode = "skip"
+    pdb_file  = sys.argv[1]
+    out_dir   = sys.argv[2]
+    organism  = sys.argv[3].lower()
+    agg_mode  = "skip"
     if len(sys.argv) >= 5:
         agg_mode = sys.argv[4].lower()
 
+    # run pipeline
     try:
-        pipeline(pdb_file, output_dir, organism)
+        pipeline(pdb_file, out_dir, organism)
     except Exception as e:
-        logging.error(f"Pipeline failed on {pdb_file}: {e}")
+        logging.error(f"Pipeline crashed on {pdb_file}: {e}")
         sys.exit(1)
 
     # aggregator if "run"
     if agg_mode == "run":
-        logging.warning(f"Aggregator mode active for {organism}.")
+        logging.warning(f"AGGREGATE_MODE='run' => aggregator for {organism}")
         try:
-            aggregate_results(output_dir, organism)
+            aggregate_results(out_dir, organism)
         except Exception as e:
-            logging.error(f"Aggregator error: {e}")
+            logging.error(f"Aggregation error: {e}")
             sys.exit(1)
 
 if __name__ == "__main__":
