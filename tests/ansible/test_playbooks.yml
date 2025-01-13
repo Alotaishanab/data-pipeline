@@ -989,7 +989,7 @@
 - import_playbook: ../../ansible/playbooks/celery_setup.yml
 
 - name: Assert Celery Setup Playbook
-  hosts: localhost
+  hosts: workers
   connection: local
   become: yes
   gather_facts: yes

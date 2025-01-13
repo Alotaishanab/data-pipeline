@@ -232,89 +232,79 @@ cd /data-pipeline/tests/python
 
 ## Directory Structure
 
-Below is the `Data-pipeline` repository structure, along with a brief description of each main directory and its contents:
+Below is the `data-pipeline` repository structure, along with a brief description of each main directory and its contents:
 
 ```plaintext
-Alotaishanab-data-pipeline/
-├── ansible/
-│   ├── ansible.cfg
-│   ├── dashboard/
-│   │   └── cw.json
-│   ├── datasource/
-│   │   └── prometheus.yml
-│   ├── files/
-│   │   ├── pipeline_script.py
-│   │   └── results_parser.py
-│   ├── inventories/
-│   │   └── inventory.json
-│   ├── playbooks/
-│   │   ├── celery_setup.yml
-│   │   ├── check_cpu_load.yml
-│   │   ├── cleanup_disk_space.yml
-│   │   ├── common.yml
-│   │   ├── copy_local_files.yml
-│   │   ├── deploy_scripts.yml
-│   │   ├── download_and_prepare_datasets.yml
-│   │   ├── install_dependencies.yml
-│   │   ├── master_pipeline.yml
-│   │   ├── monitoring_and_logging.yml
-│   │   ├── nfs_clients.yml
-│   │   ├── nfs_server.yml
-│   │   ├── redis_setup.yml
-│   │   ├── run_pipeline.yml
-│   │   ├── setup_symlinks.yml
-│   │   ├── setup_webhook_server.yml
-│   │   └── uncompress_files.yml
-│   └── roles/
-│       ├── alert_manager/
-│       │   ├── handlers/
-│       │   │   └── main.yml
-│       │   ├── tasks/
-│       │   │   └── main.yml
-│       │   ├── templates/
-│       │   │   ├── alertmanager.service.j2
-│       │   │   ├── alertmanager.yml.j2
-│       │   │   └── update_disabled_workers.py.j2
-│       │   └── vars/
-│       │       └── main.yml
-│       ├── cleanup_role/
-│       │   └── tasks/
-│       │       └── main.yml
-│       └── prometheus_alerts/
-│           ├── handlers/
-│           │   └── main.yml
-│           ├── tasks/
-│           │   └── main.yml
-│           └── templates/
-│               ├── cpu_load_alerts.yml.j2
-│               └── disk_usage_alerts.yml.j2
-├── docs/
-│   └── README.md
-├── keys/
-│   ├── id_rsa.pub
-│   └── lecturer_key.pub
-├── scripts/
-│   └── webhook_server.py
-├── terraform/
-│   ├── kubeconfig.yaml   # Add your token here 
-│   ├── main.tf
-│   ├── outputs.tf
-│   ├── provider.tf
-│   ├── terraform.tfvars  # Add your credentials here
-│   ├── variables.tf
-│   ├── scripts/
-│   │   ├── generate_inventory.py
-│   │   ├── setup_pipeline.sh
-│   │   └── verify_marker_key.sh
-│   └── templates/
-│       └── cloud-config.yaml
-└── tests/
-    ├── README.md
-    ├── ansible/
-    │   └── test_playbooks.yml
-    ├── integration/
-    │   └── test_end_to_end.yml
-    └── python/
-        ├── test_pipeline_scripts.py
+data-pipeline/
+├── ansible/  
+│   Contains Ansible configuration and automation files used to deploy and configure the data pipeline.  
+│   ├── ansible.cfg             # Global configuration for Ansible.  
+│   ├── dashboard/              # Dashboard ( Grafana Dashboard).  
+│   │   └── cw.json  
+│   ├── datasource/             # Configuration for external data sources (Prometheus).  
+│   │   └── prometheus.yml  
+│   ├── files/                  # Static files such as Python scripts used during the pipeline process.  
+│   │   ├── pipeline_script.py  
+│   │   └── results_parser.py  
+│   ├── inventories/            # Inventory files defining hosts or groups; in JSON format.  
+│   │   └── inventory.json  
+│   ├── playbooks/              # Ansible playbooks detailing various tasks (e.g., deployment, setup, cleanup).  
+│   │   ├── celery_setup.yml  
+│   │   ├── check_cpu_load.yml  
+│   │   ├── cleanup_disk_space.yml  
+│   │   ├── common.yml  
+│   │   ├── copy_local_files.yml  
+│   │   ├── deploy_scripts.yml  
+│   │   ├── download_and_prepare_datasets.yml  
+│   │   ├── install_dependencies.yml  
+│   │   ├── master_pipeline.yml  
+│   │   ├── monitoring_and_logging.yml  
+│   │   ├── nfs_clients.yml  
+│   │   ├── nfs_server.yml  
+│   │   ├── redis_setup.yml  
+│   │   ├── run_pipeline.yml  
+│   │   ├── setup_symlinks.yml  
+│   │   ├── setup_webhook_server.yml  
+│   │   └── uncompress_files.yml  
+│   └── roles/  
+│       Contains reusable sets of tasks, handlers, templates, and variables for specific roles.  
+│       ├── alert_manager/      # Role to configure alertmanager, including its tasks, handlers, templates, and variables.  
+│       ├── cleanup_role/       # Role responsible for cleanup tasks.  
+│       └── prometheus_alerts/  # Role to deploy Prometheus alert configurations.  
+├── docs/  
+│   Documentation files for the project (e.g., project README).  
+│   └── README.md  
+├── keys/  
+│   Contains public keys used for authentication or deployment.  
+│   ├── id_rsa.pub  
+│   └── lecturer_key.pub  
+├── scripts/  
+│   Contains utility scripts such as the webhook server used to trigger pipeline actions.  
+│   └── webhook_server.py  
+├── terraform/  
+│   Infrastructure-as-Code files used to provision and configure cloud resources.  
+│   ├── kubeconfig.yaml         # Kubernetes configuration (token placeholder).  
+│   ├── main.tf                 # Main Terraform configuration.  
+│   ├── outputs.tf              # Defines outputs from the Terraform execution.  
+│   ├── provider.tf             # Provider configurations (e.g., cloud credentials).  
+│   ├── terraform.tfvars        # Variable values and credentials.  
+│   ├── variables.tf            # Definition of Terraform variables.  
+│   ├── scripts/                # Scripts to support Terraform operations (inventory generation, setup, verification).  
+│   │   ├── generate_inventory.py  
+│   │   ├── setup_pipeline.sh  
+│   │   └── verify_marker_key.sh  
+│   └── templates/  
+│       Contains template files used by Terraform (e.g., cloud-config YAML).  
+│       └── cloud-config.yaml  
+└── tests/  
+    Contains tests for various parts of the pipeline, including Ansible playbooks, end-to-end integration, and Python scripts.  
+    ├── README.md  
+    ├── ansible/  
+    │   └── test_playbooks.yml  
+    ├── integration/  
+    │   └── test_end_to_end.yml  
+    └── python/  
+        ├── test_pipeline_scripts.py  
         └── test_results_parser.py
+
 ```
