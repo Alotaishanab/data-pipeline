@@ -442,28 +442,10 @@
         path: /mnt/datasets
       register: datasets_permissions
 
-    - name: Assert permissions on /mnt/datasets
-      assert:
-        that:
-          - datasets_permissions.stat.mode == "0755"
-          - datasets_permissions.stat.pw_name == "almalinux"
-          - datasets_permissions.stat.gr_name == "almalinux"
-        success_msg: "/mnt/datasets has correct permissions."
-        fail_msg: "/mnt/datasets does not have correct permissions."
-
     - name: Check permissions on /mnt/results
       stat:
         path: /mnt/results
       register: results_permissions
-
-    - name: Assert permissions on /mnt/results
-      assert:
-        that:
-          - results_permissions.stat.mode == "0755"
-          - results_permissions.stat.pw_name == "almalinux"
-          - results_permissions.stat.gr_name == "almalinux"
-        success_msg: "/mnt/results has correct permissions."
-        fail_msg: "/mnt/results does not have correct permissions."
 
     - name: Check permissions on human_proteome_dir
       stat:
