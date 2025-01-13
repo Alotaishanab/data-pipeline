@@ -135,13 +135,14 @@
         path: /opt/data_pipeline/celery_worker.py
         mode: '0755'
 
+
     - name: Deploy aggregator_after_all Python script
+      when: "'worker1' in inventory_hostname"
       copy:
         dest: /opt/data_pipeline/aggregator_after_all.py
         owner: "{{ celery_user }}"
         group: "{{ celery_group }}"
         mode: '0755'
-        when: "'worker1' in inventory_hostname"
         content: |
           #!/usr/bin/env python3
           import subprocess
@@ -167,11 +168,10 @@
                   ]
                   result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                   stdout = result.stdout.lower()
-                  # If we see 'run_pipeline' in the output, it means tasks are active
+                  # If we see 'run_pipeline' in the output, tasks are active
                   return ("run_pipeline" in stdout)
               except Exception as e:
                   logging.error(f"Failed to inspect Celery tasks: {e}")
-                  # If we can't inspect, assume tasks might still be running
                   return True
 
           def run_aggregator(output_dir, organism):
@@ -211,12 +211,12 @@
               main()
 
     - name: Deploy aggregator_after_all.service
+      when: "'worker1' in inventory_hostname"
       copy:
         dest: /etc/systemd/system/aggregator_after_all.service
         owner: root
         group: root
         mode: '0644'
-        when: "'worker1' in inventory_hostname"
         content: |
           [Unit]
           Description=Aggregator After All Celery Tasks (Check Once)
@@ -233,12 +233,12 @@
           WantedBy=multi-user.target
 
     - name: Deploy aggregator_after_all.timer
+      when: "'worker1' in inventory_hostname"
       copy:
         dest: /etc/systemd/system/aggregator_after_all.timer
         owner: root
         group: root
         mode: '0644'
-        when: "'worker1' in inventory_hostname"
         content: |
           [Unit]
           Description=Hourly check for aggregator_after_all.service
@@ -252,16 +252,17 @@
           WantedBy=timers.target
 
     - name: Reload systemd daemon (Aggregator)
+      when: "'worker1' in inventory_hostname"
       systemd:
         daemon_reload: yes
-      when: "'worker1' in inventory_hostname"
 
     - name: Enable and start aggregator_after_all.timer
+      when: "'worker1' in inventory_hostname"
       systemd:
         name: aggregator_after_all.timer
         state: started
         enabled: yes
-      when: "'worker1' in inventory_hostname"
+
 
 
 
