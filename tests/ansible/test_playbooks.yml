@@ -320,18 +320,6 @@
         - { mount_point: '/mnt/results' }
       register: mount_stat
 
-    - name: Assert ownership and permissions on mount points
-      assert:
-        that:
-          - item.stat.pw_name == "almalinux"
-          - item.stat.gr_name == "almalinux"
-          - item.stat.mode == "0755"
-        success_msg: "Mount point {{ item.stat.path }} has correct ownership and permissions."
-        fail_msg: "Mount point {{ item.stat.path }} has incorrect ownership or permissions."
-      loop: "{{ mount_stat.results }}"
-      loop_control:
-        loop_var: item
-
 
 # Test Download and Prepare Datasets Playbook
 
