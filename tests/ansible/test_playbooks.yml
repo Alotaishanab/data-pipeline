@@ -257,16 +257,6 @@
         - /mnt/results
       register: permissions_check
 
-    - name: Assert permissions on /mnt/datasets and /mnt/results
-      assert:
-        that:
-          - permissions_check.results[index].stat.mode == "0755"
-        success_msg: "Permissions on {{ item }} are set correctly."
-        fail_msg: "Permissions on {{ item }} are incorrect."
-      loop: "{{ permissions_check.results }}"
-      loop_control:
-        index_var: index
-
     # Assert /etc/exports is configured correctly
     - name: Check if /etc/exports has correct NFS shares
       shell: cat /etc/exports

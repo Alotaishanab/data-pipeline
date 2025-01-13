@@ -206,8 +206,8 @@ Below is the structure of your Ansible inventory.
 To verify that the Ansible playbooks are functioning correctly, run the following command:
 
 ```bash
-cd data-pipeline
-ansible-playbook -i localhost, --connection=local tests/ansible/test_playbooks.yml
+cd data-pipeline/tests/ansible/
+ansible-playbook -i ../../ansible/inventories/inventory.json test_playbooks.yml --private-key ~/.ssh/ansible_ed25519
 ```
 
 ### 2. Test End-to-End Integration
