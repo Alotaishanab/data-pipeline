@@ -254,7 +254,7 @@
                   task_index = 0
 
                   # ---- BATCH SUBDIVISION: group 10 PDBs per Celery task ----
-                  batch_size = 10
+                  batch_size = 20
                   for i in range(0, len(pdb_files_to_process), batch_size):
                       batch = pdb_files_to_process[i : i + batch_size]
 
