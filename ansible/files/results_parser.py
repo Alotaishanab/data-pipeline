@@ -7,97 +7,90 @@ import logging
 import statistics
 from collections import defaultdict
 
-# Configure logging to display warnings and errors only
+# Configure logging
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 
 def main():
-    # Ensure the correct number of arguments are provided
     if len(sys.argv) != 3:
         logging.error("Usage: python3 results_parser.py <OUTPUT_DIR> <SEARCH_FILE_PATH>")
         sys.exit(1)
 
-    # Extract command-line arguments
     output_dir = sys.argv[1]
     search_file_path = sys.argv[2]
 
-    # Check if the provided search file exists
     if not os.path.isfile(search_file_path):
-        logging.error(f"Search file missing: {search_file_path}")
+        logging.error(f"Error: File {search_file_path} not found.")
         sys.exit(1)
 
-    # Extract the filename and determine the base identifier
+    # Extract the filename from the search file path
     search_filename = os.path.basename(search_file_path)
-    if search_filename.endswith("_search.tsv"):
-        file_id = search_filename[:-11]  # Remove "_search.tsv" to get the base ID
-    else:
-        file_id = os.path.splitext(search_filename)[0]
 
-    # Initialize storage for CATH IDs and plDDT values
-    cath_ids = defaultdict(int)  # Count occurrences of each CATH ID
-    plDDT_values = []  # Store pLDDT values for statistical analysis
-    line_count = 1  # Track the current line number for error reporting
+    # Extract the ID by removing '_search.tsv'
+    if search_filename.endswith("_search.tsv"):
+        id = search_filename[:-11]  # Remove '_search.tsv'
+    else:
+        id = os.path.splitext(search_filename)[0]
 
     try:
-        # Open the search file and read its contents
-        with open(search_file_path, "r") as fh:
-            reader = csv.reader(fh, delimiter='\t')  # Use tab-delimited parsing
-            header = next(reader, None)  # Read the header row
-            if not header:
-                logging.warning(f"No header in {search_file_path}. Exiting parser.")
+        with open(search_file_path, "r") as fhIn:
+            reader = csv.reader(fhIn, delimiter='\t')
+            header = next(reader, None)  # Skip header
+            if header is None:
+                logging.warning(f"No header found in {search_file_path}. Skipping parsing.")
                 sys.exit(0)
 
-            # Process each row in the search file
+            cath_ids = defaultdict(int)
+            plDDT_values = []
+            line_number = 1  # Starting after header
+
             for row in reader:
-                line_count += 1
-                if len(row) < 16:  # Check if the row has the expected number of columns
-                    logging.warning(f"Row {line_count}: incomplete columns.")
+                line_number += 1
+                if len(row) < 16:
+                    logging.warning(f"Warning: Row {line_number} has insufficient columns.")
                     continue
-
-                # Extract and validate the pLDDT value
                 try:
-                    plddt = float(row[3])
-                    plDDT_values.append(plddt)
+                    plDDT = float(row[3])
+                    plDDT_values.append(plDDT)
                 except ValueError:
-                    logging.warning(f"Row {line_count}: invalid pLDDT.")
+                    logging.warning(f"Warning: Invalid plDDT value on row {line_number}.")
                     continue
-
-                # Parse JSON metadata and count CATH IDs
                 try:
-                    meta = row[15]  # Metadata column
-                    data = json.loads(meta)  # Parse JSON string
-                    cath_id = data.get("cath", "Unknown")  # Extract CATH ID or use "Unknown"
-                    cath_ids[cath_id] += 1  # Increment count for this CATH ID
-                except Exception as e:
-                    logging.warning(f"Row {line_count}: JSON error => {e}")
+                    meta = row[15]
+                    data = json.loads(meta)
+                    cath_id = data.get("cath", "Unknown")
+                    cath_ids[cath_id] += 1
+                except (IndexError, json.JSONDecodeError):
+                    logging.warning(f"Warning: Invalid metadata on row {line_number}. Content: {row[15] if len(row) > 15 else 'N/A'}")
+                    logging.debug(f"Row content: {row}")
                     continue
 
-        # Generate the output file name and path
-        parsed_name = f"{file_id}.parsed"
-        parsed_path = os.path.join(output_dir, parsed_name)
+        # Define the parsed file name
+        parsed_filename = f"{id}.parsed"
+        parsed_file_path = os.path.join(output_dir, parsed_filename)
 
-        # Write parsed results to the output file
-        with open(parsed_path, "w", encoding="utf-8") as outfh:
-            # Write the mean pLDDT value
+        with open(parsed_file_path, "w", encoding="utf-8") as fhOut:
             if plDDT_values:
                 mean_plddt = statistics.mean(plDDT_values)
-                outfh.write(f"#{search_filename} Results. mean plddt: {mean_plddt}\n")
+                fhOut.write(f"#{search_filename} Results. mean plddt: {mean_plddt}\n")
             else:
-                outfh.write(f"#{search_filename} Results. mean plddt: 0\n")
+                fhOut.write(f"#{search_filename} Results. mean plddt: 0\n")
+            fhOut.write("cath_id,count\n")
+            for cath, count in sorted(cath_ids.items()):
+                fhOut.write(f"{cath},{count}\n")
 
-            # Write CATH ID counts
-            outfh.write("cath_id,count\n")
-            for c_id, ct in sorted(cath_ids.items()):
-                outfh.write(f"{c_id},{ct}\n")
+        logging.info(f"Successfully parsed {search_filename} to {parsed_filename}")
 
-        logging.warning(f"Parser wrote {parsed_name} in {output_dir}.")
-
+    except FileNotFoundError:
+        logging.error(f"Error: File {search_file_path} not found.")
+        sys.exit(1)
     except Exception as e:
-        # Handle any unexpected errors during parsing
-        logging.error(f"Parsing error on {search_file_path}: {e}")
+        logging.error(f"An error occurred while parsing {search_file_path}: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
