@@ -1,4 +1,5 @@
-- name: Setup Celery Workers
+---
+- name: Setup Celery Workers (including aggregator on one worker)
   hosts: workers
   become: yes
   vars:
@@ -133,6 +134,135 @@
       file:
         path: /opt/data_pipeline/celery_worker.py
         mode: '0755'
+
+    - name: Deploy aggregator_after_all Python script
+      copy:
+        dest: /opt/data_pipeline/aggregator_after_all.py
+        owner: "{{ celery_user }}"
+        group: "{{ celery_group }}"
+        mode: '0755'
+        when: "'worker1' in inventory_hostname"
+        content: |
+          #!/usr/bin/env python3
+          import subprocess
+          import logging
+          import sys
+
+          LOGFILE = "/opt/data_pipeline/aggregator_after_all.log"
+          logging.basicConfig(
+              filename=LOGFILE,
+              level=logging.INFO,
+              format='%(asctime)s - %(levelname)s - %(message)s'
+          )
+
+          PYTHON_BIN = "/opt/merizo_search/merizosearch_env/bin/python3"
+          PIPELINE_SCRIPT = "/opt/data_pipeline/pipeline_script.py"
+
+          def celery_has_active_tasks() -> bool:
+              try:
+                  cmd = [
+                      PYTHON_BIN, "-m", "celery",
+                      "-A", "celery_worker",
+                      "inspect", "active"
+                  ]
+                  result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                  stdout = result.stdout.lower()
+                  # If we see 'run_pipeline' in the output, it means tasks are active
+                  return ("run_pipeline" in stdout)
+              except Exception as e:
+                  logging.error(f"Failed to inspect Celery tasks: {e}")
+                  # If we can't inspect, assume tasks might still be running
+                  return True
+
+          def run_aggregator(output_dir, organism):
+              cmd = [
+                  PYTHON_BIN,
+                  PIPELINE_SCRIPT,
+                  "/fake/DUMMY.pdb",
+                  output_dir,
+                  organism,
+                  "run"
+              ]
+              logging.info(f"Running aggregator command: {' '.join(cmd)}")
+              try:
+                  process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                  logging.info(f"Aggregator STDOUT:\n{process.stdout}")
+                  logging.info(f"Aggregator STDERR:\n{process.stderr}")
+              except subprocess.CalledProcessError as e:
+                  logging.error(f"Aggregator encountered an error:\n{e.stderr}")
+
+          def main():
+              if len(sys.argv) != 3:
+                  print("Usage: aggregator_after_all.py <OUTPUT_DIR> <ORGANISM>")
+                  sys.exit(1)
+
+              output_dir = sys.argv[1]
+              organism = sys.argv[2].lower()
+              logging.info(f"Aggregator check started for {organism}...")
+
+              if celery_has_active_tasks():
+                  logging.info("Celery tasks are still active. Skipping aggregator this hour.")
+              else:
+                  logging.info("No active tasks found. Running aggregator now.")
+                  run_aggregator(output_dir, organism)
+                  logging.info("Aggregator finished.")
+
+          if __name__ == "__main__":
+              main()
+
+    - name: Deploy aggregator_after_all.service
+      copy:
+        dest: /etc/systemd/system/aggregator_after_all.service
+        owner: root
+        group: root
+        mode: '0644'
+        when: "'worker1' in inventory_hostname"
+        content: |
+          [Unit]
+          Description=Aggregator After All Celery Tasks (Check Once)
+          After=network.target
+
+          [Service]
+          Type=oneshot
+          User={{ celery_user }}
+          Group={{ celery_group }}
+          WorkingDirectory=/opt/data_pipeline/
+          ExecStart=/opt/merizo_search/merizosearch_env/bin/python3 /opt/data_pipeline/aggregator_after_all.py /mnt/results/human/ human
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Deploy aggregator_after_all.timer
+      copy:
+        dest: /etc/systemd/system/aggregator_after_all.timer
+        owner: root
+        group: root
+        mode: '0644'
+        when: "'worker1' in inventory_hostname"
+        content: |
+          [Unit]
+          Description=Hourly check for aggregator_after_all.service
+
+          [Timer]
+          OnCalendar=hourly
+          Persistent=true
+          Unit=aggregator_after_all.service
+
+          [Install]
+          WantedBy=timers.target
+
+    - name: Reload systemd daemon (Aggregator)
+      systemd:
+        daemon_reload: yes
+      when: "'worker1' in inventory_hostname"
+
+    - name: Enable and start aggregator_after_all.timer
+      systemd:
+        name: aggregator_after_all.timer
+        state: started
+        enabled: yes
+      when: "'worker1' in inventory_hostname"
+
 
 
 - name: Setup Celery on Management Node and Configure Dispatch Services for Human and Ecoli
@@ -384,123 +514,4 @@
         state: started
         enabled: yes
 
-- name: Deploy aggregator_after_all Python script
-  copy:
-    dest: /opt/data_pipeline/aggregator_after_all.py
-    owner: "{{ celery_user }}"
-    group: "{{ celery_group }}"
-    mode: '0755'
-    content: |
-      #!/usr/bin/env python3
-      import subprocess
-      import logging
-      import sys
 
-      LOGFILE = "/opt/data_pipeline/aggregator_after_all.log"
-      logging.basicConfig(
-          filename=LOGFILE,
-          level=logging.INFO,
-          format='%(asctime)s - %(levelname)s - %(message)s'
-      )
-
-      PYTHON_BIN = "/opt/merizo_search/merizosearch_env/bin/python3"
-      PIPELINE_SCRIPT = "/opt/data_pipeline/pipeline_script.py"
-
-      def celery_has_active_tasks() -> bool:
-          try:
-              cmd = [
-                  PYTHON_BIN, "-m", "celery",
-                  "-A", "celery_worker",
-                  "inspect", "active"
-              ]
-              result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-              stdout = result.stdout.lower()
-              return ("run_pipeline" in stdout)
-          except Exception as e:
-              logging.error(f"Failed to inspect Celery tasks: {e}")
-              return True
-
-      def run_aggregator(output_dir, organism):
-          cmd = [
-              PYTHON_BIN,
-              PIPELINE_SCRIPT,
-              "/fake/DUMMY.pdb",
-              output_dir,
-              organism,
-              "run"
-          ]
-          logging.info(f"Running aggregator command: {' '.join(cmd)}")
-          try:
-              process = subprocess.run(cmd, capture_output=True, text=True, check=True)
-              logging.info(f"Aggregator STDOUT:\n{process.stdout}")
-              logging.info(f"Aggregator STDERR:\n{process.stderr}")
-          except subprocess.CalledProcessError as e:
-              logging.error(f"Aggregator encountered an error:\n{e.stderr}")
-
-      def main():
-          if len(sys.argv) != 3:
-              print("Usage: aggregator_after_all.py <OUTPUT_DIR> <ORGANISM>")
-              sys.exit(1)
-
-          output_dir = sys.argv[1]
-          organism = sys.argv[2].lower()
-          logging.info(f"Aggregator check started for {organism}...")
-
-          if celery_has_active_tasks():
-              logging.info("Celery tasks are still active. Skipping aggregator this hour.")
-          else:
-              logging.info("No active tasks found. Running aggregator now.")
-              run_aggregator(output_dir, organism)
-              logging.info("Aggregator finished.")
-
-      if __name__ == "__main__":
-          main()
-
-- name: Deploy aggregator_after_all.service
-  copy:
-    dest: /etc/systemd/system/aggregator_after_all.service
-    owner: root
-    group: root
-    mode: '0644'
-    content: |
-      [Unit]
-      Description=Aggregator After All Celery Tasks (Check Once)
-      After=network.target
-
-      [Service]
-      Type=oneshot
-      User={{ celery_user }}
-      Group={{ celery_group }}
-      WorkingDirectory=/opt/data_pipeline/
-      ExecStart=/opt/merizo_search/merizosearch_env/bin/python3 /opt/data_pipeline/aggregator_after_all.py /mnt/results/human/ human
-
-      [Install]
-      WantedBy=multi-user.target
-
-- name: Deploy aggregator_after_all.timer
-  copy:
-    dest: /etc/systemd/system/aggregator_after_all.timer
-    owner: root
-    group: root
-    mode: '0644'
-    content: |
-      [Unit]
-      Description=Hourly check for aggregator_after_all.service
-
-      [Timer]
-      OnCalendar=hourly
-      Persistent=true
-      Unit=aggregator_after_all.service
-
-      [Install]
-      WantedBy=timers.target
-
-- name: Reload systemd daemon
-  systemd:
-    daemon_reload: yes
-
-- name: Enable and start aggregator_after_all.timer
-  systemd:
-    name: aggregator_after_all.timer
-    state: started
-    enabled: yes
