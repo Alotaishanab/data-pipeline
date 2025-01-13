@@ -1,9 +1,6 @@
 # Test Common Configuration Playbook
-- import_playbook: ../../ansible/playbooks/common.yml
-
 - name: Assert Common Configuration Playbook
-  hosts: localhost
-  connection: local
+  hosts: all
   become: yes
   gather_facts: yes
   vars:
@@ -142,11 +139,9 @@
 
 
 # Test NFS Server Playbook
-- import_playbook: ../../ansible/playbooks/nfs_server.yml
 
 - name: Assert NFS Server Playbook
-  hosts: localhost
-  connection: local
+  hosts: storage
   become: yes
   gather_facts: yes
   tasks:
@@ -284,11 +279,9 @@
 
 
 # Test NFS Clients Playbook
-- import_playbook: ../../ansible/playbooks/nfs_clients.yml
 
 - name: Assert NFS Clients Playbook
-  hosts: localhost
-  connection: local
+  hosts: host, workers
   become: yes
   gather_facts: yes
   vars:
@@ -351,11 +344,9 @@
 
 
 # Test Download and Prepare Datasets Playbook
-- import_playbook: ../../ansible/playbooks/download_and_prepare_datasets.yml
 
 - name: Assert Download and Prepare Datasets Playbook
-  hosts: localhost
-  connection: local
+  hosts: storage
   become: yes
   gather_facts: yes
   vars:
@@ -539,11 +530,9 @@
         fail_msg: "CATH Foldclass Database extract directory does not have correct permissions."
 
 # Test Setup Symlinks Playbook
-- import_playbook: ../../ansible/playbooks/setup_symlinks.yml
 
 - name: Assert Setup Symlinks Playbook
-  hosts: localhost
-  connection: local
+  hosts: workers, host
   become: yes
   gather_facts: yes
   vars:
@@ -593,11 +582,9 @@
         index_var: index
 
 # Test Uncompress Files Playbook
-- import_playbook: ../../ansible/playbooks/uncompress_files.yml
 
 - name: Assert Uncompress Files Playbook
-  hosts: localhost
-  connection: local
+  hosts: storage
   become: yes
   gather_facts: yes
   vars:
@@ -656,11 +643,9 @@
 
 
 # Test Deploy Scripts Playbook
-- import_playbook: ../../ansible/playbooks/deploy_scripts.yml
 
 - name: Assert Deploy Scripts Playbook
-  hosts: localhost
-  connection: local
+  hosts: workers,host
   become: yes
   gather_facts: yes
   vars:
@@ -700,8 +685,7 @@
 # Test Monitoring and Logging Playbook
 
 - name: Assert Monitoring and Logging Playbook
-  hosts: localhost
-  connection: local
+  hosts: all
   become: yes
   gather_facts: yes
   vars:
@@ -917,11 +901,9 @@
 
 
 # Test Redis Setup Playbook
-- import_playbook: ../../ansible/playbooks/redis_setup.yml
 
 - name: Assert Redis Setup Playbook
-  hosts: localhost
-  connection: local
+  hosts: all
   become: yes
   gather_facts: yes
   vars:
@@ -986,11 +968,9 @@
 
 
 # Test Celery Setup Playbook
-- import_playbook: ../../ansible/playbooks/celery_setup.yml
 
 - name: Assert Celery Setup Playbook
   hosts: workers
-  connection: local
   become: yes
   gather_facts: yes
   vars:
@@ -1038,11 +1018,9 @@
       failed_when: false
 
 # Test Setup Webhook Server Playbook
-- import_playbook: ../../ansible/playbooks/setup_webhook_server.yml
 
 - name: Assert Setup Webhook Server Playbook
-  hosts: localhost
-  connection: local
+  hosts: host
   become: yes
   gather_facts: yes
   vars:
@@ -1194,11 +1172,9 @@
 
 
 # Test Distribute and Run Data Analysis Pipeline Playbook
-- import_playbook: ../../ansible/playbooks/run_pipeline.yml
 
 - name: Assert Distribute and Run Data Analysis Pipeline Playbook
-  hosts: localhost
-  connection: local
+  hosts: host
   become: yes
   gather_facts: yes
   vars:
