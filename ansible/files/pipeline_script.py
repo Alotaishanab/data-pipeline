@@ -64,7 +64,7 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
     cmd = [
         VIRTUALENV_PYTHON, merizo_script, 'easy-search',
         pdb_file, database_path, output_dir, tmp_dir,
-        '--iterate', '--output_headers', '-d', 'cpu', '--threads', '4'  # <<-- CHANGED
+        '--iterate', '--output_headers', '-d', 'cpu', '--threads', '1'  # <<-- CHANGED
     ]
     logging.warning(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
     try:
