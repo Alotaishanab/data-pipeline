@@ -764,13 +764,6 @@
         success_msg: "node_exporter service is running and enabled."
         fail_msg: "node_exporter service is not running or not enabled."
 
-    # Assert Prometheus is installed and running
-    - name: Check if prometheus user exists
-      getent:
-        database: passwd
-        key: prometheus
-      register: prometheus_user
-
     - name: Assert prometheus user exists
       assert:
         that:
