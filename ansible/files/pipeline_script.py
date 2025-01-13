@@ -20,43 +20,45 @@ Usage:
 - AGGREGATE_MODE (optional): "run" => aggregator runs, otherwise "skip"
 """
 
-# 1) Reduce logging overhead to WARNING
+# Configure logging to show warnings and above
 logging.basicConfig(
     level=logging.WARNING,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
+# Python path for the Merizo Search virtual environment
 VIRTUALENV_PYTHON = '/opt/merizo_search/merizosearch_env/bin/python3'
 
-# Redis config
+# Redis connection configuration
 REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
-REDIS_DB   = 0
+REDIS_DB = 0
 
-################################################################
-# Optional helper: read the ATOM lines to decide if we skip --iterate
-################################################################
+# Helper function to count residues in a PDB file
 def get_residue_count(pdb_path):
+    """Count unique residues in the PDB file."""
     if not os.path.isfile(pdb_path):
         return 0
     residues = set()
     try:
         with open(pdb_path, 'r') as fh:
             for line in fh:
-                if line.startswith("ATOM "):
+                if line.startswith("ATOM "):  # Process only ATOM lines
                     parts = line.split()
                     if len(parts) > 5:
                         try:
-                            resnum = int(parts[5])
+                            resnum = int(parts[5])  # Residue number
                             residues.add(resnum)
                         except ValueError:
-                            pass
+                            pass  # Ignore invalid residue numbers
     except Exception:
         return 0
     return len(residues)
 
+# Run the result parser
 def run_parser(search_file, output_dir):
+    """Parse search results and save outputs."""
     logging.warning(f"STEP 2: Parsing {search_file}...")
     parser_script = '/opt/data_pipeline/results_parser.py'
     cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file]
@@ -71,33 +73,30 @@ def run_parser(search_file, output_dir):
         logging.error(f"Parser failed on {search_file}: {e}")
         raise
 
-################################################################
-# Batching processed files before removing from Redis
-################################################################
-processed_files = []  # store processed filenames in memory
-BATCH_SIZE      = 50  # flush every 50 processed files
-
+# Remove processed files in batches from Redis
 def flush_redis_batch(redis_conn, dispatched_key):
     """
-    Removes items from 'processed_files' in a single pipeline call, then clears it.
+    Flush a batch of processed files from Redis.
     """
     global processed_files
     if not processed_files:
         return
     pipe = redis_conn.pipeline()
     for pdb_f in processed_files:
-        pipe.srem(dispatched_key, pdb_f)
+        pipe.srem(dispatched_key, pdb_f)  # Remove file from Redis set
     pipe.execute()
     logging.warning(f"Flushed {len(processed_files)} items from Redis in a pipeline call.")
     processed_files.clear()
 
+# Run the Merizo Search process
 def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, dispatched_set_key):
+    """Execute Merizo Search with the given parameters."""
     logging.warning(f"STEP 1: Running Merizo on {pdb_file} with --threads=1 ...")
     tmp_dir = os.path.join(output_dir, "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
 
     res_count = get_residue_count(pdb_file)
-    use_iterate = (res_count >= 800)
+    use_iterate = (res_count >= 800)  # Determine whether to use --iterate
 
     cmd = [
         VIRTUALENV_PYTHON,
@@ -110,7 +109,7 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         '--output_headers',
         '-d', 'cpu',
         '--threads', '1',
-        '-k', '30'  # can adjust k lower/higher
+        '-k', '20'
     ]
     if use_iterate:
         cmd.append('--iterate')
@@ -119,25 +118,21 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         logging.warning(f"{pdb_file}: {res_count} residues => skipping --iterate for speed.")
 
     try:
+        # Execute the Merizo command
         p = Popen(cmd, stdout=PIPE, stderr=PIPE)
         out, err = p.communicate()
         if p.returncode != 0:
             raise RuntimeError(f"Merizo error:\n{err.decode('utf-8')}")
+        
+        # Process the results
         old_search = os.path.join(output_dir, "_search.tsv")
         new_search = os.path.join(output_dir, f"{file_id}_search.tsv")
-
         if not os.path.isfile(old_search):
             logging.warning(f"No hits found for {pdb_file}.")
-            return None  # skip parse
-
+            return None
         os.rename(old_search, new_search)
 
-        with open(new_search, 'r') as f:
-            lines = f.readlines()
-            if len(lines) <= 1:
-                logging.warning(f"No hits in {new_search}, skipping parse.")
-                return None
-
+        # Handle segments
         old_segment = os.path.join(output_dir, "_segment.tsv")
         new_segment = os.path.join(output_dir, f"{file_id}_segment.tsv")
         if os.path.isfile(old_segment):
