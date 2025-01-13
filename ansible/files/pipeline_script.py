@@ -104,8 +104,8 @@ def run_merizo_search(pdb_file, output_dir, file_id, database_path, redis_conn, 
         tmp_dir,
         '--output_headers',
         '-d', 'cpu',
-        '--threads', '1',
-        '-k', '50'   # <<-- NEW: limit top hits to 50
+        '--threads', '1'  # keep threads=1
+        # We do NOT add any extra flags like --save_pdb, --save_pdf, etc.
     ]
 
     if use_iterate:
