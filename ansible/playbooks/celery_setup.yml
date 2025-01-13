@@ -143,156 +143,172 @@
         group: "{{ celery_group }}"
         mode: '0755'
         content: |
-          #!/usr/bin/env python3
-          import logging
-          import sys
-          import os
-          import glob
-          import csv
-          import statistics
-          from collections import defaultdict
-          import subprocess
+        #!/usr/bin/env python3
+        import logging
+        import sys
+        import os
+        import glob
+        import csv
+        import statistics
+        from collections import defaultdict
+        import subprocess
 
-          # Log file configuration
-          LOGFILE = "/opt/data_pipeline/aggregator_after_all.log"
-          logging.basicConfig(
-              filename=LOGFILE,
-              level=logging.INFO,
-              format='%(asctime)s - %(levelname)s - %(message)s'
-          )
+        # Log file configuration
+        LOGFILE = "/opt/data_pipeline/aggregator_after_all.log"
+        logging.basicConfig(
+            filename=LOGFILE,
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
 
-          # Python binary for the virtual environment
-          PYTHON_BIN = "/opt/merizo_search/merizosearch_env/bin/python3"
+        # Python binary for the virtual environment
+        PYTHON_BIN = "/opt/merizo_search/merizosearch_env/bin/python3"
 
-          # Supported organisms
-          ORGANISMS = ['human', 'ecoli']
+        # Supported organisms
+        ORGANISMS = ['human', 'ecoli']
 
-          def celery_has_active_tasks() -> bool:
-              """
-              Use Celery inspection to determine if tasks are running.
-              """
-              try:
-                  cmd = [
-                      PYTHON_BIN, "-m", "celery",
-                      "-A", "celery_worker",
-                      "inspect", "active"
-                  ]
-                  result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-                  stdout = result.stdout.lower()
-                  # If "run_pipeline" is present, assume tasks are active
-                  return ("run_pipeline" in stdout)
-              except Exception as e:
-                  logging.error(f"Failed to inspect Celery tasks: {e}")
-                  return True
+        def celery_has_active_tasks() -> bool:
+            """
+            Use Celery inspection to determine if tasks are running.
+            """
+            try:
+                cmd = [
+                    PYTHON_BIN, "-m", "celery",
+                    "-A", "celery_worker",
+                    "inspect", "active"
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                stdout = result.stdout.lower()
+                # If "run_pipeline" is present, assume tasks are active
+                return ("run_pipeline" in stdout)
+            except Exception as e:
+                logging.error(f"Failed to inspect Celery tasks: {e}")
+                return True
 
-          def aggregate_parsed_files(output_dir, organism):
-              """
-              Aggregate data from existing parsed files.
-              
-              It:
-                - Reads pLDDT values from the first line of each .parsed file.
-                - Aggregates CATH count data from the subsequent lines.
-                - Writes the aggregated plDDT and CATH results to /mnt/results.
-              """
-              logging.info(f"Aggregating results for {organism} from parsed files in {output_dir}...")
+        def aggregate_parsed_files(input_dir, organism):
+            """
+            Aggregate data from existing parsed files within the given input directory.
+            
+            It:
+              - Reads pLDDT values from the first line of each .parsed file.
+              - Aggregates CATH count data from the subsequent rows.
+              - Returns a tuple (overall_mean, overall_std, cath_counts).
+            """
+            logging.info(f"Aggregating results for {organism} from parsed files in {input_dir}...")
+            
+            plDDT_values = []
+            cath_counts = defaultdict(int)
+            
+            # Find all .parsed files in the input directory (non-recursive)
+            parsed_files = glob.glob(os.path.join(input_dir, "*.parsed"))
+            logging.info(f"Found {len(parsed_files)} parsed files for {organism}.")
+            
+            for parsed_file in parsed_files:
+                try:
+                    with open(parsed_file, "r") as fh:
+                        # Expect first line in the format:
+                        # "#<search_filename> Results. mean plddt: <value>"
+                        first_line = fh.readline().strip()
+                        if first_line.startswith("#"):
+                            parts = first_line.split("mean plddt:")
+                            if len(parts) == 2:
+                                try:
+                                    value = float(parts[1])
+                                    plDDT_values.append(value)
+                                except ValueError:
+                                    logging.warning(f"Invalid pLDDT value in {parsed_file}")
+                        # Now process the remainder (expected header + data rows)
+                        reader = csv.reader(fh)
+                        header = next(reader, None)  # Should be something like: ["cath_id", "count"]
+                        if header is None:
+                            continue
+                        for row in reader:
+                            if len(row) == 2:
+                                cath_id, count = row
+                                try:
+                                    cath_counts[cath_id] += int(count)
+                                except ValueError:
+                                    logging.warning(f"Invalid count for cath_id '{cath_id}' in {parsed_file}")
+                except Exception as e:
+                    logging.error(f"Error processing {parsed_file}: {e}")
+            
+            if plDDT_values:
+                overall_mean = statistics.mean(plDDT_values)
+                overall_std = statistics.stdev(plDDT_values) if len(plDDT_values) > 1 else 0.0
+            else:
+                overall_mean, overall_std = 0.0, 0.0
+            
+            return overall_mean, overall_std, cath_counts
 
-              plDDT_values = []
-              cath_counts = defaultdict(int)
+        def write_aggregated_results(aggregated_data):
+            """
+            Write a combined plDDT means file (one row per organism) and for each organism
+            write a separate CATH summary file.
+            
+            aggregated_data is a dict where keys are organism names and values are tuples:
+              (overall_mean, overall_std, cath_counts)
+            """
+            res_dir = "/mnt/results"
+            os.makedirs(res_dir, exist_ok=True)
+            
+            # Write combined plDDT means file
+            plddt_means_file = os.path.join(res_dir, "plDDT_means.csv")
+            try:
+                with open(plddt_means_file, "w", newline="", encoding="utf-8") as fh:
+                    writer = csv.DictWriter(fh, fieldnames=["Organism", "Mean_plDDT", "StdDev_plDDT"])
+                    writer.writeheader()
+                    for organism, (mean_val, std_val, _) in sorted(aggregated_data.items()):
+                        writer.writerow({
+                            "Organism": organism.capitalize(),
+                            "Mean_plDDT": f"{mean_val:.4f}",
+                            "StdDev_plDDT": f"{std_val:.4f}"
+                        })
+                logging.info(f"Updated {plddt_means_file} with aggregated plDDT results.")
+            except Exception as e:
+                logging.error(f"Error writing {plddt_means_file}: {e}")
+            
+            # Write separate CATH summary CSV file for each organism
+            for organism, (_, _, cath_counts) in aggregated_data.items():
+                cath_summary_file = os.path.join(res_dir, f"{organism}_cath_summary.csv")
+                try:
+                    with open(cath_summary_file, "w", newline="", encoding="utf-8") as fh:
+                        writer = csv.DictWriter(fh, fieldnames=["cath_id", "count"])
+                        writer.writeheader()
+                        for cath_id, count in sorted(cath_counts.items()):
+                            writer.writerow({"cath_id": cath_id, "count": count})
+                    logging.info(f"Wrote CATH summary to {cath_summary_file}")
+                except Exception as e:
+                    logging.error(f"Error writing {cath_summary_file}: {e}")
 
-              # Find all .parsed files in the output directory
-              parsed_files = glob.glob(os.path.join(output_dir, "*.parsed"))
-              logging.info(f"Found {len(parsed_files)} parsed files.")
+        def main():
+            # Expect the aggregator to be called with a single argument: the output root directory
+            # in which each organism has its own subdirectory (e.g., /mnt/results/human and /mnt/results/ecoli).
+            if len(sys.argv) != 2:
+                print("Usage: aggregator_after_all.py <OUTPUT_ROOT_DIR>")
+                sys.exit(1)
+            
+            output_root = sys.argv[1]
+            logging.info(f"Aggregator check started using parsed files in {output_root}...")
+            
+            if celery_has_active_tasks():
+                logging.info("Celery tasks are still active. Skipping aggregator this hour.")
+            else:
+                aggregated_data = {}
+                for organism in ORGANISMS:
+                    organism_dir = os.path.join(output_root, organism)
+                    if not os.path.isdir(organism_dir):
+                        logging.warning(f"Directory for organism '{organism}' not found at {organism_dir}; skipping.")
+                        continue
+                    mean_val, std_val, cath_counts = aggregate_parsed_files(organism_dir, organism)
+                    aggregated_data[organism] = (mean_val, std_val, cath_counts)
+                
+                write_aggregated_results(aggregated_data)
+                logging.info("Aggregator finished.")
 
-              for parsed_file in parsed_files:
-                  try:
-                      with open(parsed_file, "r") as fh:
-                          # Expect first line to be like:
-                          #   "#<search_filename> Results. mean plddt: <value>"
-                          first_line = fh.readline().strip()
-                          if first_line.startswith("#"):
-                              parts = first_line.split("mean plddt:")
-                              if len(parts) == 2:
-                                  try:
-                                      value = float(parts[1])
-                                      plDDT_values.append(value)
-                                  except ValueError:
-                                      logging.warning(f"Invalid pLDDT value in {parsed_file}")
-                          # The remainder of the file should contain CATH count data
-                          reader = csv.reader(fh)
-                          header = next(reader, None)  # e.g., "cath_id,count"
-                          if header is None:
-                              continue
-                          for row in reader:
-                              if len(row) == 2:
-                                  cath_id, count = row
-                                  try:
-                                      cath_counts[cath_id] += int(count)
-                                  except ValueError:
-                                      logging.warning(f"Invalid count for cath_id '{cath_id}' in {parsed_file}")
-                  except Exception as e:
-                      logging.error(f"Error processing {parsed_file}: {e}")
+        if __name__ == "__main__":
+            main()
 
-              # Compute overall plDDT statistics
-              if plDDT_values:
-                  overall_mean = statistics.mean(plDDT_values)
-                  overall_std = statistics.stdev(plDDT_values) if len(plDDT_values) > 1 else 0.0
-              else:
-                  overall_mean, overall_std = 0.0, 0.0
-
-              # Write aggregated results to /mnt/results
-              res_dir = "/mnt/results"
-              os.makedirs(res_dir, exist_ok=True)
-
-              # Write pLDDT means CSV file
-              plddt_means_file = os.path.join(res_dir, "plDDT_means.csv")
-              try:
-                  with open(plddt_means_file, "w", newline="", encoding="utf-8") as fh:
-                      writer = csv.DictWriter(fh, fieldnames=["Organism", "Mean_plDDT", "StdDev_plDDT"])
-                      writer.writeheader()
-                      writer.writerow({
-                          "Organism": organism.capitalize(),
-                          "Mean_plDDT": f"{overall_mean:.4f}",
-                          "StdDev_plDDT": f"{overall_std:.4f}"
-                      })
-                  logging.info(f"Updated {plddt_means_file} with {organism} results.")
-              except Exception as e:
-                  logging.error(f"Error writing {plddt_means_file}: {e}")
-
-              # Write CATH summary CSV file
-              cath_summary_file = os.path.join(res_dir, f"{organism}_cath_summary.csv")
-              try:
-                  with open(cath_summary_file, "w", newline="", encoding="utf-8") as fh:
-                      writer = csv.DictWriter(fh, fieldnames=["cath_id", "count"])
-                      writer.writeheader()
-                      for cath_id, count in sorted(cath_counts.items()):
-                          writer.writerow({"cath_id": cath_id, "count": count})
-                  logging.info(f"Wrote CATH summary to {cath_summary_file}")
-              except Exception as e:
-                  logging.error(f"Error writing {cath_summary_file}: {e}")
-
-          def main():
-              if len(sys.argv) != 3:
-                  print("Usage: aggregator_after_all.py <OUTPUT_DIR> <ORGANISM>")
-                  sys.exit(1)
-
-              output_dir = sys.argv[1]
-              organism = sys.argv[2].lower()
-
-              if organism not in ORGANISMS:
-                  logging.error(f"Unsupported organism: {organism}. Supported organisms: {ORGANISMS}")
-                  sys.exit(1)
-
-              logging.info(f"Aggregator check started for {organism} using parsed files in {output_dir}...")
-
-              if celery_has_active_tasks():
-                  logging.info("Celery tasks are still active. Skipping aggregator this hour.")
-              else:
-                  logging.info("No active tasks found. Running aggregator now.")
-                  aggregate_parsed_files(output_dir, organism)
-                  logging.info("Aggregator finished.")
-
-          if __name__ == "__main__":
-              main()
+         
 
 
 
