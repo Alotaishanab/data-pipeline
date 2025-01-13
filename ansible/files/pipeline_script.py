@@ -23,8 +23,9 @@ from collections import defaultdict
         (use "run" => DO call aggregate_results() at the end)
 """
 
+# 1) Lower the logging level to WARNING to reduce overhead.
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,  # <<-- CHANGED from INFO to WARNING
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
@@ -37,71 +38,58 @@ REDIS_PORT = 6379
 REDIS_DB   = 0
 
 def run_parser(search_file, output_dir):
-    logging.info(f"Search File: {search_file}")
-    logging.info(f"Output Directory: {output_dir}")
+    logging.warning(f"Search File: {search_file}")  # downgraded info->warning
     parser_script = '/opt/data_pipeline/results_parser.py'
     cmd = [VIRTUALENV_PYTHON, parser_script, output_dir, search_file]
-    logging.info(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
+    logging.warning(f'STEP 2: RUNNING PARSER: {" ".join(cmd)}')
     try:
         p = Popen(cmd, stdout=PIPE, stderr=PIPE)
         out, err = p.communicate()
-        if out:
-            logging.debug(f"PARSER STDOUT:\n{out.decode('utf-8')}")
-        if err:
-            logging.debug(f"PARSER STDERR:\n{err.decode('utf-8')}")
+        # We'll keep debug logs minimal
         if p.returncode != 0:
-            raise RuntimeError("Parser encountered an error.")
-        logging.info(f"Parser completed successfully for {search_file}.")
+            raise RuntimeError(f"Parser encountered an error:\n{err.decode('utf-8')}")
+        logging.warning(f"Parser completed successfully for {search_file}.")
     except Exception as e:
         logging.error(f"Error during Parsing: {e}")
         raise
 
 def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispatched_set_key):
-    logging.info(f"Checking if VIRTUALENV_PYTHON exists: {os.path.exists(VIRTUALENV_PYTHON)}")
-    logging.info(f"VIRTUALENV_PYTHON is executable: {os.access(VIRTUALENV_PYTHON, os.X_OK)}")
+    logging.warning(f"Checking if VIRTUALENV_PYTHON is ready: {os.path.exists(VIRTUALENV_PYTHON)} / {os.access(VIRTUALENV_PYTHON, os.X_OK)}")
     os.makedirs(output_dir, exist_ok=True)
-    logging.info(f"Using output directory: {output_dir}")
     merizo_script = '/opt/merizo_search/merizo_search/merizo.py'
     tmp_dir = os.path.join(output_dir, "tmp")
     os.makedirs(tmp_dir, exist_ok=True)
-    logging.info(f"Using tmp directory: {tmp_dir}")
 
+    # 2) Increase Merizo's threads from 1 to 4 to use more CPU cores.
     cmd = [
         VIRTUALENV_PYTHON, merizo_script, 'easy-search',
         pdb_file, database_path, output_dir, tmp_dir,
-        '--iterate', '--output_headers', '-d', 'cpu', '--threads', '1'
+        '--iterate', '--output_headers', '-d', 'cpu', '--threads', '4'  # <<-- CHANGED
     ]
-    logging.info(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
-
+    logging.warning(f'STEP 1: RUNNING MERIZO: {" ".join(cmd)}')
     try:
         p = Popen(cmd, stdout=PIPE, stderr=PIPE)
         out, err = p.communicate()
-        if out:
-            logging.debug(f"MERIZO STDOUT:\n{out.decode('utf-8')}")
-        if err:
-            logging.debug(f"MERIZO STDERR:\n{err.decode('utf-8')}")
         if p.returncode != 0:
-            raise RuntimeError("Merizo Search encountered an error.")
-        logging.info(f"Merizo Search completed successfully for {pdb_file}.")
+            raise RuntimeError(f"Merizo Search error:\n{err.decode('utf-8')}")
+        logging.warning(f"Merizo Search completed for {pdb_file}.")
 
         old_search = os.path.join(output_dir, "_search.tsv")
         new_search = os.path.join(output_dir, f"{id}_search.tsv")
 
-        # If _search.tsv is not created => no hits
         if not os.path.isfile(old_search):
             logging.warning(f"No hits found for {pdb_file}. Skipping parsing.")
             redis_conn.sadd(dispatched_set_key, pdb_file)
             return None
 
-        # If _search.tsv is found, rename it
         os.rename(old_search, new_search)
-        logging.info(f"Renamed '_search.tsv' to '{new_search}'")
+        logging.warning(f"Renamed '_search.tsv' to '{new_search}'")
 
-        # Check if the search file has data beyond the header
+        # Quick data check
         with open(new_search, 'r') as f:
             lines = f.readlines()
             if len(lines) <= 1:
-                logging.warning(f"No hits found in '{new_search}'. Skipping parsing.")
+                logging.warning(f"No hits in '{new_search}'. Skipping parsing.")
                 redis_conn.sadd(dispatched_set_key, pdb_file)
                 return None
 
@@ -109,7 +97,7 @@ def run_merizo_search(pdb_file, output_dir, id, database_path, redis_conn, dispa
         new_segment = os.path.join(output_dir, f"{id}_segment.tsv")
         if os.path.isfile(old_segment):
             os.rename(old_segment, new_segment)
-            logging.info(f"Renamed '_segment.tsv' to '{new_segment}'")
+            logging.warning(f"Renamed '_segment.tsv' to '{new_segment}'")
         else:
             raise FileNotFoundError(f"Error: '_segment.tsv' not found in {output_dir}")
 
@@ -228,7 +216,6 @@ def aggregate_results(output_dir, organism):
     aggregate_cath_counts(output_dir, organism)
 
 def pipeline(pdb_file, output_dir, organism):
-    # Connect to Redis
     try:
         redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
         dispatched_set_key = f"dispatched_tasks:{organism}"
@@ -247,30 +234,25 @@ def pipeline(pdb_file, output_dir, organism):
     if search_file:
         run_parser(search_file, output_dir)
     else:
-        logging.info(f"No search results to parse for {pdb_file}.")
+        logging.warning(f"No search results to parse for {pdb_file}.")
         try:
             os.remove(pdb_file)  # remove so it won't get redispatched
-            logging.info(f"Removed {pdb_file}")
         except OSError as e:
             logging.error(f"Error removing {pdb_file}: {e}")
 
-    # Remove from Redis to keep set small
+    # Remove from Redis
     try:
-        redis_conn.srem(dispatched_set_key, pdb_file)  # <--- NEW: keeps set from growing forever
-        logging.info(f"Removed {pdb_file} from Redis set '{dispatched_set_key}'")
+        redis_conn.srem(dispatched_set_key, pdb_file)
     except Exception as e:
         logging.warning(f"Could not remove {pdb_file} from Redis set: {e}")
 
-    # Clean up tmp
+    # Clean up tmp dir
     tmp_dir = os.path.join(output_dir, "tmp")
     if os.path.exists(tmp_dir):
         try:
             shutil.rmtree(tmp_dir)
-            logging.info(f"Temporary directory '{tmp_dir}' removed.")
         except Exception as e:
             logging.error(f"Error removing tmp dir '{tmp_dir}': {e}")
-    else:
-        logging.info(f"No temporary dir '{tmp_dir}' to remove.")
 
 def main():
     if len(sys.argv) < 4:
@@ -285,21 +267,19 @@ def main():
         logging.error("Error: ORGANISM must be either 'human', 'ecoli', or 'test'")
         sys.exit(1)
 
-    # Default to skip aggregator if not passed
+    # aggregator by default => skip
     aggregate_mode = "skip"
     if len(sys.argv) >= 5:
         aggregate_mode = sys.argv[4].lower()
 
-    # Run pipeline (merizo + parser)
     try:
         pipeline(pdb_file, output_dir, organism)
     except Exception as e:
         logging.error(f"Pipeline execution failed: {e}")
         sys.exit(1)
 
-    # Only run aggregator if AGGREGATE_MODE = "run"
     if aggregate_mode == "run":
-        logging.info(f"AGGREGATE_MODE='run' => running aggregator for {organism} ...")
+        logging.warning(f"AGGREGATE_MODE='run' => aggregator for {organism} ...")
         try:
             aggregate_results(output_dir, organism)
         except Exception as e:

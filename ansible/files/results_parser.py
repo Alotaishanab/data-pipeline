@@ -7,13 +7,10 @@ import logging
 import statistics
 from collections import defaultdict
 
-# Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,  
     format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 
 def main():
@@ -25,40 +22,37 @@ def main():
     search_file_path = sys.argv[2]
 
     if not os.path.isfile(search_file_path):
-        logging.error(f"Error: File {search_file_path} not found.")
+        logging.error(f"File not found: {search_file_path}")
         sys.exit(1)
 
-    # Extract the filename from the search file path
     search_filename = os.path.basename(search_file_path)
-
-    # Extract the ID by removing '_search.tsv'
     if search_filename.endswith("_search.tsv"):
-        id = search_filename[:-11]  # Remove '_search.tsv'
+        id = search_filename[:-11]
     else:
         id = os.path.splitext(search_filename)[0]
 
     try:
         with open(search_file_path, "r") as fhIn:
             reader = csv.reader(fhIn, delimiter='\t')
-            header = next(reader, None)  # Skip header
+            header = next(reader, None)
             if header is None:
-                logging.warning(f"No header found in {search_file_path}. Skipping parsing.")
+                logging.warning(f"No header in {search_file_path}. Skipping parse.")
                 sys.exit(0)
 
             cath_ids = defaultdict(int)
             plDDT_values = []
-            line_number = 1  # Starting after header
+            line_number = 1
 
             for row in reader:
                 line_number += 1
                 if len(row) < 16:
-                    logging.warning(f"Warning: Row {line_number} has insufficient columns.")
+                    logging.warning(f"Row {line_number}: insufficient columns.")
                     continue
                 try:
                     plDDT = float(row[3])
                     plDDT_values.append(plDDT)
                 except ValueError:
-                    logging.warning(f"Warning: Invalid plDDT value on row {line_number}.")
+                    logging.warning(f"Row {line_number}: invalid plDDT.")
                     continue
                 try:
                     meta = row[15]
@@ -66,11 +60,9 @@ def main():
                     cath_id = data.get("cath", "Unknown")
                     cath_ids[cath_id] += 1
                 except (IndexError, json.JSONDecodeError):
-                    logging.warning(f"Warning: Invalid metadata on row {line_number}. Content: {row[15] if len(row) > 15 else 'N/A'}")
-                    logging.debug(f"Row content: {row}")
+                    logging.warning(f"Row {line_number}: invalid metadata.")
                     continue
 
-        # Define the parsed file name
         parsed_filename = f"{id}.parsed"
         parsed_file_path = os.path.join(output_dir, parsed_filename)
 
@@ -80,17 +72,15 @@ def main():
                 fhOut.write(f"#{search_filename} Results. mean plddt: {mean_plddt}\n")
             else:
                 fhOut.write(f"#{search_filename} Results. mean plddt: 0\n")
+
             fhOut.write("cath_id,count\n")
             for cath, count in sorted(cath_ids.items()):
                 fhOut.write(f"{cath},{count}\n")
 
-        logging.info(f"Successfully parsed {search_filename} to {parsed_filename}")
+        logging.warning(f"Parsed {search_filename} -> {parsed_filename} successfully.")
 
-    except FileNotFoundError:
-        logging.error(f"Error: File {search_file_path} not found.")
-        sys.exit(1)
     except Exception as e:
-        logging.error(f"An error occurred while parsing {search_file_path}: {e}")
+        logging.error(f"Error parsing {search_file_path}: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
